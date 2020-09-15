@@ -3,10 +3,10 @@ from glob import glob
 import os
 import logging
 import socket
-import os
 import yaml
 import pkgutil
 import fnmatch
+from csat2.misc.time import doy_to_date
 
 
 class FileLocator:
@@ -58,21 +58,21 @@ class FileLocator:
         Note that a pattern can contain '*' to return all available paths
 
         exit_first - return the results from the first pattern with results'''
-        patterns = self.get_patterns(**kwargs)
+        patterns = self.get_patterns(origin, product, **kwargs)
         filenames = []
         for p in patterns:
-            pat = p.format(**sd)
+            pat = p.format(**kwargs)
             logging.debug('Pattern: '+pat)
             filenames.extend(glob(pat))
-            if exit_first and (len(filenames) >0):
+            if exit_first and (len(filenames) > 0):
                 return filenames
         return filenames
 
-    def get_patterns(self, **kwargs):
+    def get_patterns(self, origin, product, **kwargs):
         sd = kwargs
         if ('year' in sd.keys()) and ('doy' in sd.keys()):
             # Get the month and day if only the year and doy are provided
-            _, sd['mon'], sd['day'] = misc.doy_to_date(sd['year'], sd['doy'])
+            _, sd['mon'], sd['day'] = doy_to_date(sd['year'], sd['doy'])
         try:
             patterns = self.search_paths[origin][product]
         except:
@@ -88,28 +88,28 @@ class FileLocator:
         origin = None
         products = None
 
-        for l in searchfiledata:
-            l = l.strip()
-            if l == '' or l[0] == '#':
+        for line in searchfiledata:
+            line = line.strip()
+            if line == '' or line[0] == '#':
                 # Comment
                 continue
-            elif l[0] == 'M':
-                temp = l.split('=')
+            elif line[0] == 'M':
+                temp = line.split('=')
                 macro[temp[0][2:]] = temp[1].strip()
-            elif l[0] == '[':
+            elif line[0] == '[':
                 # Origin (MODIS, TRMM etc.)
-                origin = l[1:-1]
+                origin = line[1:-1]
                 search_paths[origin] = {}
-            elif l[0] == '-':
+            elif line[0] == '-':
                 # Products
-                products = l[2:-1].split('|')
+                products = line[2:-1].split('|')
                 for product in products:
                     search_paths[origin][product] = []
             else:
                 for product in products:
                     macro['product'] = product
                     (search_paths[origin][product]
-                     .append(partial_format(l.strip(), macro)))
+                     .append(partial_format(line.strip(), macro)))
         self.search_paths = search_paths
         del(macro['product'])
         self.macro = macro
@@ -117,20 +117,14 @@ class FileLocator:
     def get_folder(self, origin, product, return_primary=True, *args, **kwargs):
         '''Get the folder locations from the search paths dictionary.
         return_primary - return the first matching path (assumed main directory)'''
-        sd = kwargs
-        if ('year' in sd.keys()) and ('doy' in sd.keys()):
-            # Get the month and day if only the year and doy are provided
-            _, sd['mon'], sd['day'] = misc.doy_to_date(sd['year'], sd['doy'])
-        try:
-            patterns = self.search_paths[origin][product]
-        except:
-            raise
-        patterns = [os.path.dirname(p).format(**sd)
+        patterns = self.get_patterns(origin, product, **kwargs)
+        patterns = [os.path.dirname(p).format(**kwargs)
                     for p in patterns]
         if return_primary:
             return patterns[0]
         else:
             return patterns
+
 
 def partial_format(istr, format_dict):
     '''Operates in the same way as the starndard python format for string
