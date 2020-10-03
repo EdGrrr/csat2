@@ -1,12 +1,13 @@
 from __future__ import print_function, division
-from csat2 import locator
+from csat2 import locator, version
+from .readfiles import DEFAULT_COLLECTION
 import sys
 import os
 import os.path
 import json
 import logging
 
-USERAGENT = 'csat2/download_v0.1' + \
+USERAGENT = 'csat2/download_v{}'.format(version) + \
     sys.version.replace('\n', '').replace('\r', '')
 TOKENFILE = os.environ['HOME']+'/.laadsdaacrc'
 
@@ -72,12 +73,20 @@ def get_token():
     try:
         with open(TOKENFILE) as f:
             return f.read().strip()
-    except:
+    except FileNotFoundError:
         raise IOError(
             'Place your LAADS API key in the file ${HOME}/.laadsdaacrc')
 
 
-def download(product, year, doy, times=None, col='6', force_redownload=False):
+def download(product, year, doy, times=None, col=DEFAULT_COLLECTION, force_redownload=False):
+    if times:
+        '''If times are supplied, check to see if they all exist. If not,
+        assume that we are trying to download lots of things and ask 
+        the server'''
+        times = [t for t in times if not check(product, year, doy, t, col=col)]
+        if len(times) == 0: # All files exist
+            return
+        
     laads_folder = ('https://ladsweb.modaps.eosdis.nasa.gov/' +
                     'archive/allData/{col}/{product}/{year}/{doy:0>3}'.format(
                         col=col,
@@ -98,13 +107,12 @@ def download(product, year, doy, times=None, col='6', force_redownload=False):
     token = get_token()
     files = [a['name'] for a in
              json.loads(_geturl(laads_folder+'.json', token))]
-
+    if times is not None:
+        files = [a for a in files if str(a.split('.')[2]) in times]
+    
     if len(files) == 0:
         raise ValueError(
             'No files for {} on {}, {}'.format(product, year, doy))
-
-    if times is not None:
-        files = [a for a in files if str(a.split('.')[2]) in times]
 
     for filename in files:
         laads_loc = laads_folder + '/' + filename
@@ -116,3 +124,18 @@ def download(product, year, doy, times=None, col='6', force_redownload=False):
                 _geturl(laads_loc, token, fh)
         else:
             print('Skipping {}'.format(filename))
+
+
+def check(product, year, doy, time, col=DEFAULT_COLLECTION):
+    '''Does a product already exist for a specific time/date/collection'''
+    filename = locator.search(
+        'MODIS',
+        product,
+        year=year,
+        doy=doy,
+        collection=col,
+        time=time)
+    if len(filename) == 1:
+        return True
+    else:
+        return False

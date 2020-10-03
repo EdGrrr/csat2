@@ -1,10 +1,9 @@
 from datetime import datetime, timedelta
 import misc.time
 from .. import locator
-from . import (readin, readin_MODIS_L2, readin_metadata,
-               field_interpolate, bowtie_correct,
-               download, DEFAULT_COLLECTION)
-from .util import band_centres
+from .readfiles import (readin, readin_MODIS_L2, readin_metadata, field_interpolate, DEFAULT_COLLECTION)
+from .util import band_centres, bowtie_correct
+from .download import download, check
 import numpy as np
 from sklearn.neighbors import BallTree
 import scipy.constants
@@ -346,19 +345,9 @@ class Granule(object):
                      times=[self.timestr()], col=col, force_redownload=force_redownload)
 
     def check(self, product, col=None):
-        if not col:
-            col = self.col
-        filename = locator.search(
-            'MODIS',
-            self.product_expand(product),
-            year=self.year,
-            doy=self.doy,
-            collection=col,
-            time=self.timestr())
-        if len(filename) == 1:
-            return 1
-        else:
-            return 0
+        return check(self.product_expand(product),
+                     self.year, self.doy,
+                     time=self.timestr(), col=col)
 
     def get_metadata_band(self, band, col=None):
         if not col:
