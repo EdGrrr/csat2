@@ -2,6 +2,8 @@ import logging
 from .locator import configloader
 import os
 
+version = '0.1'
+
 # Set logging level
 logging.basicConfig(level=logging.ERROR)
 
