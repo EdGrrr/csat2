@@ -85,9 +85,10 @@ edge pixels are still large'''
             'MODIS', 'bowtie',
             res='1km', length=field_1km.shape[0])[0]
     except IndexError:  # No files returned
-        raise FileNotFoundError('Bowtie correct file not found. You need 
-                                to create this file first with the functions
-                                in csat2.MODIS.util')
+        raise FileNotFoundError(
+            '''Bowtie correct file not found. You need 
+            to create this file first with the functions
+            in csat2.MODIS.util''')
 
     with Dataset(file_correct) as ncdf:
         along_track_index = ncdf.variables['at_ind'][:]
@@ -104,9 +105,10 @@ in pixel size'''
         file_correct = csat2.locator.search(
             'MODIS', 'ctrect', res='1km')[0]
     except IndexError:  # No files returned
-        raise FileNotFoundError('Crosstrack rectify file not found. You need
-                                to create this file first with the functions
-                                in csat2.MODIS.util')
+        raise FileNotFoundError(
+            '''Crosstrack rectify file not found. You need
+            to create this file first with the functions
+            in csat2.MODIS.util''')
     with Dataset(file_correct) as ncdf:
         if nearest:
             remapped = ncdf.variables['remapped'][:]
@@ -137,9 +139,10 @@ def crosstrack_rectcoords():
         file_correct = csat2.locator.search(
             'MODIS', 'ctrect', res='1km')[0]
     except IndexError:  # No files returned
-        raise FileNotFoundError('Crosstrack rectify file not found. You need
-                                to create this file first with the functions
-                                in csat2.MODIS.util')
+        raise FileNotFoundError(
+            '''Crosstrack rectify file not found. You need
+            to create this file first with the functions
+            in csat2.MODIS.util''')
     with Dataset(file_correct) as ncdf:
         return ncdf.variables['remap_locate'][:]
 
