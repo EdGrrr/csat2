@@ -6,9 +6,9 @@ Edward Gryspeerdt, Imperial College London, 2020
 from .. import locator
 import numpy as np
 from netCDF4 import Dataset
-import traceback
 import misc
 import datetime
+import xarray as xr
 
 
 def readin(product, *args, **kwargs):
@@ -39,30 +39,11 @@ def readin_ERA(year, doy, variable, level, product='ERAInterim', time='LST',
                               level=level,
                               resolution=resolution,
                               time=time)
-    with Dataset(filename[0], 'r') as ncdf:
-        varname = variable_names(ncdf)
-        var = ncdf.variables[varname]
-        if 'scale_factor' in dir(ncdf):
-            returndata = (var[:]*getattr(var, 'scale_factor')
-                          ) + getattr(var, 'add_offset')
-        else:
-            returndata = var[:]
-
-    # Remove any axes with zero length
-    returndata = returndata.squeeze()
-
-    if resolution == '1grid':
-        cycle = list(range(180, 360))+list(range(180))
-        return np.swapaxes(returndata, 1, 2)[:, cycle][:, :, ::-1]
-    elif resolution == '2.5grid':
-        cycle = list(range(72, 144))+list(range(72))
-        return np.swapaxes(returndata, 1, 2)[:, cycle][:, :, ::-1]
-    elif resolution == '0.25grid':
-        return returndata
-    elif resolution == 'arctic':
-        return returndata[:, :, ::-1]
-    else:
-        raise(ValueError, 'Only currently works for 1 degree resolution')
+    ds = xr.open_dataset(filename[0])
+    varname = list(ds.data_vars.keys())[0]
+    returndata = ds[varname][:]
+    ds.close()
+    return returndata
 
 
 def variable_names(ncdf):
