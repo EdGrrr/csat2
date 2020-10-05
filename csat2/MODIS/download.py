@@ -9,7 +9,7 @@ import logging
 
 USERAGENT = 'csat2/download_v{}'.format(version) + \
     sys.version.replace('\n', '').replace('\r', '')
-TOKENFILE = os.environ['HOME']+'/.laadsdaacrc'
+TOKENFILE = os.environ['HOME']+'/.csat2/laadsdaacrc'
 
 
 def _geturl(url, token=None, out=None):
@@ -75,7 +75,7 @@ def get_token():
             return f.read().strip()
     except FileNotFoundError:
         raise IOError(
-            'Place your LAADS API key in the file ${HOME}/.laadsdaacrc')
+            'Place your LAADS API key in the file {}'.format(TOKENFILE))
 
 
 def download(product, year, doy, times=None, col=DEFAULT_COLLECTION, force_redownload=False):
