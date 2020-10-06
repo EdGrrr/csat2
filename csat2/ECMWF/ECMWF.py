@@ -5,7 +5,7 @@ Edward Gryspeerdt, Imperial College London, 2020
 '''
 from .. import locator
 import numpy as np
-from netCDF4 import Dataset
+from netCDF4 import Dataset, num2date
 import misc
 import datetime
 import xarray as xr
@@ -220,10 +220,8 @@ class ERA5Data():
         except KeyError:
             self.lon = misc.stats.lin_av(self.nc.variables['longitude'][:])
             self.lat = misc.stats.lin_av(self.nc.variables['latitude'][:])                
-        starttime = datetime.datetime.strptime(
-            '{year} {doy:0>3}'.format(year=year, doy=doy), '%Y %j')
-        self.time = np.array([starttime + datetime.timedelta(hours=t)
-                              for t in range(0, 24)])
+        self.time = num2date(self.nc.variables['time'][:],
+                             units=self.nc.variables['time'].units)
 
 
 class ERA5WindData():
