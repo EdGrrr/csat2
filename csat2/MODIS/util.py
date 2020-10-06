@@ -248,23 +248,3 @@ def _create_crosstrack_rectify_files():
     mod_data = MODIS.readin('MYD06_L2', 2015, 24, [
                             'Cloud_Effective_Radius'], times=['2220'], col='61')
     _create_crosstrack_rectify(mod_data, 'crosstrack_rectify_1km.nc')
-
-
-if __name__ == '__main__':
-    from csat2 import MODIS
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from csat.MODIS.util import crosstrack_rectify
-
-    gran = MODIS.Granule.fromtext('2015024.2220A', col='61')
-    mod_data = gran.get_modis_cloud_vars(['Cloud_Effective_Radius'])
-    pdata = np.ma.filled(mod_data['Cloud_Effective_Radius'], np.nan)
-
-    ndata = crosstrack_rectify(pdata, nearest=False)
-    plt.subplot(121)
-    plt.imshow(ndata[:200, :200])
-
-    ndata = crosstrack_rectify(pdata, nearest=False, missing=True)
-    plt.subplot(122)
-    plt.imshow(ndata[:200, :200])
-    plt.show()
