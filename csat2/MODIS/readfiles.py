@@ -1,6 +1,6 @@
 from __future__ import print_function, division
 from csat2 import locator
-from csat2.misc.time import doy_to_date
+from csat2.misc.time import doy_to_date, ydh_to_datetime
 import numpy as np
 from netCDF4 import Dataset
 import logging
@@ -98,7 +98,7 @@ def readin_MODIS_L3_filename(filename, names):
     '''Builds up the xarray dataset, approximately twice as fast
     Misses out some attributes, but could be added in as required'''
     with Dataset(filename) as ncdf:
-        ds = xr.Dataset()
+        ds = xr.Dataset() # New output dataset
         tdims = []
         for name in names:
             var = ncdf.variables[name]
@@ -126,17 +126,24 @@ def readin_MODIS_subset(year, doy, sds=None, sat='aqua', col=DEFAULT_COLLECTION)
                                   collection=col, sat=('new' + sat))[0]
     indata = {}
     with Dataset(datafilename, 'r') as ncdf:
+        ds = xr.Dataset() # New output dataset
+        tdims = []
         for name in sds:
             var = ncdf.variables[name]
-            try:
-                # fill = getattr(var, '_FillValue')
-                indata[name] = var[:].filled(np.nan).squeeze()[np.newaxis, :]
-            except (ValueError, TypeError) as e:
-                # Trying to put a nan in an interger array are we?
-                indata[name] = var[:].squeeze()[np.newaxis, :]
-    # Keep list of valid year,doy combinations
-    indata['date'] = np.array([year, doy])[np.newaxis, :]
-    return indata
+            var.set_auto_scale(False)
+            dims = var.dimensions
+            indata = np.ma.filled(var[:], np.nan)
+            ds[name] = xr.DataArray(indata, dims=dims)
+            tdims.extend(dims)
+        tdims = set(tdims)
+        for tdim in tdims:
+            if tdim == 'time':
+                ds['time'] = xr.DataArray(
+                    np.array([ydh_to_datetime(year, doy, 0)]),
+                    dims=('time',))
+            else:
+                ds[tdim] = xr.DataArray(ncdf.variables[tdim][:], dims=(tdim,))
+        return ds
 
 
 def readin_MODIS_cdnc_best(year, doy, sds=None, version='1', sat='aqua', resolution=1):
@@ -144,21 +151,32 @@ def readin_MODIS_cdnc_best(year, doy, sds=None, version='1', sat='aqua', resolut
                               version=version, sat={
                                   'aqua': 'A', 'terra': 'T'}[sat],
                               res={1: '', 0.25: 'q'}[resolution])[0]
-    indata = {}
     with Dataset(filename, 'r') as ncdf:
+        ds = xr.Dataset() # New output dataset
+        tdims = []
+
         for name in sds:
             var = ncdf.variables[name]
+            dims = var.dimensions
             try:
                 # fill = getattr(var, '_FillValue')
-                indata[name] = var[:].filled(np.nan).squeeze()[np.newaxis, :]
+                indata = var[:].filled(np.nan)
             except ValueError:
-                indata[name] = var[:].squeeze()[np.newaxis, :]
+                indata = var[:]
             except AttributeError:
                 # Trying to put a nan in an interger array are we?
-                indata[name] = var[:].squeeze()[np.newaxis, :]
-    # Keep list of valid year,doy combinations
-    indata['date'] = np.array([year, doy])[np.newaxis, :]
-    return indata
+                indata = var[:]
+            ds[name] = xr.DataArray(indata, dims=dims)
+            tdims.extend(dims)
+        tdims = set(tdims)
+        for tdim in tdims:
+            if tdim == 'time':
+                ds['time'] = xr.DataArray(
+                    np.array([ydh_to_datetime(year, doy, 0)]),
+                    dims=('time',))
+            else:
+                ds[tdim] = xr.DataArray(ncdf.variables[tdim][:], dims=(tdim,))
+    return ds
 
 
 def readin_MODIS_L2(product, year, doy, time, sds=None,
