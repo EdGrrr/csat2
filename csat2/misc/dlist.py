@@ -5,6 +5,8 @@ Either:
     Use l_dictkeysappend and l_toarray after finishing the readin loop - faster
 '''
 import numpy as np
+import logging
+import xarray as xr
 
 
 def dictkeysappend(dict1, dict2, axis=-1):
@@ -30,8 +32,20 @@ def l_dictkeysappend(dict1, dict2):
             dict1[key] = [dict2[key]]
 
 
-def l_toarray(dict1, axis=0):
+def l_toarray(dict1, axis=None):
     '''Converts the lists in dict1 to arrays
     Modifies dict1 inplace'''
-    for key in dict1.keys():
-        dict1[key] = np.concatenate(dict1[key], axis=axis)
+    names = list(dict1.keys())
+    if isinstance(dict1[names[0]][0], (xr.DataArray)):
+        logging.debug('xarray merging')
+        if not axis:
+            # If axis is not specified, use the zeroth axis
+            axis = dict1[names[0]][0].dims[0]
+        for key in names:
+            dict1[key] = xr.concat(dict1[key], dim=axis)
+    else:
+        logging.debug('numpy merging')
+        if not axis:
+            axis = 0
+        for key in names:
+            dict1[key] = np.concatenate(dict1[key], axis=axis)
