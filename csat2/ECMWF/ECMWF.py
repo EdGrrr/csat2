@@ -4,11 +4,13 @@ Utility files for using ECMWF data
 Edward Gryspeerdt, Imperial College London, 2020
 '''
 from .. import locator
+from csat2.misc.time import ydh_to_datetime
 import numpy as np
 from netCDF4 import Dataset, num2date
 import misc
 import datetime
 import xarray as xr
+import logging
 
 
 def readin(product, *args, **kwargs):
@@ -25,13 +27,15 @@ def readin(product, *args, **kwargs):
 ########################
 # ERA readin functions #
 ########################
-def readin_ERA(year, doy, variable, level, product='ERAInterim', time='LST',
+def readin_ERA(year, doy, variable, level=None, product='ERAInterim', time='LST',
                resolution='1grid', varname=None):
     if variable == 'LTS':
         return readin_ERA_LTS(year, doy, product=product, time=time, resolution=resolution)
     if variable == 'EIS':
         return readin_ERA_EIS(year, doy, product=product, time=time, resolution=resolution)
 
+    if not level:
+        raise ValueError('level is required if variable not LTS or EIS')
     filename = locator.search('ECMWF', product,
                               year=year,
                               doy=doy,
@@ -39,10 +43,29 @@ def readin_ERA(year, doy, variable, level, product='ERAInterim', time='LST',
                               level=level,
                               resolution=resolution,
                               time=time)
-    ds = xr.open_dataset(filename[0])
-    varname = list(ds.data_vars.keys())[0]
-    returndata = ds[varname][:]
-    ds.close()
+    if (resolution is '1grid'): # and (returndata['time'].dtype == np.float):
+        # These should match the MODIS files, so will build the xarray directly
+        # xarray is very slow at transposing arrays (for some reason)
+        with Dataset(filename[0]) as ncdf:
+            returndata = ncdf.variables[variable_names(ncdf)][:]
+            rtime = np.array([
+                ydh_to_datetime(year, doy,
+                                (t//100)+(t%100)/60)
+                for t in ncdf.variables['time'][:]])
+            rlon = ncdf.variables['lon'][:]
+            cycle = list(range(180,360))+list(range(180))
+            rlon = rlon[cycle]
+            rlon = np.where(rlon>180, rlon-360, rlon)
+            return xr.DataArray(np.swapaxes(returndata, 1, 2)[:,cycle][:,:,::-1],
+                                name=variable_names(ncdf),
+                                coords=[('time', rtime),
+                                        ('lon', rlon),
+                                        ('lat', ncdf.variables['lat'][::-1])])
+    else:
+        ds = xr.open_dataset(filename[0])
+        varname = list(ds.data_vars.keys())[0]
+        returndata = ds[varname][:]
+        ds.close()
     return returndata
 
 
@@ -67,7 +90,7 @@ def readin_ERA_LTS(year, doy, product='ERAInterim', time='LST', resolution='1gri
                                 resolution=resolution) -
             readin_ERA(year, doy, 'Temperature', '1000hPa',
                        product=product, time=time,
-                       resolution=resolution))
+                       resolution=resolution)).rename('lts')
 
 
 def _es(temp):
@@ -125,9 +148,9 @@ def readin_ERA_EIS(year, doy, product='ERAInterim', time='LST', resolution='1gri
         rh1000 = readin_ERA(year, doy, 'Relative_humidity', '1000hPa',
                             product=product, time=time,
                             resolution=resolution)
-        return _calc_eis(t700, t1000, rh1000)[1]
+        return _calc_eis(t700, t1000, rh1000)[1].rename('eis')
     else:
-        return _calc_eis(t700, t1000)[1]
+        return _calc_eis(t700, t1000)[1].rename('eis')
 
 
 class ERA5Data():
