@@ -62,7 +62,8 @@ def plt_sublabel_index(i, *args, **kwargs):
 
 def plt_cbar(vmin, vmax, cmap, title, nticks=5, title_size=10,
              orientation='horizontal',
-             plttype='heatmap', levels=None, aspect_ratio=0.03, norm=None, ticks=None):
+             plttype='heatmap', levels=None, aspect_ratio=0.03, norm=None, ticks=None,
+             title_pos='above'):
     '''Plots a colorbar in an empty subplot
     Will do 'horizontal' or 'vertical' orientation
     Defaults to a heatmap colourbar, but if plttype='contourf' is passed,
@@ -89,7 +90,10 @@ def plt_cbar(vmin, vmax, cmap, title, nticks=5, title_size=10,
         else:
             plt.xticks(np.linspace(0, 100, nticks), np.linspace(
                 vmin, vmax, nticks), size=title_size)
-        plt.title(title, size=title_size)
+        if title_pos == 'above':
+            plt.title(title,size=title_size)
+        elif title_pos == 'below':
+            plt.xlabel(title,size=title_size)
     elif orientation == 'vertical':
         if plttype == 'heatmap':
             plt.imshow(a, cmap=cmap, interpolation='nearest',
