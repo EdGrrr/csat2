@@ -119,7 +119,6 @@ def readin_MODIS_L3_filename(filename, names):
         return ds
 
 
-
 def readin_MODIS_subset(year, doy, sds=None, sat='aqua', col=DEFAULT_COLLECTION):
     sat = {'aqua': '', 'terra': '.terra'}[sat]
     datafilename = locator.search('MODIS', 'subset', year=year, doy=doy,
@@ -174,6 +173,8 @@ def readin_MODIS_cdnc_best(year, doy, sds=None, version='1', sat='aqua', resolut
                 ds['time'] = xr.DataArray(
                     np.array([ydh_to_datetime(year, doy, 0)]),
                     dims=('time',))
+            elif tdim == 'lat':
+                ds[tdim] = xr.DataArray(ncdf.variables[tdim][:][::-1], dims=(tdim,))
             else:
                 ds[tdim] = xr.DataArray(ncdf.variables[tdim][:], dims=(tdim,))
     return ds
