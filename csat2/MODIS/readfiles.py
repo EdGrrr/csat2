@@ -10,7 +10,7 @@ import xarray as xr
 # Collection setup #
 ####################
 
-DEFAULT_COLLECTION = '6'
+DEFAULT_COLLECTION = '61'
 logging.info('Default is now collection {}'.format(DEFAULT_COLLECTION))
 
 
