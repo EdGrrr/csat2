@@ -69,7 +69,7 @@ To get data for a granule, you can read a variable direct from a file, using the
 .. code-block:: python
 
    # Get the effective radius data from the cloud '06_L2' product
-   >>> cer = gran.variable('06_L2', ['Cloud_Effective_Radius'])
+   >>> cer = gran.get_variable('06_L2', ['Cloud_Effective_Radius'])
    # Reflectivity from band 2 (0.865um)
    >>> refl2 = gran.get_band_radiance(2, refl=True, bowtie_corr=False)
 
