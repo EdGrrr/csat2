@@ -59,9 +59,10 @@ class FileLocator:
 
         exit_first - return the results from the first pattern with results'''
         patterns = self.get_patterns(origin, product, **kwargs)
+
         filenames = []
         for p in patterns:
-            pat = p.format(**kwargs)
+            pat = self.pattern_format(p, **kwargs)
             logging.debug('Pattern: '+pat)
             filenames.extend(glob(pat))
             if exit_first and (len(filenames) > 0):
@@ -69,16 +70,19 @@ class FileLocator:
         return filenames
 
     def get_patterns(self, origin, product, **kwargs):
-        sd = kwargs
-        if ('year' in sd.keys()) and ('doy' in sd.keys()):
-            # Get the month and day if only the year and doy are provided
-            _, sd['mon'], sd['day'] = doy_to_date(sd['year'], sd['doy'])
         try:
             patterns = self.search_paths[origin][product]
         except:
             raise
         return patterns
 
+    def pattern_format(self, pattern, **kwargs):
+        sd = kwargs
+        if ('year' in sd.keys()) and ('doy' in sd.keys()):
+            # Get the month and day if only the year and doy are provided
+            _, sd['mon'], sd['day'] = doy_to_date(sd['year'], sd['doy'])
+        return pattern.format(**sd)
+    
     def paths(self):
         return self.search_paths
 
@@ -118,7 +122,7 @@ class FileLocator:
         '''Get the folder locations from the search paths dictionary.
         return_primary - return the first matching path (assumed main directory)'''
         patterns = self.get_patterns(origin, product, **kwargs)
-        patterns = [os.path.dirname(p).format(**kwargs)
+        patterns = [self.pattern_format(os.path.dirname(p), **kwargs)
                     for p in patterns]
         if return_primary:
             return patterns[0]
@@ -145,6 +149,7 @@ def partial_format(istr, format_dict):
         except ValueError:
             outstr += istr[s:]
             return outstr
+
 
 def configloader(user_location=None, default_fallback=True):
     '''Searches for and loads a search path configuration
