@@ -122,7 +122,7 @@ class Granule(object):
             self.year,
             self.doy,
             sds=[],
-            times=[self.timestr()], col=col)
+            time=self.timestr(), col=col)
         if dateline:
             # Ignores the poles
             if (data['Longitude'].max()>160) and (data['Longitude'].min()<-160):
@@ -162,7 +162,7 @@ class Granule(object):
                 self.year, self.doy,
                 sds = ['SolarZenith', 'SolarAzimuth',
                        'SensorZenith', 'SensorAzimuth'],
-                times=[self.timestr()],
+                time=self.timestr(),
                 col=col)
             sunz = angles['SolarZenith'][:, :-4]/100
             suna = angles['SolarAzimuth'][:, :-4]/100
@@ -239,7 +239,7 @@ class Granule(object):
             self.year,
             self.doy,
             sds=sds,
-            times=[self.timestr()], col=self.col)
+            time=self.timestr(), col=self.col)
         if pcl:
             data['Cloud_Optical_Thickness'+band_suffix] = np.where(
                 np.isfinite(data['Cloud_Optical_Thickness'+band_suffix]),
@@ -276,7 +276,7 @@ class Granule(object):
             self.year,
             self.doy,
             sds=sds,
-            times=[self.timestr()], col=self.col)
+            time=self.timestr(), col=self.col)
         return data
         
     def get_band_radiance(self, band, col=None, refl=False, bowtie_corr=True):
@@ -292,8 +292,8 @@ class Granule(object):
             self.product_expand('021KM'),
             self.year,
             self.doy,
-            [var],
-            times=[self.timestr()], varind=ind, col=col)[var]
+            sds=[var],
+            time=self.timestr(), varind=ind, col=col)[var]
         if bowtie_corr:
             if refl:
                 return bowtie_correct((
@@ -342,7 +342,7 @@ class Granule(object):
         if (not self.check(product, col=col)) or force_redownload:
             download(self.product_expand(product),
                      self.year, self.doy,
-                     times=[self.timestr()], col=col, force_redownload=force_redownload)
+                     time=self.timestr(), col=col, force_redownload=force_redownload)
 
     def check(self, product, col=None):
         return check(self.product_expand(product),
@@ -409,7 +409,7 @@ class _MODISlocator():
                 granule.doy,
                 sds=[],
                 col=col,
-                times=[granule.time])
+                time=granule.time)
             
         lat = field_interpolate(data['Latitude'])[:, :-5]
         if dateline:

@@ -188,7 +188,7 @@ def readin_MODIS_L2(product, year, doy, time, sds=None,
     sds += ['Latitude', 'Longitude']
 
     filename = locator.search('MODIS', product, year=year, doy=doy,
-                              collection=col, time=time)
+                              collection=col, time=time)[0]
     logging.debug(filename)
 
     if len(filename) == 0:
