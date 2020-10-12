@@ -69,7 +69,7 @@ def plt_cbar(vmin, vmax, cmap, title, nticks=5, title_size=10,
     Defaults to a heatmap colourbar, but if plttype='contourf' is passed,
     then a contourf-type colourbar will be plotted, using 'levels' to
     determine where the steps should be placed.   '''
-    a = np.outer(np.arange(0, 1.005, 0.01), np.ones(int(aspect_ratio*100)))
+    a = np.outer(np.linspace(0, 1.005, 100), np.ones(int(aspect_ratio*100)))
     if orientation == 'horizontal':
         if plttype == 'heatmap':
             plt.imshow(a.transpose(), cmap=cmap, origin='upper',
@@ -99,7 +99,6 @@ def plt_cbar(vmin, vmax, cmap, title, nticks=5, title_size=10,
             plt.imshow(a, cmap=cmap, interpolation='nearest',
                        origin='lower', norm=norm)
         elif plttype == 'contourf':
-            a = np.outer(np.arange(0, 1.005, 0.01), np.ones(4))
             if levels == None:
                 levels = np.linspace(0, 1, 10)
             else:
