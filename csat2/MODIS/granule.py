@@ -345,6 +345,8 @@ class Granule(object):
                      time=self.timestr(), col=col, force_redownload=force_redownload)
 
     def check(self, product, col=None):
+        if not col:
+            col = self.col
         return check(self.product_expand(product),
                      self.year, self.doy,
                      time=self.timestr(), col=col)
