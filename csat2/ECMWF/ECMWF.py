@@ -174,7 +174,7 @@ class ERA5Data():
         '''Returns the wind fields at a given time'''
         year, doy = time.year, time.timetuple().tm_yday
         if (doy != self.doy) or (year != self.year):
-            self.update_files(year, doy, self.level, self.res)
+            self.update_files(year, doy)
 
         # Take the nearest index
         time_ind = np.argmin(np.abs(self.time - time))
