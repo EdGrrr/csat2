@@ -29,7 +29,7 @@ Note that if you are using and working on the code (or might want to update it f
 .. code-block:: bash
 
     $ cd path/to/csat2
-    $ pip install -e .
+    $ python setup.py develop --user
 
 
 Note that the netCDF4 library should be built to read HDF files. This is the case if you install it from conda.
