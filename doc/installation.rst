@@ -31,8 +31,6 @@ Note that if you are using and working on the code (or might want to update it f
     $ cd path/to/csat2
     $ pip install -e .
 
-or a developer version
-
 
 Configuration
 -------------
@@ -76,5 +74,23 @@ Each instrument is defined in a line starting with a ``[``. Following this are l
 Path syntax is the same as the python string formatting syntax (what a coincidence...). Use ``{variable}`` to make a substitution - can be a macro or a variable from the readin function. ``{doy:0>3}`` left pads the variable doy with 0s to a width of three characters, ``*`` can be used as a wildcard (e.g. for MODIS files that include the processing date.
 
 If ``(year, mon, day)`` or ``(year, doy)`` are supplied to the locator function, the corresponding one is also calculated.
+
+The simplest machine file will store all files in a local folder. Here is an example I use for my laptop.
+
+.. code-block:: python
+
+   M data_folder=/home/edward/LocalData
+
+   [MODIS]
+   -[MYD06_L2|MOD06_L2|MYD021KM|MOD021KM]
+    {data_folder}/MODIS/{product}.A{year}{doy:0>3}.{time}.*.hdf
+   -[MOD08_D3|MYD08_D3]
+    {data_folder}/MODIS/{product}.A{year}{doy:0>3}*
+   -[bowtie]
+    {data_folder}/MODIS/bowtie_correction_{res}_{length}.nc
+
+   [ECMWF]
+   -[ERA5]
+    {data_folder}/ECMWF/{year}{time}/{variable}_{level}_{doy:0>3}.nc
 
 
