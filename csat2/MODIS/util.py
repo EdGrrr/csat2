@@ -93,8 +93,9 @@ edge pixels are still large'''
     with Dataset(file_correct) as ncdf:
         along_track_index = ncdf.variables['at_ind'][:]
         cross_track_index = ncdf.variables['ct_ind'][:]
-        return field_1km[along_track_index.astype('int'),
-                         cross_track_index.astype('int')]
+        field_1km.values = field_1km.values[along_track_index.astype('int'),
+                                            cross_track_index.astype('int')]
+        return field_1km
 
 
 def crosstrack_rectify(field_1km, nearest=False, missing=False):

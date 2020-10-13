@@ -234,7 +234,7 @@ def readin_MODIS_L2_filename(filename, names):
         for name in names:
             var = ncdf.variables[name]
             var.set_auto_scale(False)
-            dims = [a.replace(':mod08', '') for a in var.dimensions]
+            dims = [a.replace(':mod08', '').replace(':MODIS_SWATH_Type_L1B', '') for a in var.dimensions]
             try:
                 indata = (var[:]-var.add_offset)*var.scale_factor
             except AttributeError: #No scale factors
@@ -266,10 +266,10 @@ def readin_MODIS_L2_filename_fast(filename, names, varind=None):
             var.set_auto_scale(False)
             if (varind is not None) and len(ncdf.variables[name].shape) > 2:
                 vdata = var[varind]
-                dims = [a.replace(':mod08', '') for a in var.dimensions[1:]]
+                dims = [a.replace(':mod08', '').replace(':MODIS_SWATH_Type_L1B', '') for a in var.dimensions[1:]]
             else:
                 vdata = var[:]
-                dims = [a.replace(':mod08', '') for a in var.dimensions]
+                dims = [a.replace(':mod08', '').replace(':MODIS_SWATH_Type_L1B', '') for a in var.dimensions]
             try:
                 indata = (vdata-var.add_offset)*var.scale_factor
             except AttributeError: #No scale factors
