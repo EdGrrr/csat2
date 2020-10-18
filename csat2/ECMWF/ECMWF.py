@@ -179,7 +179,20 @@ class ERA5Data():
         # Take the nearest index
         time_ind = np.argmin(np.abs(self.time - time))
         u_ret = self.nc.variables[self.varkey][time_ind, :, :]
-        return u_ret
+
+        if (self.res == '1grid'): # Arrange the data to match the MODIS files
+            rlon = self.lon
+            cycle = list(range(180,360))+list(range(180))
+            rlon = rlon[cycle]
+            rlon = np.where(rlon>180, rlon-360, rlon)
+            return xr.DataArray(np.swapaxes(u_ret, 0, 1)[cycle][:,::-1],
+                                coords=[('lon', rlon),
+                                        ('lat', self.lat[::-1])])
+        else:
+            return xr.DataArray(
+                u_ret,
+                dims=['lat', 'lon'],
+                coords={'lon': self.lon, 'lat': self.lat})
 
     def get_data(self, lon, lat, time, linear_interp=True, simple=False):
         year, doy = time.year, time.timetuple().tm_yday
@@ -238,11 +251,11 @@ class ERA5Data():
         self.year = year
         self.doy = doy
         try:
-            self.lon = misc.stats.lin_av(self.nc.variables['lon'][:])
-            self.lat = misc.stats.lin_av(self.nc.variables['lat'][:])
+            self.lon = self.nc.variables['lon'][:]
+            self.lat = self.nc.variables['lat'][:]
         except KeyError:
-            self.lon = misc.stats.lin_av(self.nc.variables['longitude'][:])
-            self.lat = misc.stats.lin_av(self.nc.variables['latitude'][:])                
+            self.lon = self.nc.variables['longitude'][:]
+            self.lat = self.nc.variables['latitude'][:]
         self.time = num2date(self.nc.variables['time'][:],
                              units=self.nc.variables['time'].units)
 
