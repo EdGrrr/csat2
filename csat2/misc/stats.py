@@ -76,7 +76,14 @@ def lat_weighted_av(data, latrange, lat_axis=0):
     return np.nansum(data*lats)/np.nansum(lats)
 
 
-def reduce_res(data, res, func=np.ma.mean):
+def reduce_res(data, res, axis=(0, 1), func=np.ma.mean):
+    '''Reduces the resolution along axis. Currently only the first two dimensions'''
+    dshape = data.shape
+    newdshape = [dshape[0]//4, 4, dshape[1]//4, 4]
+    return func(data.reshape(newdshape), axis=(1, 3))
+
+
+def reduce_res_old(data, res, func=np.ma.mean):
     dshape = data.shape
     outdata = np.zeros((dshape[0]//res, dshape[1]//res))
     for i in range(outdata.shape[0]):
