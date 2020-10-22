@@ -259,15 +259,15 @@ class Granule(object):
                     (data['Cloud_Mask_SPI'][:, :-4, 0] < 30) *
                     (field_interpolate(data['Solar_Zenith_Day']) < 65))
             if bowtie_corr:
-                return (bowtie_correct((1.37e-11 * cod**0.5 * re**-2.5)),
-                        bowtie_correct(mask))
+                return (bowtie_correct((1.37e-11 * cod**0.5 * re**-2.5)).rename('Nd'),
+                        bowtie_correct(mask).rename('Best_mask'))
             else:
-                return ((1.37e-11 * cod**0.5 * re**-2.5),
-                        mask)
+                return ((1.37e-11 * cod**0.5 * re**-2.5).rename('Nd'),
+                        mask.rename('Best_mask'))
         if bowtie_corr:
-            return bowtie_correct((1.37e-11 * cod**0.5 * re**-2.5))
+            return bowtie_correct((1.37e-11 * cod**0.5 * re**-2.5)).rename('Nd')
         else:
-            return (1.37e-11 * cod**0.5 * re**-2.5)
+            return (1.37e-11 * cod**0.5 * re**-2.5).rename('Nd')
 
     def get_variable(self, product, sds):
         '''Get data from a specific product e.g. '06_L2' '''
