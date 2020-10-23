@@ -48,10 +48,15 @@ def readin_ERA(year, doy, variable, level=None, product='ERAInterim', time='LST'
         # xarray is very slow at transposing arrays (for some reason)
         with Dataset(filename[0]) as ncdf:
             returndata = ncdf.variables[variable_names(ncdf)][:]
-            rtime = np.array([
-                ydh_to_datetime(year, doy,
-                                (t//100)+(t%100)/60)
-                for t in ncdf.variables['time'][:]])
+            if ncdf.variables['time'].units:
+                rtime = num2date(
+                    ncdf.variables['time'][:],
+                    units=ncdf.variables['time'].units)
+            else: # Times in files is in hour strings
+                rtime = np.array([
+                    ydh_to_datetime(year, doy,
+                                    (t//100)+(t%100)/60)
+                    for t in ncdf.variables['time'][:]])
             rlon = ncdf.variables['lon'][:]
             cycle = list(range(180,360))+list(range(180))
             rlon = rlon[cycle]
