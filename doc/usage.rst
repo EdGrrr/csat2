@@ -103,6 +103,18 @@ The second method is through the ``ECMWF.ERA5Data`` object. This stores the netc
    >>> t1000 = temp_data.get_data([100, 101, 102], [10, 9 ,8], datetime.datetime(2015, 1, 1, 10))
 
 
+ERA5 data can be downloaded using the ``ECMWF.download.download`` function. This will place the ERA5 data in the location specified in the machine file, as well as calculating the local solar time files (if required). To keep the requests manageable, it will only request one month and one level at a time, but multiple variables can be requested on the same level.
+
+.. code-block:: python
+
+   >>> ECMWF.download(2020, 1, ['Temperature', 'Relative_humidity', 'U-wind-component'], level='1000hPa', resolution='1grid')
+
+Note that this requires `CDO <https://code.mpimet.mpg.de/projects/cdo/>`_ to be installed (which you can do through anaconda), as it uses it for splitting up the netcdf files (and regridding where required).
+
+The variable names here are the local names, which mostly (but not always) match the Copernicus names. Windspeed and SST are the main exceptions.
+
+   
+
 GOES data
 ---------
 
