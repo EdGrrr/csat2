@@ -34,6 +34,35 @@ def _convert_cds_to_vname(cds_name):
         return cds_name.capitalize()
 
 
+def check(year, month, variables, level, resolution, time='timed', product='ERA5'):
+    '''Check that files exist for the year, month, level and variables in question
+    Does not do any validation of the contents at the moment.
+
+    Returns a tuple:
+        boolean - all files are present
+        list - missing [variable, doy] pairs'''
+
+    if month < 12:
+        doys = np.arange(csat2.misc.time.date_to_doy(year, month, 1)[1],
+                         csat2.misc.time.date_to_doy(year, month+1, 1)[1])
+    else:
+        doys = np.arange(csat2.misc.time.date_to_doy(year, 12, 1)[1],
+                         csat2.misc.time.date_to_doy(year, 12, 31)[1]+1)
+
+    missing = []
+    exist = True
+    for variable in variables:
+        for doy in doys:
+            nfiles = len(csat2.locator.search(
+                'ECMWF', product, year=year, doy=doy,
+                variable=variable, resolution=resolution,
+                time=time, level=level))
+            if nfiles == 0:
+                missing.append([variable, doy])
+                exist = False
+    return exist, missing
+
+
 def download(year, month, variables, level, resolution,
              days=None,
              times=8,
@@ -59,11 +88,18 @@ def download(year, month, variables, level, resolution,
         as an integer.
 
     force_redownload - forces the redownload of the data, even if it already 
-        exists.'''
+        exists. Use this if you are changing the internal properties of the
+        files (such as the number of times), as it depends on the check function,
+        which doesn't do any validation of the file contents'''
 
     if resolution is not '1grid':
         raise ValueError('Resolution: {} not yet implmented'.format(resolution))
 
+    if (not force_redownload and check(
+            year, month, variables, level, resolution)[0]):
+        logging.info('All files exist')
+        return
+    
     if isinstance(variables, str):
         variables = [variables]
     cds_variables = [_convert_vname_to_cds(vname)
