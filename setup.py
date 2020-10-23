@@ -17,4 +17,7 @@ setup(name = 'csat2',
                         'matplotlib',
                         'scikit-learn',
                         'google-cloud-storage'],
-      packages = ['csat2'])
+      packages = ['csat2'],
+      package_dir = {'csat2': 'csat2'},
+      package_data = {'csat2': ['data/*']}
+)
