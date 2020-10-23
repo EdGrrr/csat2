@@ -57,7 +57,7 @@ class Granule():
     @classmethod
     def fromtext(cls, gran_text):
         m = re.search(
-            'G(?P<sat>..).(?P<year>....)(?P<doy>...).(?P<hour>..)(?P<minute>..).(?P<area>....)', gran_text)
+            'G(?P<sat>..).(?P<year>....)(?P<doy>...).(?P<hour>..)(?P<minute>..).(?P<area>.*)', gran_text)
         return cls(sat='G'+m.group('sat'),
                    area=m.group('area'),
                    year=int(m.group('year')),
