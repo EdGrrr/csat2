@@ -16,7 +16,7 @@ def bit_select_locations(data, locations):
     Locations must be a monotonically increasing sequence with no gaps
     e.g. locations=(3,4,5)'''
     if np.all(np.diff(locations)==1):
-        shift_cnt = locations.min()
+        shift_cnt = min(locations)
         return np.mod(np.right_shift(data, shift_cnt), 2**len(locations))
     else:
         raise ValueError('Locations must be monotonically increasing with no gaps')

@@ -47,7 +47,7 @@ def ydh_to_datetime(year, doy, hour):
 
 def datetime_to_ydh(dtime):
     year = dtime.year
-    doy = datetime.date(year, month, day).timetuple().tm_yday,
+    doy = dtime.timetuple().tm_yday
     dtime_diff = datetime.datetime(*doy_to_date(year, doy))
     hour = (dtime-dtime_diff).total_seconds()/3600
     return year, doy, hour
@@ -73,7 +73,7 @@ def get_season(doy, year_length=364):
     Note, this assumes a 364 day year for simplicity. It should not 
     matter for the majority of use cases (seasons are still within
     the range above)'''
-    return ((doy+30) % 364)//91
+    return ((doy+30) % year_length)//91
 
 
 #####################

@@ -40,9 +40,18 @@ def l_toarray(dict1, axis=None):
         logging.debug('xarray merging')
         if not axis:
             # If axis is not specified, use the zeroth axis
-            axis = dict1[names[0]][0].dims[0]
+            axis = 0
         for key in names:
-            dict1[key] = xr.concat(dict1[key], dim=axis)
+            # Should allow specification of a dimension names
+            # e.g. 'time'
+            if axis in dict1[names[0]][0].dims:
+                dict1[key] = xr.concat(
+                    dict1[key],
+                    dim=axis)
+            else:
+                dict1[key] = xr.concat(
+                    dict1[key],
+                    dim=dict1[names[0]][0].dims[axis])
     else:
         logging.debug('numpy merging')
         if not axis:
