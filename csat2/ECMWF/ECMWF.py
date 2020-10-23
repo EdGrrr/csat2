@@ -204,9 +204,10 @@ class ERA5Data():
         if (doy != self.doy) or (year != self.year):
             self.update_files(year, doy)
 
-        # Take the nearest index
-        lat_ind = np.digitize(lat, self.lat)
-        lon_ind = np.digitize(np.mod(lon, 360), self.lon)
+        # Take the nearest index - note that the self.lon and self.lat
+        # arrays store the gridbox centres, not the edges
+        lat_ind = np.digitize(lat, self.lat-0.5*(self.lat[1]-self.lat[0]))-1
+        lon_ind = np.digitize(np.mod(lon, 360), self.lon-0.5*(self.lon[1]-self.lon[0]))-1
         time_ind = np.argmin(np.abs(self.time - time))
 
         if simple:
