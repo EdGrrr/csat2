@@ -267,20 +267,30 @@ class GOESLocator():
             self.pph = gvar.perspective_point_height
             self.H = self.pph + self.req
             self.lam0 = np.deg2rad(gvar.longitude_of_projection_origin)
+            # note, these values are the bi centres, not edges
             self.x = ncdf.variables['x'][:].astype('float64')
             self.y = ncdf.variables['y'][:].astype('float64')
+            # These are the upper/left edges
+            self.xl = self.x-(self.x[1]-self.x[0])/2
+            self.yl = self.y-(self.y[1]-self.y[0])/2
             self.xint = None
             self.corrdx = None
 
     def _create_interp(self):
+        # These assume the bin centre for x and y
         self.xint = scipy.interpolate.interp1d(
             range(len(self.x)), self.x, fill_value='extrapolate')
         self.yint = scipy.interpolate.interp1d(
             range(len(self.y)), self.y, fill_value='extrapolate')
+        # The 'r' interpolators allow you to return from a position
+        # in ABI grid to the index in the image. Will return errval
+        # if you are ouside the grid area.
         self.rxint = scipy.interpolate.interp1d(
-            self.x, range(len(self.x)), fill_value='extrapolate')
+            self.x, range(len(self.x)),
+            bounds_error=False, fill_value=np.nan)
         self.ryint = scipy.interpolate.interp1d(
-            self.y, range(len(self.y)), fill_value='extrapolate')
+            self.y, range(len(self.y)),
+            bounds_error=False, fill_value=np.nan)
 
     def _sat_to_geodetic(self, x, y):
         '''x, y - the longitude and latitude in the satellite
@@ -289,7 +299,13 @@ class GOESLocator():
                                            (self.req**2/self.rpol**2)*np.sin(y)**2)
         b = -2*self.H*np.cos(x)*np.cos(y)
         c = self.H**2 - self.req**2
-        rs = (-b - np.sqrt(b**2 - 4 * a * c))/(2*a)
+        disc = b**2 - 4 * a * c
+        if isinstance(x, float):
+            if (disc < 0):
+                return np.nan, np.nan
+            rs = (-b - np.sqrt(disc))/(2*a)
+        else:
+            rs = np.where(disc >= 0, (-b - np.sqrt(disc))/(2*a), np.nan)
         sx = rs*np.cos(x)*np.cos(y)
         sy = -rs*np.sin(x)
         sz = rs*np.cos(x)*np.sin(y)
@@ -308,6 +324,12 @@ class GOESLocator():
 
         x = np.arcsin(-sy/np.sqrt(sx**2+sy**2+sz**2))
         y = np.arctan(sz/sx)
+        if isinstance(x, float):
+            if ((self.H*(self.H-sx)) <
+                (sy**2+(self.req*sz/self.rpol)**2)):
+                return np.nan, np.nan
+            else:
+                return x, y
         # Mask invisible points
         mask = np.where((self.H*(self.H-sx)) <
                         (sy**2+(self.req*sz/self.rpol)**2))
@@ -317,8 +339,12 @@ class GOESLocator():
 
     def _rebin(self, locs, bins):
         binned = np.digitize(locs, bins)-1
-        binned[locs < min(bins)] = -999
-        binned[locs > max(bins)] = -999
+        # These are designed to be large enough that they will throw an
+        # exception if you try and use them to locate a pixel in GOES data
+        errval = -999999
+        binned[locs < min(bins)] = errval
+        binned[locs > max(bins)] = errval
+        binned[np.isnan(locs)] = errval
         return binned
 
     def _create_alt_correction(self):
@@ -360,7 +386,14 @@ class GOESLocator():
 
     def locate(self, coords, alt=None, interp=False):
         '''Get the satellite coordinates for N lon-lat coords, shape - [N, 2]
-        Performs a simple altitude parallax adjustment, passing altitude as km'''
+        Performs a simple altitude parallax adjustment, passing altitude as km
+        
+        If the input location is outside the grid region, a large negative value
+        is returned (so you can't use it as a grid coordinate).
+
+        The interp flag will interpolate the corrdinate for a more accurate
+        location, returning np.nan if outside the grid. Nan is preferred as it
+        propagates through any following calculations.'''
         x, y = self._geodetic_to_sat(np.deg2rad(coords[:, 0]),
                                      np.deg2rad(coords[:, 1]))
         if interp:
@@ -369,8 +402,8 @@ class GOESLocator():
             output = np.concatenate((self.rxint(x)[:, None],
                                      self.ryint(y)[:, None]), axis=1)
         else:
-            output = np.concatenate((self._rebin(x, self.x)[:, None],
-                                     self._rebin(y, self.y)[:, None]), axis=1)
+            output = np.concatenate((self._rebin(x, self.xl)[:, None],
+                                     self._rebin(y, self.yl)[:, None]), axis=1)
         if alt is not None:
             # Correct for altitude parallax
             # Following method laid out in notebook
