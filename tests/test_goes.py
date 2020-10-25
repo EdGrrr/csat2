@@ -64,7 +64,7 @@ class TestGoesGranule(unittest.TestCase):
                 channel=ch,
                 sat='G16', area='RadC', mode='*')
             if len(newfiles) != 1:
-                pytest.fail('Test requires G16.2018002.000.RadC (ch{ch})- run with --runnetwork to download automatically'.format(ch=ch))
+                pytest.skip('Test requires G16.2018002.0000.RadC (ch{ch})- run with --runnetwork to download automatically'.format(ch=ch))
         self.gran = GOES.Granule.fromtext('G16.2018002.0000.RadC')
                 
     def test_getfilename(self):
@@ -110,7 +110,7 @@ class TestGOESLocator(unittest.TestCase):
                 channel=ch,
                 sat='G16', area='RadC', mode='*')
             if len(newfiles) != 1:
-                pytest.fail('Test requires G16.2018002.000.RadC (ch{ch})- run with --runnetwork to download automatically'.format(ch=ch))
+                pytest.skip('Test requires G16.2018002.0000.RadC (ch{ch})- run with --runnetwork to download automatically'.format(ch=ch))
         self.gran = GOES.Granule.fromtext('G16.2018002.0000.RadC')
 
         self.locs = [
