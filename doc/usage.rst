@@ -49,17 +49,17 @@ You can then return information about the granule - note that this requires the 
 The granule object can also provide the approximate nearest pixel to a list of lon-lat points (points are always given in a ``[lon, lat]`` format. Sun and observation zenith angles can also be calculated, along with the interpolated lon-lat locations for each pixel.
 
 .. code-block:: python
-                
+
    >>> gran.locate([[-130, 31]])
    array([[ 774, 1322]])
    >>> sunz, suna, satz, sata, azidiff = gran.get_angles(mst=False)
    >>> lon, lat = gran.get_lonlat()
-   
 
-The granule object can be used to download MODIS files if you have the location defined in your machine file and an API-key for the LAADS DAAC.
+
+The granule object can be used to download MODIS files if you place a LAADS DAAC APIkey in ``laadsdaacrc`` in the csat configuration directory (``${HOME}/.csat2`` by default).
 
 .. code-block:: python
-                
+
    >>> gran.download('06_L2')  # Download cloud data
    >>> gran.download('03')  # Download the geolocation data
 
@@ -77,7 +77,7 @@ To get data for a granule, you can read a variable direct from a file, using the
 Finally, you can step forward a specified number of granules
 
 .. code-block:: python
-                
+
    >>> newgran = gran.increment(number=1)
 
 
@@ -103,7 +103,7 @@ The second method is through the ``ECMWF.ERA5Data`` object. This stores the netc
    >>> t1000 = temp_data.get_data([100, 101, 102], [10, 9 ,8], datetime.datetime(2015, 1, 1, 10))
 
 
-ERA5 data can be downloaded using the ``ECMWF.download.download`` function. This will place the ERA5 data in the location specified in the machine file, as well as calculating the local solar time files (if required). To keep the requests manageable, it will only request one month and one level at a time, but multiple variables can be requested on the same level.
+ERA5 data can be downloaded using the ``ECMWF.download.download`` function. This will place the ERA5 data in the location specified in the machine file, as well as calculating the local solar time files (if required). To keep the requests manageable, it will only request one month and one level at a time, but multiple variables can be requested on the same level. This requires a Copernicus data store key (`see this guide from ECMWF <https://cds.climate.copernicus.eu/api-how-to>`_)
 
 .. code-block:: python
 
@@ -113,14 +113,77 @@ Note that this requires `CDO <https://code.mpimet.mpg.de/projects/cdo/>`_ to be 
 
 The variable names here are the local names, which mostly (but not always) match the Copernicus names. Windspeed and SST are the main exceptions.
 
-   
+
 
 GOES data
 ---------
 
-Coming soon, but the overall structure is very similar to the MODIS Granule structure. The download method uses google-cloud storage, so you will need to set that up to use it.
-   
-   
+The GOES data uses a similar Granule structure to MODIS. You create a granule either by defining all the relevant time properties, from a filename or from a text granule name.
+
+.. code-block:: python
+
+   >>> from csat2 import GOES
+   >>> gran = GOES.Granule.fromtext('G16.2018002.0000.RadC')
+   >>> gran = GOES.Granule.fromfilename('OR_ABI-L1b-RadC-M3C01_G16_s20180020002199_e20180020004572_c20180020005016.nc')
+
+As with MODIS, you can then read in scientific data from the granule object. The scan mode can be specified if desired, but as there is only one scan mode at any time, the default is to ignore it.
+
+.. code-block:: python
+
+   >>> gran.get_band_bt(channel=13)
+   <xarray.DataArray (y: 1500, x: 2500)>
+   array([[       nan,        nan,        nan, ..., 237.863262, 238.101511, 238.810748],
+          [       nan,        nan,        nan, ..., 236.718719, 236.53601 , 238.160925],
+          [       nan,        nan,        nan, ..., 235.8613  , 235.675966, 238.042034],
+          ...,
+          [292.08001 , 292.229971, 292.199996, ..., 294.306864, 294.336236, 294.336236],
+          [292.199996, 292.469458, 292.439552, ..., 294.189298, 294.277484, 294.306864],
+          [292.319846, 292.559118, 292.588989, ..., 293.953766, 294.101032, 294.218703]])
+   Coordinates:
+       t        datetime64[ns] 2018-01-02T00:03:39.182033984
+       y_image  float32 0.08624
+       x_image  float32 -0.03136
+     * y        (y) float32 0.128212 0.128156 ... 0.044324003 0.044268005
+     * x        (x) float32 -0.101332 -0.101276 ... 0.038556002 0.038612
+
+You can get information about the granule, or step forwards in time. If you have the files on disk, you can also use the granule object to locate the relevant file (for a given channel). Note that the exact timing of the granule depends on the GOES scan pattern, so the search here is done only for a granule within the current granule increment time.
+
+.. code-block:: python
+
+   >>> gran.datetime()
+   datetime.datetime(2018, 1, 2, 0, 0)
+   >>> gran.next()
+   G16.2018002.0005.RadC
+
+The Granule object also allows you to geolocate pixels, or to locate a pixel given a lon/lat array. A channel is currently required, due to the varying resolution of the instrument. You should *not* switch resolutions for the same granule object and the locator is cached.
+
+The locate function returns integers (for use an indices), unless you ask for a float using the option ``interp=True``. If the requested pixel is outside the current granule grid, a large negative is returned (or a ``np.nan`` if using ``interp=True``).
+
+.. code-block:: python
+
+   >>> gran.geolocate(np.array([[ 190, 840]]), channel=13)
+   array([[-113.11428559,   28.98774504]])
+
+   >>> gran.locate(np.array([[-113.114, 28.9877]]))
+   array([[190, 840]])
+
+
+Downloading GOES data
+^^^^^^^^^^^^^^^^^^^^^
+
+Setting this up is more complicated that for MODIS. The granule object is currently using Google cloud storage, which although public requires an API-key and project setup to use.
+
+Start by logging into the `Google API console <https://console.developers.google.com/>`_. Create a new project, not linked to any organisation.
+
+Once you have created a project, create a service account. You will then need to add a key to this account. When the dialogue box opens, pick ``json``. Download this key to your csat2 configuration folder as ``goes-service-key.json``. You should set the permissions on this file so that only you can read it.
+
+This should then allow you to use the granule download functions for GOES-16 and GOES-17 data from the Google Cloud.
+
+.. code-block:: python
+
+   >>> gran.download(channel=13)
+
+
 Troubleshooting
 ---------------
 

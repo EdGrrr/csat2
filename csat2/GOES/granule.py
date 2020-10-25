@@ -234,7 +234,7 @@ class Granule():
         # have no authentication file. It may be possible to do this with
         # a blank file?
         storage_client = storage.Client.from_service_account_json(
-            os.path.expandvars('${HOME}/.csat2/goes-test.json'))
+            os.path.expandvars('${HOME}/.csat2/goes-service-key.json'))
         logging.debug(storage_client)
         files = storage_client.get_bucket(bucket).list_blobs(prefix=prefix)
         
