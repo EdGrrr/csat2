@@ -34,7 +34,7 @@ def _convert_cds_to_vname(cds_name):
         return cds_name.capitalize()
 
 
-def check(year, month, variables, level, resolution, time='timed', product='ERA5'):
+def check(year, month, variables, level, resolution, days=None, doys=None, time='timed', product='ERA5'):
     '''Check that files exist for the year, month, level and variables in question
     Does not do any validation of the contents at the moment.
 
@@ -42,12 +42,17 @@ def check(year, month, variables, level, resolution, time='timed', product='ERA5
         boolean - all files are present
         list - missing [variable, doy] pairs'''
 
-    if month < 12:
-        doys = np.arange(csat2.misc.time.date_to_doy(year, month, 1)[1],
-                         csat2.misc.time.date_to_doy(year, month+1, 1)[1])
+    if days:
+        doys = [csat2.misc.time.date_to_doy(year, month, day)[1] for day in days]
+    elif doys:
+        doys = doys
     else:
-        doys = np.arange(csat2.misc.time.date_to_doy(year, 12, 1)[1],
-                         csat2.misc.time.date_to_doy(year, 12, 31)[1]+1)
+        if month < 12:
+            doys = np.arange(csat2.misc.time.date_to_doy(year, month, 1)[1],
+                             csat2.misc.time.date_to_doy(year, month+1, 1)[1])
+        else:
+            doys = np.arange(csat2.misc.time.date_to_doy(year, 12, 1)[1],
+                             csat2.misc.time.date_to_doy(year, 12, 31)[1]+1)
 
     missing = []
     exist = True
@@ -96,7 +101,7 @@ def download(year, month, variables, level, resolution,
         raise ValueError('Resolution: {} not yet implmented'.format(resolution))
 
     if (not force_redownload and check(
-            year, month, variables, level, resolution)[0]):
+            year, month, variables, level, resolution, days=days)[0]):
         logging.info('All files exist')
         return
     

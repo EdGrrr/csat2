@@ -135,6 +135,7 @@ def _calc_eis(t700, t1000, rh1000=80):
     g850 = _sat_adiabatic_potential_gradient(0.5*(t700+t1000), 85000, rh1000)
     # td = _td(t1000, rh1000)
     tlcl = 1/(1/(t1000-55) - np.log(rh1000/100)/2840) + 55
+    # FAA calculation, assumes dry adiabat below LCL
     lcl = (t1000 - tlcl)/9.8 * 1000
     lts = 1.1082*t700 - t1000
     # lts = 1.11075*t700 - t1000 # To match WH06
@@ -162,7 +163,7 @@ class ERA5Data():
     '''A class for using ERA5 Data. Holds the ncdf files open and updates them
     as necessary. Does not do any explict scaling, but netCDF4 will account
     for that.'''
-    def __init__(self, variable, level, res='0.25grid', scaling=1):
+    def __init__(self, variable, level, res='0.25grid', scaling=1, linear_interp=False):
         self.nc = None
         self.time = None
         self.lon = None
@@ -174,16 +175,34 @@ class ERA5Data():
         self.varkey = None
         self.level = level
         self.res = res
-
-    def get_data_time(self, time, linear_interp=True):
+        # Define linear interp here, as if it is True or 'time'
+        # we need to cache some extra data
+        self.linear_interp = linear_interp
+        
+    def get_data_time(self, time):
         '''Returns the wind fields at a given time'''
         year, doy = time.year, time.timetuple().tm_yday
         if (doy != self.doy) or (year != self.year):
             self.update_files(year, doy)
 
-        # Take the nearest index
-        time_ind = np.argmin(np.abs(self.time - time))
-        u_ret = self.nc.variables[self.varkey][time_ind, :, :]
+        if self.linear_interp or self.linear_interp == 'time':
+            time_ind = np.argmin(time > self.time) - 1
+            if time_ind <= len(self.time)-1:
+                # The weight for data at the first index
+                weight = 1-((time-self.time[time_ind]) /
+                            (self.time[time_ind+1]-self.time[time_ind]))
+                u_ret = (
+                    (weight*self.nc.variables[
+                        self.varkey][time_ind, :, :]) +
+                    ((1-weight)*self.nc.variables[
+                        self.varkey][time_ind+1, :, :]))
+            else:
+                u_ret = self.nc.variables[self.varkey][-1, :, :]
+
+        else:
+            # No temporal interpolation, take the nearest index
+            time_ind = np.argmin(np.abs(self.time - time))
+            u_ret = self.nc.variables[self.varkey][time_ind, :, :]
 
         if (self.res == '1grid'): # Arrange the data to match the MODIS files
             rlon = self.lon
@@ -199,7 +218,7 @@ class ERA5Data():
                 dims=['lat', 'lon'],
                 coords={'lon': self.lon, 'lat': self.lat})
 
-    def get_data(self, lon, lat, time, linear_interp=True, simple=False):
+    def get_data(self, lon, lat, time, simple=False):
         year, doy = time.year, time.timetuple().tm_yday
         if (doy != self.doy) or (year != self.year):
             self.update_files(year, doy)
@@ -208,14 +227,24 @@ class ERA5Data():
         # arrays store the gridbox centres, not the edges
         lat_ind = np.digitize(lat, self.lat-0.5*(self.lat[1]-self.lat[0]))-1
         lon_ind = np.digitize(np.mod(lon, 360), self.lon-0.5*(self.lon[1]-self.lon[0]))-1
-        time_ind = np.argmin(np.abs(self.time - time))
+
+        t_interp = False
+        if self.linear_interp or self.linear_interp == 'time':
+            time_ind = np.argmin(time > self.time)-1
+            if time_ind <= len(self.time)-1:
+                # The weight for data at the first index
+                tweight = 1-((time-self.time[time_ind]) /
+                             (self.time[time_ind+1]-self.time[time_ind]))
+                t_interp = True
+        else:
+            time_ind = np.argmin(np.abs(self.time - time))
 
         if simple:
             if len(self.nc.variables[self.varkey].shape)>3:
                 u_ret = self.scaling*self.nc.variables[self.varkey][
                     time_ind, 0, :, :][lat_ind, lon_ind]
             else:
-                u_ret = self.scaling*self.unc.variables[self.varkey][
+                u_ret = self.scaling*self.nc.variables[self.varkey][
                     time_ind, :, :][lat_ind, lon_ind]
             return u_ret
 
@@ -231,11 +260,24 @@ class ERA5Data():
                     time_ind, 0, lat_range[0]:lat_range[1], lon_range[0]:lon_range[1]][
                         lat_ind-lat_range[0],
                         lon_ind-lon_range[0]]
+                if t_interp:
+                    u_retp = self.scaling*self.nc.variables[self.varkey][
+                        time_ind+1, 0, lat_range[0]:lat_range[1], lon_range[0]:lon_range[1]][
+                            lat_ind-lat_range[0],
+                            lon_ind-lon_range[0]]
+                    u_ret = tweight*u_ret + (1-tweight)*u_retp               
             else:
                 u_ret = self.scaling*self.nc.variables[self.varkey][
                     time_ind, lat_range[0]:lat_range[1], lon_range[0]:lon_range[1]][
                         lat_ind-lat_range[0],
                         lon_ind-lon_range[0]]
+                if t_interp:
+                    u_retp = self.scaling*self.nc.variables[self.varkey][
+                        time_ind+1, lat_range[0]:lat_range[1], lon_range[0]:lon_range[1]][
+                            lat_ind-lat_range[0],
+                            lon_ind-lon_range[0]]
+                    u_ret = tweight*u_ret + (1-tweight)*u_retp
+
             return u_ret
 
     def update_files(self, year, doy):
