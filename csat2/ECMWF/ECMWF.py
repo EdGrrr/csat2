@@ -28,11 +28,15 @@ def readin(product, *args, **kwargs):
 # ERA readin functions #
 ########################
 def readin_ERA(year, doy, variable, level=None, product='ERAInterim', time='LST',
-               resolution='1grid', varname=None):
+               resolution='1grid', varname=None, *args, **kwargs):
     if variable == 'LTS':
-        return readin_ERA_LTS(year, doy, product=product, time=time, resolution=resolution)
+        return readin_ERA_LTS(
+            year, doy, product=product, time=time,
+            resolution=resolution, *args, **kwargs)
     if variable == 'EIS':
-        return readin_ERA_EIS(year, doy, product=product, time=time, resolution=resolution)
+        return readin_ERA_EIS(
+            year, doy, product=product, time=time,
+            resolution=resolution, *args, **kwargs)
 
     if not level:
         raise ValueError('level is required if variable not LTS or EIS')
@@ -48,16 +52,22 @@ def readin_ERA(year, doy, variable, level=None, product='ERAInterim', time='LST'
         # xarray is very slow at transposing arrays (for some reason)
         with Dataset(filename[0]) as ncdf:
             returndata = ncdf.variables[variable_names(ncdf)][:]
-            if ncdf.variables['time'].units:
+            try:
                 rtime = num2date(
                     ncdf.variables['time'][:],
                     units=ncdf.variables['time'].units)
-            else: # Times in files is in hour strings
+            except AttributeError: # Times in files is in hour strings
                 rtime = np.array([
                     ydh_to_datetime(year, doy,
-                                    (t//100)+(t%100)/60)
+                                    (t//100)+(t % 100)/60)
                     for t in ncdf.variables['time'][:]])
             rlon = ncdf.variables['lon'][:]
+            if time == 'LST':
+                return xr.DataArray(np.swapaxes(returndata, 1, 2),
+                                    name=variable_names(ncdf),
+                                    coords=[('time', rtime),
+                                            ('lon', rlon),
+                                            ('lat', ncdf.variables['lat'][:])])
             cycle = list(range(180,360))+list(range(180))
             rlon = rlon[cycle]
             rlon = np.where(rlon>180, rlon-360, rlon)
@@ -90,12 +100,13 @@ def variable_names(ncdf):
 
 
 def readin_ERA_LTS(year, doy, product='ERAInterim', time='LST', resolution='1grid'):
-    return (1.1082 * readin_ERA(year, doy, 'Temperature', '700hPa',
-                                product=product, time=time,
-                                resolution=resolution) -
-            readin_ERA(year, doy, 'Temperature', '1000hPa',
-                       product=product, time=time,
-                       resolution=resolution)).rename('lts')
+    return _calc_lts(
+        readin_ERA(year, doy, 'Temperature', '700hPa',
+                   product=product, time=time,
+                   resolution=resolution),
+        readin_ERA(year, doy, 'Temperature', '1000hPa',
+                   product=product, time=time,
+                   resolution=resolution)).rename('lts')
 
 
 def _es(temp):
@@ -128,16 +139,24 @@ def _sat_adiabatic_potential_gradient(T, p, rh):
     return (g/cpd) * (1 - (1+A)/(1+B))
 
 
+def _calc_lcl(t1000, rh1000):
+    # FAA calculation, assumes dry adiabat below LCL
+    tlcl = 1/(1/(t1000-55) - np.log(rh1000/100)/2840) + 55
+    return (t1000 - tlcl)/9.8 * 1000
+
+
+def _calc_lts(t1000, t700):
+    return 1.1082*t700 - t1000
+
+
 def _calc_eis(t700, t1000, rh1000=80):
     # An averge value gives a slightly better match to WH06
     z700 = (287*0.5*(t700+t1000)/9.81)*np.log(1000/700)
     # z700 = (287*0.5*(t700+t1000)/9.81)*np.log(1010/700) # To match WH06
     g850 = _sat_adiabatic_potential_gradient(0.5*(t700+t1000), 85000, rh1000)
     # td = _td(t1000, rh1000)
-    tlcl = 1/(1/(t1000-55) - np.log(rh1000/100)/2840) + 55
-    # FAA calculation, assumes dry adiabat below LCL
-    lcl = (t1000 - tlcl)/9.8 * 1000
-    lts = 1.1082*t700 - t1000
+    lcl = _calc_lcl(t1000, rh1000)
+    lts = _calc_lts(t1000, t700)
     # lts = 1.11075*t700 - t1000 # To match WH06
     eis = lts - g850*z700+g850*lcl
     return lts, eis, g850*1000
