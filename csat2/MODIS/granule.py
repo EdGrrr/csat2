@@ -3,7 +3,7 @@ import misc.time
 from .. import locator
 from .readfiles import (readin, readin_MODIS_L2, readin_metadata, field_interpolate, DEFAULT_COLLECTION)
 from .util import band_centres, bowtie_correct
-from .download import download, check
+from .download import download, download_geometa, check
 import numpy as np
 from sklearn.neighbors import BallTree
 import scipy.constants
@@ -351,6 +351,15 @@ class Granule(object):
                      self.year, self.doy,
                      time=self.timestr(), col=col)
 
+    def download_geometa(self, col=None, force_redownload=False):
+        if not col:
+            col = self.col
+        download_geometa(self.year, self.doy,
+                         {'A': 'AQUA',
+                          'T': 'TERRA'}[self.sat],
+                         col=col,
+                         force_redownload=force_redownload)
+        
     def get_metadata_band(self, band, col=None):
         if not col:
             col = self.col

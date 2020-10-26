@@ -1,5 +1,6 @@
 from __future__ import print_function, division
-from csat2 import locator, version
+import csat2
+from csat2 import locator
 from .readfiles import DEFAULT_COLLECTION
 import sys
 import os
@@ -7,8 +8,7 @@ import os.path
 import json
 import logging
 
-USERAGENT = 'csat2/download_v{}'.format(version) + \
-    sys.version.replace('\n', '').replace('\r', '')
+USERAGENT = 'csat2/download_v{}'.format(csat2.__version__).replace('\r', '')
 TOKENFILE = os.environ['HOME']+'/.csat2/laadsdaacrc'
 
 
@@ -63,9 +63,9 @@ def _geturl(url, token=None, out=None):
                 else:
                     subprocess.call(args, stdout=out)
             except subprocess.CalledProcessError as e:
-                print('curl GET error message: %' +
-                      (e.message if hasattr(e, 'message') else e.output),
-                      file=sys.stderr)
+                logging.warn('curl GET error message: %' +
+                             (e.message if hasattr(e, 'message') else e.output),
+                             file=sys.stderr)
         return None
 
 
@@ -123,8 +123,42 @@ def download(product, year, doy, times=None, col=DEFAULT_COLLECTION, force_redow
             with open(newfile, 'w+b') as fh:
                 _geturl(laads_loc, token, fh)
         else:
-            print('Skipping {}'.format(filename))
+            logging.info('Skipping {}'.format(filename))
 
+
+def download_geometa(year, doy, sat, col=DEFAULT_COLLECTION, force_redownload=False):
+    _, mon, day = csat2.misc.time.doy_to_date(year, doy)
+    laads_file = (
+        'https://ladsweb.modaps.eosdis.nasa.gov/' +
+        'archive/geoMeta/' +
+        '{col}/{sat}/{year}/M{si}D03_{year}-{mon:0>2}-{day:0>2}.txt'.format(
+            col=col,
+            sat=sat,
+            year=year,
+            mon=mon,
+            day=day,
+            si={'AQUA': 'Y',
+                'TERRA': 'O'}[sat]))
+
+    local_file = locator.format_filename('MODIS', 'GEOMETA',
+                                         year=year, doy=doy,
+                                         sat=sat)
+
+    try:
+        os.makedirs(os.path.dirname(local_file))
+    except FileExistsError:
+        pass
+
+    token = get_token()
+    if (not os.path.exists(local_file)) or force_redownload:
+        if force_redownload:
+            os.remove(local_file)
+        with open(local_file, 'w+b') as fh:
+            _geturl(laads_file, token, fh)
+    else:
+        logging.info('Skipping {}'.format(os.path.basename(local_file)))
+    
+            
 
 def check(product, year, doy, time, col=DEFAULT_COLLECTION):
     '''Does a product already exist for a specific time/date/collection'''

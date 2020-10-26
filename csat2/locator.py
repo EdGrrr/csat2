@@ -1,4 +1,3 @@
-from __future__ import print_function
 from glob import glob
 import os
 import logging
@@ -77,6 +76,7 @@ class FileLocator:
         return patterns
 
     def pattern_format(self, pattern, **kwargs):
+        '''Like format, but adds in a few extra things (e.g. day, month)'''
         sd = kwargs
         if ('year' in sd.keys()) and ('doy' in sd.keys()):
             # Get the month and day if only the year and doy are provided
@@ -129,6 +129,17 @@ class FileLocator:
         else:
             return patterns
 
+    def format_filename(self, origin, product, return_primary=True, *args, **kwargs):
+        '''Get the completed filenames from the search paths dictionary.
+        return_primary - return the first matching path (assumed main directory)'''
+        patterns = self.get_patterns(origin, product, **kwargs)
+        patterns = [self.pattern_format(p, **kwargs).replace('*', '0')
+                    for p in patterns]
+        if return_primary:
+            return patterns[0]
+        else:
+            return patterns
+
 
 def partial_format(istr, format_dict):
     '''Operates in the same way as the starndard python format for string
@@ -156,7 +167,6 @@ def configloader(user_location=None, default_fallback=True):
     user_location - specified location for the config file
     default_fallback - use the package supplied defaults'''
     _hostname = socket.getfqdn()
-    _package_directory = os.path.dirname(os.path.abspath(__file__))
 
     if user_location:
         config = yaml.safe_load(open(user_location))
