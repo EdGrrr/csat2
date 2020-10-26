@@ -269,14 +269,37 @@ class Granule(object):
         else:
             return (1.37e-11 * cod**0.5 * re**-2.5).rename('Nd')
 
-    def get_variable(self, product, sds):
+    def get_filename(self, product, col=None, return_primary=True):
+        if not col:
+            col = self.col
+        if product is 'GEOMETA':
+            fnames = locator.search(
+                'MODIS', 'GEOMETA',
+                year=self.year, doy=self.doy,
+                sat = {'A': 'AQUA',
+                       'T': 'TERRA'}[self.sat],
+                collection=col)
+        else:
+            fnames = locator.search(
+                'MODIS', self.product_expand(product),
+                year=self.year, doy=self.doy,
+                time=self.timestr(),
+                collection=col)
+        if return_primary:
+            return fnames[0]
+        else:    
+            return fnames
+        
+    def get_variable(self, product, sds, col=None):
         '''Get data from a specific product e.g. '06_L2' '''
+        if not col:
+            col = self.col
         data = readin_MODIS_L2(
             self.product_expand(product),
             self.year,
             self.doy,
             sds=sds,
-            time=self.timestr(), col=self.col)
+            time=self.timestr(), col=col)
         return data
         
     def get_band_radiance(self, band, col=None, refl=False, bowtie_corr=True):
@@ -313,11 +336,11 @@ class Granule(object):
 
         raise ValueError('Not a valid band')
 
-    def get_band_bt(self, band, col=None):
+    def get_band_bt(self, band, col=None, *args, **kwargs):
         if not col:
             col = self.col
         return self._rad_to_bt(
-            self.get_band_radiance(band, col=col),
+            self.get_band_radiance(band, col=col, *args, **kwargs),
             band_centres(band))
 
     def _rad_to_bt(self, radiance, wavelength):
@@ -342,7 +365,7 @@ class Granule(object):
         if (not self.check(product, col=col)) or force_redownload:
             download(self.product_expand(product),
                      self.year, self.doy,
-                     time=self.timestr(), col=col, force_redownload=force_redownload)
+                     times=[self.timestr()], col=col, force_redownload=force_redownload)
 
     def check(self, product, col=None):
         if not col:
@@ -384,6 +407,8 @@ class Granule(object):
                     output['reflectance_scales'] = output['reflectance_scales'][ind]
                     output['corrected_counts_offsets'] = output['corrected_counts_offsets'][ind]
                     output['corrected_counts_scales'] = output['corrected_counts_scales'][ind]
+                except KeyError:
+                    pass
                 except IndexError:
                     pass
                 return var, ind, output
@@ -399,7 +424,7 @@ class Granule(object):
         dt = self.datetime()
         dt += timedelta(minutes=5*number)
         _, doy = misc.time.date_to_doy(dt.year, dt.month, dt.day)
-        ntime = '{:0>2}{:0>2}'.format(dt.hour, dt.minute)
+        ntime = int('{:0>2}{:0>2}'.format(dt.hour, dt.minute))
         return Granule(dt.year, doy, ntime, self.sat, col=self.col)
 
 
