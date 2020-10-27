@@ -47,7 +47,7 @@ def readin_ERA(year, doy, variable, level=None, product='ERAInterim', time='LST'
                               level=level,
                               resolution=resolution,
                               time=time)
-    if (resolution is '1grid'): # and (returndata['time'].dtype == np.float):
+    if (resolution is '1grid'):  # and (returndata['time'].dtype == np.float):
         # These should match the MODIS files, so will build the xarray directly
         # xarray is very slow at transposing arrays (for some reason)
         with Dataset(filename[0]) as ncdf:
@@ -56,7 +56,7 @@ def readin_ERA(year, doy, variable, level=None, product='ERAInterim', time='LST'
                 rtime = num2date(
                     ncdf.variables['time'][:],
                     units=ncdf.variables['time'].units)
-            except AttributeError: # Times in files is in hour strings
+            except AttributeError:  # Times in files is in hour strings
                 rtime = np.array([
                     ydh_to_datetime(year, doy,
                                     (t//100)+(t % 100)/60)
@@ -68,10 +68,10 @@ def readin_ERA(year, doy, variable, level=None, product='ERAInterim', time='LST'
                                     coords=[('time', rtime),
                                             ('lon', rlon),
                                             ('lat', ncdf.variables['lat'][:])])
-            cycle = list(range(180,360))+list(range(180))
+            cycle = list(range(180, 360))+list(range(180))
             rlon = rlon[cycle]
-            rlon = np.where(rlon>180, rlon-360, rlon)
-            return xr.DataArray(np.swapaxes(returndata, 1, 2)[:,cycle][:,:,::-1],
+            rlon = np.where(rlon > 180, rlon-360, rlon)
+            return xr.DataArray(np.swapaxes(returndata, 1, 2)[:, cycle][:, :, ::-1],
                                 name=variable_names(ncdf),
                                 coords=[('time', rtime),
                                         ('lon', rlon),
@@ -182,6 +182,7 @@ class ERA5Data():
     '''A class for using ERA5 Data. Holds the ncdf files open and updates them
     as necessary. Does not do any explict scaling, but netCDF4 will account
     for that.'''
+
     def __init__(self, variable, level, res='0.25grid', scaling=1, linear_interp=False):
         self.nc = None
         self.time = None
@@ -223,12 +224,12 @@ class ERA5Data():
             time_ind = np.argmin(np.abs(self.time - time))
             u_ret = self.nc.variables[self.varkey][time_ind, :, :]
 
-        if (self.res == '1grid'): # Arrange the data to match the MODIS files
+        if (self.res == '1grid'):  # Arrange the data to match the MODIS files
             rlon = self.lon
-            cycle = list(range(180,360))+list(range(180))
+            cycle = list(range(180, 360))+list(range(180))
             rlon = rlon[cycle]
-            rlon = np.where(rlon>180, rlon-360, rlon)
-            return xr.DataArray(np.swapaxes(u_ret, 0, 1)[cycle][:,::-1],
+            rlon = np.where(rlon > 180, rlon-360, rlon)
+            return xr.DataArray(np.swapaxes(u_ret, 0, 1)[cycle][:, ::-1],
                                 coords=[('lon', rlon),
                                         ('lat', self.lat[::-1])])
         else:
@@ -300,7 +301,7 @@ class ERA5Data():
             lat_range = lat_ind.min(), lat_ind.max()+1
             lon_range = lon_ind.min(), lon_ind.max()+1
 
-            if len(self.nc.variables[self.varkey].shape)>3:
+            if len(self.nc.variables[self.varkey].shape) > 3:
                 u_ret = self.scaling*self.nc.variables[self.varkey][
                     time_ind, 0, lat_range[0]:lat_range[1], lon_range[0]:lon_range[1]][
                         lat_ind-lat_range[0],
@@ -310,7 +311,7 @@ class ERA5Data():
                         time_ind+1, 0, lat_range[0]:lat_range[1], lon_range[0]:lon_range[1]][
                             lat_ind-lat_range[0],
                             lon_ind-lon_range[0]]
-                    u_ret = tweight*u_ret + (1-tweight)*u_retp               
+                    u_ret = tweight*u_ret + (1-tweight)*u_retp
             else:
                 u_ret = self.scaling*self.nc.variables[self.varkey][
                     time_ind, lat_range[0]:lat_range[1], lon_range[0]:lon_range[1]][
@@ -407,14 +408,16 @@ def readin_MACCanth(year, doy):
 def readin_MACC_aod(year, doy, sds, time='LST'):
     if time == 'LST':
         time = '_'+time
-    filename = locator.search('ECMWF', 'MACC-surf', time=time, year=year, doy=doy)
+    filename = locator.search('ECMWF', 'MACC-surf',
+                              time=time, year=year, doy=doy)
     try:
         fname = filename[0]
-        with Dataset(fname,'r') as ncdf:
+        with Dataset(fname, 'r') as ncdf:
             outdata = {}
-            cycle = list(range(180,360))+list(range(180))
+            cycle = list(range(180, 360))+list(range(180))
             for name in sds:
-                outdata[name] = ncdf.variables[name][:].squeeze().transpose()[cycle][:,::-1]
+                outdata[name] = ncdf.variables[name][:].squeeze().transpose()[
+                    cycle][:, ::-1]
             return outdata
     except IndexError:
         return None
