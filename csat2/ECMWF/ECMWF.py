@@ -197,15 +197,15 @@ class ERA5Data():
         # Define linear interp here, as if it is True or 'time'
         # we need to cache some extra data
         self.linear_interp = linear_interp
-        
+
     def get_data_time(self, time):
         '''Returns the wind fields at a given time'''
         year, doy = time.year, time.timetuple().tm_yday
         if (doy != self.doy) or (year != self.year):
             self.update_files(year, doy)
 
-        if self.linear_interp or self.linear_interp == 'time':
-            time_ind = np.argmin(time > self.time) - 1
+        if self.linear_interp in ['time', 'both']:
+            time_ind = np.argmin(time >= self.time) - 1
             if time_ind <= len(self.time)-1:
                 # The weight for data at the first index
                 weight = 1-((time-self.time[time_ind]) /
@@ -244,12 +244,38 @@ class ERA5Data():
 
         # Take the nearest index - note that the self.lon and self.lat
         # arrays store the gridbox centres, not the edges
-        lat_ind = np.digitize(lat, self.lat-0.5*(self.lat[1]-self.lat[0]))-1
-        lon_ind = np.digitize(np.mod(lon, 360), self.lon-0.5*(self.lon[1]-self.lon[0]))-1
+
+        s_interp = False
+        if self.linear_interp in ['space', 'both']:
+            lat_ind = np.digitize(lat, self.lat)-1
+            lat_weight = (np.mod(lat-self.lat[lat_ind], 1)/self.lat_inc)[..., None]
+
+            lat_ind = np.repeat(lat_ind[..., None], 4, axis=-1)
+            lat_ind[..., 2:] += 1
+            lat_ind = np.clip(lat_ind, 0, len(self.lat)-1)
+
+            lon_ind = np.digitize(np.mod(lon, 360), self.lon)-1
+            lon_weight = (np.mod(lon - self.lon[lon_ind], 1)/self.lon_inc)[..., None]
+
+            lon_ind = np.repeat(lon_ind[..., None], 4, axis=-1)
+            lon_ind[..., [1, 3]] += 1
+            lon_ind = np.mod(lon_ind, len(self.lon))
+            
+            weights = np.ones(lon_ind.shape)
+            weights[..., [0, 2]] *= (1-lon_weight)
+            weights[..., [1, 3]] *= lon_weight
+            weights[..., :2] *= (1-lat_weight)
+            weights[..., 2:] *= lat_weight
+            
+            s_interp = True
+        else:
+            lat_ind = np.digitize(lat, self.lat-0.5*self.lat_inc)-1
+            lon_ind = np.digitize(np.mod(lon, 360), self.lon -
+                                  0.5*self.lon_inc)-1
 
         t_interp = False
-        if self.linear_interp or self.linear_interp == 'time':
-            time_ind = np.argmin(time > self.time)-1
+        if self.linear_interp in ['time', 'both']:
+            time_ind = np.argmin(time >= self.time)-1
             if time_ind <= len(self.time)-1:
                 # The weight for data at the first index
                 tweight = 1-((time-self.time[time_ind]) /
@@ -257,9 +283,9 @@ class ERA5Data():
                 t_interp = True
         else:
             time_ind = np.argmin(np.abs(self.time - time))
-
+            
         if simple:
-            if len(self.nc.variables[self.varkey].shape)>3:
+            if len(self.nc.variables[self.varkey].shape) > 3:
                 u_ret = self.scaling*self.nc.variables[self.varkey][
                     time_ind, 0, :, :][lat_ind, lon_ind]
             else:
@@ -297,6 +323,9 @@ class ERA5Data():
                             lon_ind-lon_range[0]]
                     u_ret = tweight*u_ret + (1-tweight)*u_retp
 
+            if s_interp:
+                # This is where the averaging is done
+                return np.sum(u_ret*weights, axis=-1)
             return u_ret
 
     def update_files(self, year, doy):
@@ -325,41 +354,51 @@ class ERA5Data():
             self.lat = self.nc.variables['latitude'][:]
         self.time = num2date(self.nc.variables['time'][:],
                              units=self.nc.variables['time'].units)
-
+        if (len(set(np.diff(self.lon))) != 1) or (len(set(np.diff(self.lat))) != 1):
+            raise ValueError('Must be an evenly girdded file')
+        self.lon_inc = self.lon[1]-self.lon[0]
+        self.lat_inc = self.lat[1]-self.lat[0]
+        
 
 class ERA5WindData():
-    def __init__(self, level='850hPa', res='0.25grid', wind_scaling=(1, 1)):
-        self.udata = ERA5Data('U-wind-component', level=level, res=res, scaling=wind_scaling[0])
-        self.vdata = ERA5Data('V-wind-component', level=level, res=res, scaling=wind_scaling[1])
-        
-    def get_data_time(self, time, linear_interp=True):
-        '''Returns the wind fields at a given time'''
-        return (self.udata.get_data_time(time, linear_interp=linear_interp),
-                self.vdata.get_data_time(time, linear_interp=linear_interp))
+    def __init__(self, level='850hPa', res='0.25grid', wind_scaling=(1, 1), *args, **kwargs):
+        self.udata = ERA5Data('U-wind-component', level=level, res=res,
+                              scaling=wind_scaling[0],
+                              *args, **kwargs)
+        self.vdata = ERA5Data('V-wind-component', level=level, res=res,
+                              scaling=wind_scaling[1],
+                              *args, **kwargs)
 
-    def get_data(self, lon, lat, time, linear_interp=True, simple=False):
+    def get_data_time(self, time):
+        '''Returns the wind fields at a given time'''
+        return (self.udata.get_data_time(time),
+                self.vdata.get_data_time(time))
+
+    def get_data(self, lon, lat, time, simple=False):
         return (
             self.udata.get_data(
-                lon, lat, time, linear_interp=linear_interp, simple=simple),
+                lon, lat, time, simple=simple),
             self.vdata.get_data(
-                lon, lat, time, linear_interp=linear_interp, simple=simple))
+                lon, lat, time, simple=simple))
 
 
 ##################
 # MACC functions #
 ##################
 
-def readin_MACCanth(year,doy):
+def readin_MACCanth(year, doy):
     filename = locator.search('ECMWF', 'MACC-anth',
                               year=year,
                               doy=doy)
     try:
         fname = filename[0]
-        with Dataset(fname,'r') as ncdf:
+        with Dataset(fname, 'r') as ncdf:
             outdata = {}
-            cycle = list(range(180,360))+list(range(180))
-            outdata['aod'] = ncdf.variables['aod'][:].squeeze().transpose()[cycle][:,::-1]
-            outdata['aaod'] = ncdf.variables['anthaod'][:].squeeze().transpose()[cycle][:,::-1]
+            cycle = list(range(180, 360))+list(range(180))
+            outdata['aod'] = ncdf.variables['aod'][:].squeeze().transpose()[
+                cycle][:, ::-1]
+            outdata['aaod'] = ncdf.variables['anthaod'][:].squeeze().transpose()[
+                cycle][:, ::-1]
             return outdata
     except IndexError:
         return None

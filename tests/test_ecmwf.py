@@ -256,13 +256,16 @@ class TestECMWFData(unittest.TestCase):
         assert temp[0] < temp[1]
 
     def test_era5data_points_timeinterp(self):
-        locs_lon = [140, -40]
-        locs_lat = [-25, -25]
+        locs_lon = [140, -40, 140.5, -40.5]
+        locs_lat = [-25, -25, -25.5, -25.5]
 
         tdata = ECMWF.ERA5Data('Temperature', '1000hPa', res='1grid', linear_interp=False)
-        temp_pre = tdata.get_data(
+        _ = tdata.get_data(
             locs_lon, locs_lat,
             misc.time.ydh_to_datetime(2020, 1, 0))
+        temp_pre = tdata.get_data(
+            locs_lon, locs_lat,
+            tdata.time[0])
         temp_post = tdata.get_data(
             locs_lon, locs_lat,
             tdata.time[1]) 
@@ -275,4 +278,38 @@ class TestECMWFData(unittest.TestCase):
                 tdata.time[0]+tw*(tdata.time[1]-tdata.time[0]))
             assert np.max(np.abs(tw*(temp_post-temp_pre)+temp_pre - temp)) < 0.01
 
-    
+    def test_era5data_points_spaceinterp(self):
+        locs_lon = np.array([140.7, -40.5, 0.5, 0, 359.7, 30.5, 29.8, 30])
+        locs_lat = np.array([-25.2, -25.5, 0.5, 0.5, 0.5, -89.9, -89.9, 89.9])
+
+        def rdown(data):
+            return np.floor(data-0.5)+0.5
+        
+        tdata = ECMWF.ERA5Data('Temperature', '1000hPa', res='1grid', linear_interp=False)
+        ttime = misc.time.ydh_to_datetime(2020, 1, 0)
+        
+        temp_ll = tdata.get_data(
+            rdown(locs_lon), rdown(locs_lat).clip(-90, 90),
+            ttime)
+        temp_lr = tdata.get_data(
+            rdown(locs_lon+1), rdown(locs_lat).clip(-90, 90),
+            ttime)
+        temp_ul = tdata.get_data(
+            rdown(locs_lon), rdown(locs_lat+1).clip(-90, 90),
+            ttime)
+        temp_ur = tdata.get_data(
+            rdown(locs_lon+1), rdown(locs_lat+1).clip(-90, 90),
+            ttime) 
+        weights_lon = 1-(locs_lon-rdown(locs_lon))
+        weights_lat = 1-(locs_lat-rdown(locs_lat))
+
+        temp_interp = (weights_lat *
+                       (weights_lon*temp_ll + (1-weights_lon)*temp_lr) +
+                       (1-weights_lat) *
+                       (weights_lon*temp_ul + (1-weights_lon)*temp_ur))
+        
+        tdatai = ECMWF.ERA5Data('Temperature', '1000hPa', res='1grid', linear_interp='space')
+        tempi = tdatai.get_data(locs_lon, locs_lat, ttime)
+
+        assert np.all(np.isclose(temp_interp, tempi))
+
