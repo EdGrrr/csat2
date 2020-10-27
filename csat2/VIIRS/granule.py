@@ -13,19 +13,20 @@ granule_length_minutes = 6
 class Granule(object):
     """An object for plotting data for a MODIS granule"""
 
-    def __init__(self, year, doy, time, sat):
+    def __init__(self, year, doy, time, sat, col=DEFAULT_COLLECTION):
         '''year, doy, time - all int
         sat = 'N' or 'J' (Suomi or JPSS-1) '''
         super(Granule, self).__init__()
         self.year = year
         self.doy = doy
-        self.time = time
+        self.time = int(time)
         if sat not in ['N', 'J']:
             raise ValueError('Sat must be N or J')
         self.sat = sat
         self.locator = None
         self.lonlat = None
         self._orbit = None
+        self.col = col
 
     @classmethod
     def fromtext(cls, gran_text):
@@ -66,14 +67,22 @@ class Granule(object):
             int(self.time)//100,
             int(self.time) % 100)
 
-    def get_band_radiance(self, band, col=None, refl=False, bowtie=False):
+    def product_expand(self, product):
+        if not product.startswith('V'):
+            # Add on the correct satellite prefix
+            product = 'V{}{}'.format(
+                {'N': 'NP', 'J': 'Ji'}[self.sat],
+                product)
+        return product
+
+    def get_band_radiance(self, band, col=None, refl=False, bowtie_corr=False):
         ''' 
-        --Bowtie Corrected-- => bowtie=True
+        --Bowtie Corrected-- => bowtie_corr=True
 
         Return the radiance for a specific band from a specific granule.
         Set 'refl' to True to get the reflectance instead (if supported)'''
         if col is None:
-            col = DEFAULT_COLLECTION
+            col = self.col
 
         metadata = self.get_metadata_band(band, col=col)
         vir_data = readin(
@@ -82,7 +91,7 @@ class Granule(object):
             self.doy,
             [band],
             time=self.timestr(), col=col)[band]
-        if bowtie:
+        if bowtie_corr:
             if refl:
                 if 'radiance' in metadata['long_name']:
                     raise ValueError(
@@ -105,9 +114,9 @@ class Granule(object):
             else:
                 return vir_data/metadata['radiance_scale_factor']
 
-    def get_band_bt(self, band, col=None, bowtie=False):
+    def get_band_bt(self, band, col=None, bowtie_corr=False):
         if col is None:
-            col = DEFAULT_COLLECTION
+            col = self.col
 
         vir_data = readin(
             self.get_radiance_product(band),
@@ -115,7 +124,7 @@ class Granule(object):
             self.doy,
             [band, band+'_brightness_temperature_lut'],
             time=self.timestr(), col=col, scale=False)
-        if bowtie:
+        if bowtie_corr:
             return bowtie_correct(
                 vir_data[band+'_brightness_temperature_lut'][
                     vir_data[band].astype('int')],
@@ -126,20 +135,41 @@ class Granule(object):
 
     def download_product(self, product, col=None):
         if col is None:
-            col = DEFAULT_COLLECTION
+            col = self.col
 
         if not self.check_product(product, col):
-            download(product,
+            download(self.product_expand(product),
                      self.year, self.doy,
                      times=[self.timestr()], col=col)
 
+    def get_filename(self, product, col=None, return_primary=True):
+        if not col:
+            col = self.col
+        if product is 'GEOMETA':
+            fnames = locator.search(
+                'VIIRS', 'GEOMETA',
+                year=self.year, doy=self.doy,
+                sat = {'N': 'NPP',
+                       'J': 'JPSS1'}[self.sat],
+                collection=col)
+        else:
+            fnames = locator.search(
+                'VIIRS', self.product_expand(product),
+                year=self.year, doy=self.doy,
+                time=self.timestr(),
+                collection=col)
+        if return_primary:
+            return fnames[0]
+        else:    
+            return fnames
+
     def check_product(self, product, col=None):
         if col is None:
-            col = DEFAULT_COLLECTION
+            col = self.col
 
         filename = locator.search(
             'VIIRS',
-            product,
+            self.product_expand(product),
             year=self.year,
             doy=self.doy,
             collection=col,
@@ -162,7 +192,7 @@ class Granule(object):
 
     def get_metadata_band(self, band, col=None):
         if col is None:
-            col = DEFAULT_COLLECTION
+            col = self.col
 
         metadata = readin_metadata(
             self.get_radiance_product(band),
@@ -180,5 +210,5 @@ class Granule(object):
         dt = self.datetime()
         dt += timedelta(minutes=granule_length_minutes*number)
         _, doy = misc.time.date_to_doy(dt.year, dt.month, dt.day)
-        ntime = '{:0>2}{:0>2}'.format(dt.hour, dt.minute)
+        ntime = int('{:0>2}{:0>2}'.format(dt.hour, dt.minute))
         return Granule(dt.year, doy, ntime, self.sat)
