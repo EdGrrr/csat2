@@ -204,7 +204,28 @@ class Granule():
                 self.get_filename(channel, product=product, mode=mode)) as ds:
             return ds['x'][0], ds['y'][-1]
 
-    def download(self, channel, product='L1b', mode='*'):
+    def check(self, channel, product='L1b', mode='*'):
+        '''Is there a filename that satisfies these criteria?'''
+        filename = locator.search(
+            'GOES',
+            product,
+            year=self.year,
+            doy=self.doy,
+            hour=self.hour,
+            minute=self.minute,
+            area=self.area,
+            mode=mode,
+            channel=channel,
+            sat=self.sat)
+        if len(filename) == 1:
+            return True
+        else:
+            return False
+
+    def download(self, channel, product='L1b', mode='*', force_redownload=False):
+        if (not force_redownload) and self.check(channel, product, mode):
+            logging.info('{} Ch:{} exists'.format(self.astext(), channel))
+            return
         local_folder = locator.get_folder('GOES', product,
                                           year=self.year, doy=self.doy,
                                           hour=self.hour, minute=self.minute,
