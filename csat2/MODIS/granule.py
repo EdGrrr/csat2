@@ -467,8 +467,8 @@ class _MODISlocator():
         
         # FUTURE: Transform coordinates then use cKDTree for speed
         self.locator_tree = BallTree(np.array(list(zip(
-            np.deg2rad(lon[::factor, ::factor]).ravel(),
-            np.deg2rad(lat[::factor, ::factor]).ravel()))), metric='haversine')
+            np.deg2rad(lat[::factor, ::factor]).ravel(),
+            np.deg2rad(lon[::factor, ::factor]).ravel()))), metric='haversine')
         self.shape = lat[::factor, ::factor].shape
 
     def unraveler(self, loc_ind):
@@ -483,7 +483,7 @@ class _MODISlocator():
         Currently returns nans if passed nan'''
         if not np.all(np.isfinite(locs)):
             return [(np.nan, np.nan)]*len(locs)
-        loc_ind = self.locator_tree.query(np.deg2rad(locs))
+        loc_ind = self.locator_tree.query(np.deg2rad(np.array(locs)[:, ::-1]))
         if np.min(loc_ind[0] * 6378) > filter_outside:
             return [(np.nan, np.nan)]
         output = np.array(self.unraveler(loc_ind[1]))
@@ -497,9 +497,9 @@ class _MODISlocator():
 
     def points_in_radius(self, loc, dist):
         '''Return the indexs of all the points within dist km of loc'''
-        loc_ind = self.locator_tree.query_radius(np.deg2rad(loc), r=dist/6378)
+        loc_ind = self.locator_tree.query_radius(np.deg2rad(np.array(loc)[:, ::-1]), r=dist/6378)
         return np.array(self.unraveler(loc_ind[0].reshape(-1, 1)))
-
+    
     def coordinate_shift(self, lon, lat, centre_lon, centre_lat,
                          travel_lon, travel_lat):
         '''Shift a set of coordinates such that the equator passes through the middle of the
