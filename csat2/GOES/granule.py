@@ -9,7 +9,8 @@ import numpy as np
 import scipy
 import datetime
 import re
-import misc
+from csat2 import misc
+import csat2.misc.geo
 from .util import get_resolution as util_get_resolution
 import logging
 import xarray as xr
@@ -91,6 +92,18 @@ class Granule():
             hour=self.hour, minute=self.minute) +
                 datetime.timedelta(days=self.doy-1))
 
+    def get_resolution(self, channel, product='L1b', mode='*', fromfile=False):
+        if fromfile:
+            with Dataset(self.get_filename(channel, product=product, mode=mode)) as ncdf:
+                return ncdf.variables['Rad'].resolution.split(' ')[1]
+        else:
+            return util_get_resolution(channel)*0.000028
+
+    def _check_locator(self, channel, product='L1b', mode='*'):
+        if not self.locator:
+            self.locator = GOESLocator(self.get_filename(
+                channel=channel, product=product, mode=mode))        
+
     def get_lonlat(self, channel, product='L1b', mode='*'):
         '''Proes the lon-lat arrays for a specific channel.
         Note that as the channels have different spatial resolutions,
@@ -100,29 +113,18 @@ class Granule():
             2, -1).transpose(), channel, product, mode)
         return llp[:, 0].reshape(ipc[0].shape), llp[:, 1].reshape(ipc[0].shape)
 
-    def get_resolution(self, channel, product='L1b', mode='*', fromfile=False):
-        if fromfile:
-            with Dataset(self.get_filename(channel, product=product, mode=mode)) as ncdf:
-                return ncdf.variables['Rad'].resolution.split(' ')[1]
-        else:
-            return util_get_resolution(channel)*0.000028
-
     def geolocate(self, coords, channel=None, product='L1b', mode='*', interp=False):
         '''Returns the lon/lat of the gridbox indicies passed as coords'''
-        if not self.locator:
-            self.locator = GOESLocator(self.get_filename(
-                channel=channel, product=product, mode=mode))
+        self._check_locator(channel, product, mode)
         return self.locator.geolocate(coords, interp)
 
     def locate(self, coords, alt=None, channel=None, product='L1b', mode='*', interp=False):
-        
-        if not self.locator:
-            self.locator = GOESLocator(self.get_filename(
-                channel=channel, product=product, mode=mode))
+        self._check_locator(channel, product, mode)
         return self.locator.locate(coords, alt, interp)
 
-    def points_in_radius(self):
-        pass
+    def points_in_radius(self, loc, dist, channel, product='L1b', mode='*'):
+        self._check_locator(channel, product, mode)
+        return self.locator.points_in_radius(loc, dist)
 
     def next(self, number=1, only_downloaded=False, only_exisiting=False):
         '''Increment image name'''
@@ -431,3 +433,26 @@ class GOESLocator():
                  ctlpos_corrdy[:, None]), axis=-1)
             output = ctlpos + ctlpos_corr
         return output
+
+    def points_in_radius(self, point, radius):
+        pos = self.locate(np.array([point]))[0]
+        offset = int(radius/(self.res))
+
+        lon_bounds = np.clip((pos[0]-offset, pos[0]+offset), 0, len(self.x)-1)
+        lat_bounds = np.clip((pos[1]-offset, pos[1]+offset), 0, len(self.y)-1)
+
+        ipc = np.array(np.meshgrid(
+            np.arange(lon_bounds[0], lon_bounds[1]),
+            np.arange(lat_bounds[0], lat_bounds[1])))
+        llp = self.geolocate(
+            np.array(ipc).reshape(2, -1).transpose(),
+            interp=False)
+        lon_box = llp[:, 0].reshape(ipc[0].shape)
+        lat_box = llp[:, 1].reshape(ipc[0].shape)
+        
+        # lon_box = lon[lat_bounds[0]:lat_bounds[1], lon_bounds[0]:lon_bounds[1]]
+        # lat_box = lat[lat_bounds[0]:lat_bounds[1], lon_bounds[0]:lon_bounds[1]]
+        
+        dist = csat2.misc.geo.haversine(point[0], point[1], lon_box, lat_box)
+        dlocs = np.where(dist < radius)
+        return np.array(list(zip(dlocs[0]+lat_bounds[0], dlocs[1]+lon_bounds[0])))  
