@@ -17,14 +17,16 @@ def SOLAR_CONST_adjusted(day_of_year):
     return SOLAR_CONST * (1 + 0.034 * np.cos(2 * np.pi * day_of_year / 365.25))
 
 
-def solar_zenith_angle_angles(observer_latitude,
-                              subsolar_latitude,
+def solar_zenith_angle_angles(observer_latitude_radians,
+                              subsolar_latitude_radians,
                               hour_angle):
+    '''Calcualates the solar zenith angle from a set of pre-calcualted
+    solar and time angles. Uses radians for the angles'''
     sza = np.arccos(
-        (np.sin(observer_latitude) *
-         np.sin(subsolar_latitude)) +
-        (np.cos(observer_latitude) *
-         np.cos(subsolar_latitude) *
+        (np.sin(observer_latitude_radians) *
+         np.sin(subsolar_latitude_radians)) +
+        (np.cos(observer_latitude_radians) *
+         np.cos(subsolar_latitude_radians) *
          np.cos(hour_angle)))
     return sza
 
@@ -32,10 +34,12 @@ def solar_zenith_angle_angles(observer_latitude,
 def solar_zenith_angle_time(observer_latitude,
                             day_of_year,
                             local_solar_time):
-    return solar_zenith_angle_angles(
-        observer_latitude,
+    '''Calculates the solar zenith angle (in degrees).
+    Observer_latitude is supplied in degrees)'''
+    return np.rad2deg(solar_zenith_angle_angles(
+        np.deg2rad(observer_latitude),
         declination_doy(day_of_year),
-        (local_solar_time / 12 - 1) * np.pi)
+        (local_solar_time / 12 - 1) * np.pi))
 
 
 def declination_doy(day_of_year):
@@ -54,8 +58,9 @@ def sunrise_hour_angle(observer_latitude,
 
 def sunrise_time(observer_latitude,
                  day_of_year):
+    '''Calculates the sunrise time for a given latitude in degrees'''
     hour_angle = sunrise_hour_angle(
-        observer_latitude,
+        np.deg2rad(observer_latitude),
         declination_doy(day_of_year))
     return 12 - (12 * np.abs(hour_angle) / np.pi)
 
@@ -63,8 +68,9 @@ def sunrise_time(observer_latitude,
 def insolation(observer_latitude,
                day_of_year,
                local_solar_time):
+    '''Solar insolation, latitude in degrees, local_solar_time in degrees'''
     return SOLAR_CONST_adjusted(day_of_year) * np.cos(
-        solar_zenith_angle_time(observer_latitude,
+        solar_zenith_angle_time(observer_latitude, # No conversion to radians here
                                 day_of_year,
                                 local_solar_time)).clip(0, None)
 
@@ -72,7 +78,7 @@ def insolation(observer_latitude,
 def daily_mean_insolation(observer_latitude,
                           day_of_year):
     subsolar_latitude = declination_doy(day_of_year)
-    h0 = sunrise_hour_angle(observer_latitude,
+    h0 = sunrise_hour_angle(np.deg2rad(observer_latitude),
                             subsolar_latitude)
     qmean = (SOLAR_CONST_adjusted(day_of_year) / np.pi *
              ((h0 * np.sin(observer_latitude) *

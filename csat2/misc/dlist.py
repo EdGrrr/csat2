@@ -9,27 +9,27 @@ import logging
 import xarray as xr
 
 
-def dictkeysappend(dict1, dict2, axis=-1):
-    '''Adds data from keys in dict 2 to dict 1, if that keys doesn't exist, it is created.
+def dictkeysappend(dict_main, dict_addition, axis=-1):
+    '''Adds data from keys in dict_addition to dict_main, if that keys doesn't exist, it is created.
     dict1 is modified inplace'''
     if axis != 'longest':
         naxis = axis
-    for key in dict2.keys():
+    for key in dict_addition.keys():
         try:
             if axis == 'longest':
-                naxis = np.argmax(dict1[key].shape)
-            dict1[key] = np.concatenate((dict1[key], dict2[key]), axis=naxis)
+                naxis = np.argmax(dict_main[key].shape)
+            dict_main[key] = np.concatenate((dict_main[key], dict_addition[key]), axis=naxis)
         except KeyError:
-            dict1[key] = dict2[key]
+            dict_main[key] = dict_addition[key]
 
 
-def l_dictkeysappend(dict1, dict2):
-    '''Add the data in dict2 to the end of the lists in dict1'''
-    for key in dict2.keys():
-        if key in dict1.keys():
-            dict1[key].extend([dict2[key]])
+def l_dictkeysappend(dict_main, dict_addition):
+    '''Add the data in dict_addition to the end of the lists in dict_main'''
+    for key in dict_addition.keys():
+        if key in dict_main.keys():
+            dict_main[key].extend([dict_addition[key]])
         else:
-            dict1[key] = [dict2[key]]
+            dict_main[key] = [dict_addition[key]]
 
 
 def l_toarray(dict1, axis=None):
