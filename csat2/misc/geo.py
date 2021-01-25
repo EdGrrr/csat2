@@ -56,3 +56,65 @@ def coordinate_rotate(lon, lat, centre_lon, centre_lat):
     else:
         return (np.rad2deg(np.arcsin(x3p)),
                 -1*np.rad2deg(np.arctan2(x2p, x1p)))
+
+
+def great_circle_path(dep_pos, arr_pos, n_points=None, max_seg_dist=None, evenly_spaced=False):
+    '''Returns a list of points along a great circle
+    - Either n_points, evenly spaced (excluding ends)
+    - Or a set of points spaced by no more than max_seg_dist
+    
+    evenly_spaced - points are evenly spaced (max_seg_dist method)
+
+    Formula from http://www.edwilliams.org/avform.htm#Intermediate'''
+
+    dist = haversine(dep_pos[0], dep_pos[1], arr_pos[0], arr_pos[1])
+    if n_points and not max_seg_dist:
+        f = np.linspace(0, 1, n_points+2)
+    elif max_seg_dist and not n_points:
+        if dist<max_seg_dist:
+            # if distance is already short, return!
+            return [dep_pos, arr_pos]
+        if evenly_spaced:
+            f = np.linspace(0, 1, int(dist/max_seg_dist)+2)
+        else:
+            f = np.arange(0, 1, max_seg_dist/dist)
+
+    dp = np.deg2rad(dep_pos)
+    ap = np.deg2rad(arr_pos)
+            
+    delta = dist/R_E
+    a = np.sin((1-f)*delta)/np.sin(delta)
+    b = np.sin(f*delta)/np.sin(delta)
+    x = a*np.cos(dp[1])*np.cos(dp[0]) + b*np.cos(ap[1])*np.cos(ap[0])
+    y = a*np.cos(dp[1])*np.sin(dp[0]) + b*np.cos(ap[1])*np.sin(ap[0])
+    z = a*np.sin(dp[1])               + b*np.sin(ap[1])
+
+    op_lon = np.rad2deg(np.arctan2(y, x))
+    op_lat = np.rad2deg(np.arctan2(z, np.sqrt(x**2 + y**2)))
+
+    return list(zip(op_lon, op_lat))
+
+
+def cross_track_error(dep_pos, arr_pos, err_pos):
+    '''Cross track position error from a great circle
+    GC defined by dep_pos and arr_pos, err_pos is the off-track location'''
+
+    if len(np.array(err_pos).shape) >1:
+        ep = np.array(err_pos)
+        angdist_err = haversine(dep_pos[0], dep_pos[1], ep[..., 0], ep[...,1])/R_E
+        bearing_err = np.deg2rad(bearing(dep_pos[0], dep_pos[1], ep[...,0], ep[...,1]))
+    else:
+        angdist_err = haversine(*dep_pos, *err_pos)/R_E
+        bearing_err = np.deg2rad(bearing(*dep_pos, *err_pos))
+    bearing_gc = np.deg2rad(bearing(*dep_pos, *arr_pos))
+
+    return np.arcsin(np.sin(angdist_err)*np.sin(bearing_err-bearing_gc))*R_E
+
+
+def great_circle_destination(dep_pos, bearing, dist):
+    dp = np.deg2rad(dep_pos)
+    br = np.deg2rad(bearing)
+    delta = dist/R_E
+    arr_lat = np.arcsin(np.sin(dp[1])*np.cos(delta) + np.cos(dp[1])*np.sin(delta)*np.cos(br))
+    arr_lon = dp[0] + np.arctan2(np.sin(br)*np.sin(delta)*np.cos(dp[1]), np.cos(delta)-np.sin(dp[1])*np.sin(arr_lat))
+    return list(zip(np.rad2deg(arr_lon), np.rad2deg(arr_lat)))
