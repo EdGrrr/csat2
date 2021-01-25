@@ -53,6 +53,11 @@ def datetime_to_ydh(dtime):
     return year, doy, hour
 
 
+def datetime_to_lst(dtime, lon):
+    '''Returns the local solar time for a given datetime and longitude'''
+    return utc_to_lst(dtime.hour+dtime.minute/60, lon)
+
+
 def doy_exists(year, doy):
     "Returns True if the doy is a valid date, False otherwise"
     try:
