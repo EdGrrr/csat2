@@ -160,7 +160,7 @@ def download_geometa(year, doy, sat, col=DEFAULT_COLLECTION, force_redownload=Fa
     
             
 
-def check(product, year, doy, time, col=DEFAULT_COLLECTION):
+def check(product, year, doy, time=None, col=DEFAULT_COLLECTION):
     '''Does a product already exist for a specific time/date/collection'''
     filename = locator.search(
         'MODIS',

@@ -248,13 +248,14 @@ class Granule(object):
             data['Cloud_Effective_Radius'+band_suffix] = np.where(
                 np.isfinite(data['Cloud_Effective_Radius'+band_suffix]),
                 data['Cloud_Effective_Radius'+band_suffix],
-                data['Cloud_Effective_Radius'+band_suffix+'_PCL'])        
+                data['Cloud_Effective_Radius'+band_suffix+'_PCL'])
+        # Skip the last 4 lines following email from Paul Hubanks
         cod = np.where(data['Cloud_Phase_Optical_Properties'] == 2,
-                       data['Cloud_Optical_Thickness'+band_suffix], np.nan)
-        re = 1e-6 * data['Cloud_Effective_Radius'+band_suffix]
+                       data['Cloud_Optical_Thickness'+band_suffix], np.nan)[:, :-4]
+        re = 1e-6 * data['Cloud_Effective_Radius'+band_suffix][:, :-4]
         if best:
-            mask = ((cod[:, :-4] > 4) *
-                    (re[:, :-4] > 4e-6) *
+            mask = ((cod > 4) *
+                    (re > 4e-6) *
                     (field_interpolate(data['Cloud_Fraction']) > 0.9) *
                     (data['Cloud_Mask_SPI'][:, :-4, 0] < 30) *
                     (field_interpolate(data['Solar_Zenith_Day']) < 65))
