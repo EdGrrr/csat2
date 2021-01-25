@@ -14,6 +14,7 @@ import csat2.misc.geo
 from .util import get_resolution as util_get_resolution
 import logging
 import xarray as xr
+import warnings
 
 
 def readin_radiances_filename(filename):
@@ -179,7 +180,13 @@ class Granule():
             bc1, bc2 = (ds['planck_bc1'],
                         ds['planck_bc2'])
             logging.info(fk1, fk2, bc1, bc2)
-            bt = fk2/(np.log((fk1/(data))+1))
+            # TODO: This either throws an xarray warning for an invalid logbook
+            # or an error if you try and use np.where to avoid the nans
+            # For now, I am going to suppress the warning, which will work as long
+            # as the behaviour of nans doesn't change
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+                bt = fk2/(np.log((fk1/(data))+1))
             bt = (bt-bc1)/bc2
             return bt
 
@@ -348,14 +355,22 @@ class GOESLocator():
         x = np.arcsin(-sy/np.sqrt(sx**2+sy**2+sz**2))
         y = np.arctan(sz/sx)
         if isinstance(x, float):
-            if ((self.H*(self.H-sx)) <
-                (sy**2+(self.req*sz/self.rpol)**2)):
+            if np.isnan(sx+sy+sz): # Catch nans
+                return np.nan, np.nan
+            elif (
+                    (self.H*(self.H-sx)) <
+                    (sy**2+(self.req*sz/self.rpol)**2)):
                 return np.nan, np.nan
             else:
                 return x, y
-        # Mask invisible points
-        mask = np.where((self.H*(self.H-sx)) <
-                        (sy**2+(self.req*sz/self.rpol)**2))
+        # Mask invisible points - we are catching nans
+        # here already, so the invalid value in less is ignored
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            mask = np.where(
+                np.isnan(sx+sy+sz) |
+                ((self.H*(self.H-sx)) <
+                 (sy**2+(self.req*sz/self.rpol)**2)))
         x[mask] = np.nan
         y[mask] = np.nan
         return x, y
@@ -365,9 +380,14 @@ class GOESLocator():
         # These are designed to be large enough that they will throw an
         # exception if you try and use them to locate a pixel in GOES data
         errval = -999999
-        binned[locs < min(bins)] = errval
-        binned[locs > max(bins)] = errval
-        binned[np.isnan(locs)] = errval
+        # Locs is sometimes a nan. Here we make use of a comparison against a
+        # nan always being false. Unfortunately there is not currently a nice
+        # way to do this without turning off warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            binned[np.isfinite(locs) & (locs < min(bins))] = errval
+            binned[np.isfinite(locs) & (locs > max(bins))] = errval
+            binned[np.isnan(locs)] = errval
         return binned
 
     def _create_alt_correction(self):
