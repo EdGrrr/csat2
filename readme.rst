@@ -17,7 +17,7 @@ or, for a developer setup (where you can edit the installed files (only a link t
 
 .. code-block:: bash
 
-  python setup.py develop --user
+  python setup.py develop
 
 
 Build the documentation with
