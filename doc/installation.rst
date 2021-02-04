@@ -13,23 +13,27 @@ From PyPI
 Coming soon!
 
 
+..
+   Using pip
+   ---------
+
+   For the most up-to-date version of the code, you should use ``pip`` pointed at the git repository.
+
+
+   .. code-block:: bash
+
+       $ pip install git+git://github.com/edgrrr/csat2.git
+
+
 From source code
 ----------------
 
-For the most up-to-date version of the code, you should use ``pip`` pointed at the git repository.
-
-
-.. code-block:: bash
-
-    $ pip install git+git://github.com/edgrrr/csat2.git
-
-
-Note that if you are using and working on the code (or might want to update it from git), you can install an editable version
+If you are using and working on the code (or might want to update it from git), you can install an editable version
 
 .. code-block:: bash
 
     $ cd path/to/csat2
-    $ python setup.py develop --user
+    $ python setup.py develop
 
 
 Note that the netCDF4 library should be built to read HDF files. This is the case if you install it from conda.
