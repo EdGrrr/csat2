@@ -14,8 +14,12 @@ def bit_select_pattern(data, pattern):
 def bit_select_locations(data, locations):
     '''Select bit locations, rather than providing the pattern.
     Locations must be a monotonically increasing sequence with no gaps
-    e.g. locations=(3,4,5)'''
-    if np.all(np.diff(locations)==1):
+    e.g. locations=(3,4,5) or locations=3'''
+    if isinstance(locations, int):
+        return np.mod(np.right_shift(data, locations), 2)
+    elif len(locations) == 1:
+        return np.mod(np.right_shift(data, locations[0]), 2)
+    elif np.all(np.diff(locations)==1):
         shift_cnt = min(locations)
         return np.mod(np.right_shift(data, shift_cnt), 2**len(locations))
     else:
