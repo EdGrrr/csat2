@@ -60,7 +60,7 @@ def plt_sublabel_index(i, *args, **kwargs):
     plt_sublabel(alp[i]+')', *args, **kwargs)
 
 
-def plt_cbar(vmin, vmax, cmap, title, nticks=5, title_size=10,
+def plt_cbar(vmin, vmax, cmap, title, nticks=5, title_size=10, tick_size=8,
              orientation='horizontal',
              plttype='heatmap', levels=None, aspect_ratio=0.03, norm=None, ticks=None,
              title_pos='above'):
@@ -86,10 +86,10 @@ def plt_cbar(vmin, vmax, cmap, title, nticks=5, title_size=10,
             ax.set_aspect(1)
         plt.yticks([], [])
         if ticks:
-            plt.xticks(np.linspace(0, 100, nticks), ticks, size=title_size)
+            plt.xticks(np.linspace(0, 100, nticks), ticks, size=tick_size)
         else:
             plt.xticks(np.linspace(0, 100, nticks), np.linspace(
-                vmin, vmax, nticks), size=title_size)
+                vmin, vmax, nticks), size=tick_size)
         if title_pos == 'above':
             plt.title(title,size=title_size)
         elif title_pos == 'below':
@@ -110,10 +110,10 @@ def plt_cbar(vmin, vmax, cmap, title, nticks=5, title_size=10,
         plt.tick_params(axis='y', which='both',
                         labelleft=False, labelright=True)
         if ticks:
-            plt.yticks(np.linspace(0, 100, nticks), ticks, size=title_size)
+            plt.yticks(np.linspace(0, 100, nticks), ticks, size=tick_size)
         else:
             plt.yticks(np.linspace(0, 100, nticks), np.linspace(
-                vmin, vmax, nticks), size=title_size)
+                vmin, vmax, nticks), size=tick_size)
         plt.tick_params(axis='y', which='both',
                         labelleft=False, labelright=True)
         plt.ylabel(title, size=title_size)
