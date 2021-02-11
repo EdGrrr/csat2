@@ -56,14 +56,6 @@ The granule object can also provide the approximate nearest pixel to a list of l
    >>> lon, lat = gran.get_lonlat()
 
 
-The granule object can be used to download MODIS files if you place a LAADS DAAC APIkey in ``laadsdaacrc`` in the csat configuration directory (``${HOME}/.csat2`` by default).
-
-.. code-block:: python
-
-   >>> gran.download('06_L2')  # Download cloud data
-   >>> gran.download('03')  # Download the geolocation data
-
-
 To get data for a granule, you can read a variable direct from a file, using the ``get_variable`` method, or get brightness temperature/reflectance data from the radiance product ``021KM`` (use ``refl=True``) to get reflectance. Set ``bowtie_corr=True`` to re-order the edge of swath pixels to account for the bowtie effect.
 
 .. code-block:: python
@@ -80,6 +72,19 @@ Finally, you can step forward a specified number of granules
 
    >>> newgran = gran.increment(number=1)
 
+   
+Downloading MODIS data
+^^^^^^^^^^^^^^^^^^^^^^
+
+The granule object can be used to download MODIS files if you place a LAADS DAAC APIkey in ``laadsdaacrc`` in the csat configuration directory (``${HOME}/.csat2`` by default).
+
+.. code-block:: python
+
+   >>> gran.download('06_L2')  # Download cloud data
+   >>> gran.download('03')  # Download the geolocation data
+
+
+   
 
 ECMWF files
 -----------
