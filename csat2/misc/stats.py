@@ -4,6 +4,90 @@ import numpy as np
 import scipy.stats
 
 
+class DataAccumulator():
+    '''A class designed to accumulate the sum/number of input arrays.
+    The main functions here are the insert/get pair, which handle
+    the normalisation/division by the total number of arrays.
+
+    The insert_corr/get_corr pair allow the calcualtion of linear
+    regressions at a gridbox level across the data.
+
+    Note that np.nan is treated as no data, rather than zero.'''
+    def __init__(self):
+        self.output = {}
+
+    def insert(self, name, data):
+        '''Store data in the accumulator under 'name'. The size of the
+        array doesn't need to be specified, but it should be the same
+        as any previous data stored under this name.'''
+        if name in self.output.keys():
+            self.output[name] += zero_nans(data)
+            self.output[name+'_num'] += np.isfinite(data)
+        else:
+            self.output[name] = zero_nans(data)
+            self.output[name+'_num'] = np.isfinite(data).astype('int')
+
+    def insert_dict(self, data_dict):
+        '''Store a dictionary of data, with the variable names
+        taken fromt he dictionary'''
+        for name in data_dict.keys():
+            self.insert(name, data_dict[name])
+
+    def get(self, name, counts=False):
+        '''Retrieve the data stored under 'name'. This will by
+        default return the mean (excluding nans), but by setting
+        counts=True, you can return the sum'''
+        if counts:
+            return self.output[name]
+        else:
+            return self.output[name]/self.output[name+'_num']
+
+    def insert_corr(self, namex, indatax, namey, indatay):
+        '''Insert the data required to calculate a correlation between
+        indatax and indatay. namex and namey are used to retrieve the
+        statistics at a later time'''
+        mask = np.logical_and(
+            np.isfinite(indatax),
+            np.isfinite(indatay))
+        datax = np.where(mask, indatax, np.nan)
+        datay = np.where(mask, indatay, np.nan)
+
+        self.insert('{}_({})'.format(namex, namey), datax)
+        self.insert('{}_({})'.format(namey, namex), datay)
+        self.insert('{}_({})_sq'.format(namex, namey), datax**2)
+        self.insert('{}_({})_sq'.format(namey, namex), datay**2)
+        self.insert('{}_{}'.format(namex,namey), datax*datay)
+
+    def get_corr(self, namex, namey, min_no=5):
+        '''Returns linear regressions and correlations between two variables,
+        if they were inserted and the minimum number of points at each location
+        is larger than min_no.
+
+        Returns:
+            (Slope of a linear regression,
+             Standard error on the slope,
+             Pearson correlation)'''
+        sum_x = self.output['{}_({})'.format(namex, namey)]
+        sum_y = self.output['{}_({})'.format(namey, namex)]
+        sum_x2 = self.output['{}_({})_sq'.format(namex, namey)]
+        sum_y2 = self.output['{}_({})_sq'.format(namey, namex)]
+        sum_xy = self.output['{}_{}'.format(namex, namey)]
+        n = self.output['{}_({})_num'.format(namex, namey)]
+
+        nmask = np.where(n<=min_no)
+        sxy = (sum_xy - (sum_x*sum_y)/n)
+        sxy[nmask] = 1
+        sxx = (sum_x2 - (sum_x**2)/n)
+        sxx[nmask] = 1
+        syy = (sum_y2 - (sum_y**2)/n)
+        syy[nmask] = 2
+        return np.where((n > min_no),
+                        (np.array((sxy/sxx)),
+                         np.array(np.sqrt((1./(n-2))*((syy/sxx)-((sxy/sxx)**2)))),
+                         np.array((sxy/np.sqrt(sxx*syy)))),
+                        np.nan)
+
+
 def nanlinregress(data_x, data_y):
     ''' A version of the scipy linear regression function that can cope
     with missing data - by ignoring it'''
