@@ -132,10 +132,10 @@ class Granule():
         dt = self.datetime()
         dt += datetime.timedelta(minutes=number*self.inc_minutes[self.area])
         year, doy = misc.time.date_to_doy(dt.year, dt.month, dt.day)
-        return Granule(self.sat, self.area,
-                       year, doy, dt.hour, dt.minute,
-                       # Reasonable assumption that coordinates remain the same
-                       locator=self.locator)
+        return type(self)(self.sat, self.area,
+                          year, doy, dt.hour, dt.minute,
+                          # Reasonable assumption that coordinates remain the same
+                          locator=self.locator)
 
     def get_filename(self, channel, product='L1b', mode='*'):
         '''This is more complicated that the simple locator, as we
