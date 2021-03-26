@@ -22,7 +22,7 @@ class DataAccumulator():
         as any previous data stored under this name.'''
         if name in self.output.keys():
             self.output[name] += zero_nans(data)
-            self.output[name+'_num'] += np.isfinite(data)
+            self.output[name+'_num'] += np.isfinite(data).astype('int')
         else:
             self.output[name] = zero_nans(data)
             self.output[name+'_num'] = np.isfinite(data).astype('int')
@@ -129,8 +129,8 @@ def nanmask(data):
 
 
 def zero_nans(data):
-    '''Returns an array where nans have been replaced by zeros'''
-    return np.where(np.isnan(data), 0, data)
+    '''Returns an array where non finite data is replaced by zeros'''
+    return np.where(np.isfinite(data), data, 0)
 
 
 def lin_av(data):
