@@ -234,12 +234,16 @@ def readin_MODIS_L2_filename(filename, names):
         for name in names:
             var = ncdf.variables[name]
             var.set_auto_scale(False)
+            var.set_auto_mask(False)
             dims = [a.replace(':mod08', '').replace(':MODIS_SWATH_Type_L1B', '') for a in var.dimensions]
             try:
                 indata = (var[:]-var.add_offset)*var.scale_factor
             except AttributeError: #No scale factors
                 indata = var[:]
-            indata = np.ma.filled(indata.astype('float'), np.nan)
+            try:
+                indata = np.where(indata == var._Fillvalue, np.nan, indata[name])
+            except AttributeError: # No fill value
+                pass
             ds[name] = xr.DataArray(indata, dims=dims)
             try:
                 ds[name].attrs['units'] = var.units
@@ -264,6 +268,7 @@ def readin_MODIS_L2_filename_fast(filename, names, varind=None):
         for name in names:
             var = ncdf.variables[name]
             var.set_auto_scale(False)
+            var.set_auto_mask(False)            
             if (varind is not None) and len(ncdf.variables[name].shape) > 2:
                 vdata = var[varind]
                 dims = [a.replace(':mod08', '').replace(':MODIS_SWATH_Type_L1B', '') for a in var.dimensions[1:]]
@@ -274,7 +279,10 @@ def readin_MODIS_L2_filename_fast(filename, names, varind=None):
                 indata = (vdata-var.add_offset)*var.scale_factor
             except AttributeError: #No scale factors
                 indata = vdata
-            indata = np.ma.filled(indata.astype('float'), np.nan)
+            try:
+                indata = np.where(indata == var._Fillvalue, np.nan, indata[name])
+            except AttributeError: # No fill value
+                pass
             ds[name] = xr.DataArray(indata, dims=dims)
             try:
                 ds[name].attrs['units'] = var.units
