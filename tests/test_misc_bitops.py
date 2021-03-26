@@ -17,6 +17,11 @@ def test_bitopsSelectLocations():
     assert bitops.bit_select_locations(np.array([9]), (2, 3)) == 2
     assert bitops.bit_select_locations(np.array([13]), (2, 3)) == 3
 
+    assert bitops.bit_select_locations(np.array([9]), (0)) == 1
+    assert bitops.bit_select_locations(np.array([9]), 0) == 1
+    assert bitops.bit_select_locations(np.array([9]), 1) == 0
+    assert bitops.bit_select_locations(np.array([9]), 2) == 0
+    assert bitops.bit_select_locations(np.array([9]), 3) == 1
 
 def test_bitopsSelectLocationsFailure():
     with pytest.raises(ValueError):
