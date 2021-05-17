@@ -38,20 +38,21 @@ def l_toarray(dict1, axis=None):
     names = list(dict1.keys())
     if isinstance(dict1[names[0]][0], (xr.DataArray)):
         logging.debug('xarray merging')
-        if not axis:
+        if axis is None:
             # If axis is not specified, use the zeroth axis
             axis = 0
         for key in names:
             # Should allow specification of a dimension names
             # e.g. 'time'
-            if axis in dict1[names[0]][0].dims:
-                dict1[key] = xr.concat(
-                    dict1[key],
-                    dim=axis)
-            else:
-                dict1[key] = xr.concat(
-                    dict1[key],
-                    dim=dict1[names[0]][0].dims[axis])
+            if isinstance(dict1[key], (list)):
+                if axis in dict1[key][0].dims:
+                    dict1[key] = xr.concat(
+                        dict1[key],
+                        dim=axis)
+                else:
+                    dict1[key] = xr.concat(
+                        dict1[key],
+                        dim=dict1[names[0]][0].dims[axis])
     else:
         logging.debug('numpy merging')
         if not axis:
