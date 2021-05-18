@@ -249,3 +249,91 @@ def _create_crosstrack_rectify_files():
     mod_data = MODIS.readin('MYD06_L2', 2015, 24, [
                             'Cloud_Effective_Radius'], times=['2220'], col='61')
     _create_crosstrack_rectify(mod_data, 'crosstrack_rectify_1km.nc')
+
+
+# Code for selecting MODIS granules that intersect with points
+def _point_intersection_simple(point, box):
+    '''Is this point inside this box?
+    point - (lon, lat)
+    box - box to detect intersections 
+     - (lonll, latll, lonur, latur)
+    '''
+    #simple method
+    if ((point[0]>=box[0]) &
+        (point[0]<=box[2]) &
+        (point[1]>=box[1]) &
+        (point[1]<=box[3])):
+        return True
+    else:
+        return False
+
+
+def _point_side_line(pt, ln0, ln1):
+    d = ((pt[0]-ln0[0])*(ln1[1]-ln0[1]) -
+         (pt[1]-ln0[1])*(ln1[0]-ln0[0]))
+    return d
+
+
+def _point_intersection_box(pts, boxpoints):
+    '''Pts intersectiosn with box, assumes euclidian geometry'''
+    npts = np.array(boxpoints)
+    npts = np.concatenate(
+        (npts,
+         npts[0][None, :]))
+
+    testsum = 0
+    for i in range(len(npts)-1):
+        testsum += np.sign(_point_side_line(pts, npts[i], npts[i+1]))
+
+    # If the point is inside the box, all should be on the same side
+    # of the edges. Potential issue if the satellite is flying directly south
+    # not tested, but this should be rare
+    return (testsum == (len(npts)-1))
+
+
+def _point_intersection_granule(pts, granpoints):
+    '''Returns true of False for a granule defined by four edge points'''
+    inc = 190
+
+    initial_loc = granpoints[0][0]+inc, granpoints[0][1]
+    
+    newpoints = [(0, 0)]
+    for i in range(1, 4):
+        newpoints.append(csat2.misc.geo.coordinate_rotate(
+            granpoints[i][0]+inc, granpoints[i][1],
+            *initial_loc))
+
+    pts_rotate = csat2.misc.geo.coordinate_rotate(
+        pts[0]+inc, pts[1],
+        *initial_loc)
+    
+    return _point_intersection_box(pts_rotate, newpoints)
+
+
+def granule_intersections(year, doy, sat, points):
+    '''Returns granules that interesect with the points
+
+    year - year of data
+    doy - doy of data
+    sat - satellite (either aqua or terra)
+    points - points to check (2d ndarray (2 x ...), lons, lats)
+
+    Returns
+     - tuple(list, array) 
+      - list of granule times
+      - array shape (len(granules), points.shape[1:]) - true/false for
+          in granule
+    '''
+    grans = readin('GEOMETA', year, doy, sat)
+    gtimes = []
+    output = []
+    for gran in grans:
+        granpoints = [[gran['GRLon1'], gran['GRLat1']],
+                      [gran['GRLon2'], gran['GRLat2']],
+                      [gran['GRLon3'], gran['GRLat3']],
+                      [gran['GRLon4'], gran['GRLat4']]]
+        gtimes.append(gran['GranID'][7:19])
+        output.append(_point_intersection_granule(
+            points,
+            granpoints))
+    return np.array(gtimes), np.array(output)
