@@ -256,7 +256,7 @@ def readin_MODIS_L2_filename(filename, names):
                 ds[tdim] = xr.DataArray(ncdf.variables[tdim][:], dims=(tdim,))
             except KeyError:
                 pass
-        return ds
+    return ds
 
 
 def readin_MODIS_L2_filename_fast(filename, names, varind=None):

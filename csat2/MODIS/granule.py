@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-import misc.time
+import csat2.misc.time
 from .. import locator
 from .readfiles import (readin, readin_MODIS_L2, readin_metadata, field_interpolate, DEFAULT_COLLECTION)
 from .util import band_centres, bowtie_correct
@@ -83,7 +83,7 @@ class Granule(object):
 
     def datetime(self):
         '''The datetime of the Granule start'''
-        _, mon, day = misc.time.doy_to_date(self.year, self.doy)
+        _, mon, day = csat2.misc.time.doy_to_date(self.year, self.doy)
         return datetime(self.year, mon, day, int(self.time)//100, int(self.time) % 100)
 
     # def locate(self, locs, rectified=False, **kwargs):
@@ -424,7 +424,7 @@ class Granule(object):
         '''Step forward 'number' granules'''
         dt = self.datetime()
         dt += timedelta(minutes=5*number)
-        _, doy = misc.time.date_to_doy(dt.year, dt.month, dt.day)
+        _, doy = csat2.misc.time.date_to_doy(dt.year, dt.month, dt.day)
         ntime = int('{:0>2}{:0>2}'.format(dt.hour, dt.minute))
         return Granule(dt.year, doy, ntime, self.sat, col=self.col)
 
@@ -446,7 +446,7 @@ class _MODISlocator():
                 granule.doy,
                 sds=[],
                 col=col,
-                time=granule.time)
+                time=granule.timestr())
             
         lat = field_interpolate(data['Latitude'])[:, :-5]
         if dateline:
