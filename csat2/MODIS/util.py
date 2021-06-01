@@ -291,7 +291,7 @@ def _point_intersection_box(pts, boxpoints):
     return (testsum == (len(npts)-1))
 
 
-def _point_intersection_granule(pts, granpoints):
+def point_intersection_granule(pts, granpoints):
     '''Returns true of False for a granule defined by four edge points'''
     inc = 190
 
@@ -333,7 +333,7 @@ def granule_intersections(year, doy, sat, points):
                       [gran['GRLon3'], gran['GRLat3']],
                       [gran['GRLon4'], gran['GRLat4']]]
         gtimes.append(gran['GranID'][7:19])
-        output.append(_point_intersection_granule(
+        output.append(point_intersection_granule(
             points,
             granpoints))
     return np.array(gtimes), np.array(output)
