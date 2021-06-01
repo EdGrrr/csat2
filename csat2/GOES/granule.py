@@ -213,20 +213,10 @@ class Granule():
 
     def check(self, channel, product='L1b', mode='*'):
         '''Is there a filename that satisfies these criteria?'''
-        filename = locator.search(
-            'GOES',
-            product,
-            year=self.year,
-            doy=self.doy,
-            hour=self.hour,
-            minute=self.minute,
-            area=self.area,
-            mode=mode,
-            channel=channel,
-            sat=self.sat)
-        if len(filename) == 1:
+        try:
+            self.get_filename(channel=channel, product=product, mode=mode)
             return True
-        else:
+        except:
             return False
 
     def download(self, channel, product='L1b', mode='*', force_redownload=False):
