@@ -325,7 +325,11 @@ class GOESLocator():
                 return np.nan, np.nan
             rs = (-b - np.sqrt(disc))/(2*a)
         else:
-            rs = np.where(disc >= 0, (-b - np.sqrt(disc))/(2*a), np.nan)
+            # Is an array, not single point
+            rs = (-b - np.sqrt(disc,
+                               out=np.empty(disc.shape)*np.nan,
+                               where=(disc >= 0)))/(2*a)
+            #rs = np.where(disc >= 0, (-b - np.sqrt(disc))/(2*a), np.nan)
         sx = rs*np.cos(x)*np.cos(y)
         sy = -rs*np.sin(x)
         sz = rs*np.cos(x)*np.sin(y)
