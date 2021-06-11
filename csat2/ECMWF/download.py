@@ -83,7 +83,7 @@ def download(year, month, variables, level, resolution,
         surface data)
 
     resolution - Stored resolution of the downloaded data. Currently only 
-        '1grid' is supported.
+        '1grid' and '0.25grid' (native) are supported.
 
     times - Either a list of the times to be downloaded, or an integer that 
         specifies the number of times to be used per day
@@ -97,7 +97,7 @@ def download(year, month, variables, level, resolution,
         files (such as the number of times), as it depends on the check function,
         which doesn't do any validation of the file contents'''
 
-    if resolution is not '1grid':
+    if resolution not in ['1grid', '0.25grid']:
         raise ValueError('Resolution: {} not yet implmented'.format(resolution))
 
     if (not force_redownload and check(
@@ -188,7 +188,14 @@ def download(year, month, variables, level, resolution,
             gridfile,
             download_file))
         os.system('mv {0}.regrid {0}'.format(download_file))
-
+    elif resolution =='0.25grid':
+        # This should be the native download resolution, but best to check.
+        with Dataset(download_file) as ncdf:
+            vname = variable_names(ncdf)
+            vshape = ncdf.variables[vname].shape
+            if (vshape[-1] != 1440) or (vshape[-2] != 721):
+                raise ValueError('Invalid data size for 0.25grid - {}'.format(vshape))
+            
     # We need to split by variables!
     slice_prefix = output_folder + '/temp_'
     os.system('cdo -b 32 splitname {} {}'.format(
