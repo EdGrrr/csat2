@@ -7,7 +7,7 @@ from .. import locator
 from csat2.misc.time import ydh_to_datetime
 import numpy as np
 from netCDF4 import Dataset, num2date
-import misc
+from csat2 import misc
 import datetime
 import xarray as xr
 import logging

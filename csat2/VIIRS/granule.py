@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-import misc.time
+from csat2 import misc
 from csat2 import locator
 # , field_interpolate, bowtie_correct
 from .readfiles import readin, readin_metadata, DEFAULT_COLLECTION
