@@ -1,6 +1,8 @@
 import struct
 import numpy as np
 from netCDF4 import Dataset
+import datetime
+import pandas as pd
 
 ####################
 # NetCDF functions #
@@ -125,3 +127,38 @@ def chunks(l, n):
     '''Split a list 'l' into chunks of length 'n' '''
     for i in range(0, len(l), n):
         yield l[i:i+n]
+
+######################
+# Other file formats #
+######################
+
+def readin_icartt(filename):
+    '''ICARTT data format (Langley flight data)
+    based on the format description here 
+    https://www-air.larc.nasa.gov/missions/etc/IcarttDataFormat.htm'''
+    with open(filename, 'rb') as f:
+        header = [f.readline().strip().decode('ascii')]
+        header_count, _ = header[0].split(',')
+        for i in range(int(header_count)-2):
+            header.append(f.readline().strip().decode('ascii'))
+
+        colnames = f.readline()
+        colnames = colnames.strip().decode('ascii').split(',')
+
+        data = []
+        while True:
+            datarow = f.readline().strip().decode('ascii').split(',')
+            if len(datarow)>1:
+                data.append(datarow)
+            else:
+                break
+
+        data = np.array(data, dtype=np.float)
+
+        starttime = datetime.datetime.strptime(filename.split('_')[-2], '%Y%m%d')
+        
+        data = pd.DataFrame(data, columns=colnames)
+        for name in data.keys():
+            if 'UTC' in name:
+                data[name] = pd.to_datetime(data[name], unit='s', origin=starttime)
+        return data
