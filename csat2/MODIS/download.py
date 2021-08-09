@@ -8,6 +8,7 @@ import os.path
 import json
 import logging
 
+
 USERAGENT = 'csat2/download_v{}'.format(csat2.__version__).replace('\r', '')
 TOKENFILE = os.environ['HOME']+'/.csat2/laadsdaacrc'
 
@@ -44,8 +45,8 @@ def _geturl(url, token=None, out=None):
                             print('Downloading {} {:6.2f}MB {:6.0f}%\r'.format(
                                 os.path.basename(url), length/(1024*1024), 100*size/length), end='')
                     print()
-            except HTTPError:
-                raise IOError('Data not available')
+            except HTTPError as e:
+                raise IOError('Data not available: {}'.format(e))
             except URLError:
                 raise IOError('Data not available')
 
