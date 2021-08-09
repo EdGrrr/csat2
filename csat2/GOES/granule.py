@@ -44,6 +44,10 @@ class Granule():
     Note, the different scan areas are handled separately, it is
     assumed you wont be converting between them.'''
     inc_minutes = {'RadM1': 1, 'RadM2': 1, 'RadC': 5, 'RadF': 10}
+    product_names = {'L2-CPS': 'PSD',
+                     'L2-COD': 'COD',
+                     'L2-AOD': 'AOD',
+                     'L2-ACTP': 'Phase'}
 
     def __init__(self, sat, area, year, doy, hour, minute, locator=None):
         self.sat = sat
@@ -137,20 +141,39 @@ class Granule():
                           # Reasonable assumption that coordinates remain the same
                           locator=self.locator)
 
-    def get_filename(self, channel, product='L1b', mode='*'):
+    def get_filename(self, channel=None, product='L1b', mode='*'):
         '''This is more complicated that the simple locator, as we
         have to account for the GOES image not being taken at an exact 
         time. Even if we can trust the timing, changes in the scan pattern
         can cause a change in the image time.
 
-        Selects an image with a mane that puts it within the increment 
+        Selects an image with a name that puts it within the increment 
         timestep.'''
-        filenames = locator.search('GOES', product,
-                                   year=self.year, doy=self.doy,
-                                   hour=self.hour, minute=str(
-                                       int(self.minute)//10)+'*',
-                                   area=self.area, sat=self.sat,
-                                   channel=channel, mode=mode)
+        if product == 'L2-DMW':
+            filenames = locator.search('GOES', product,
+                                       year=self.year, doy=self.doy,
+                                       hour=self.hour, minute=str(
+                                           int(self.minute)//10)+'*',
+                                       area=self.area, sat=self.sat,
+                                       areas=self.area[-1],
+                                       channel=channel,
+                                       mode=mode)    
+        elif product.startswith('L2'):
+            filenames = locator.search('GOES', product,
+                                       year=self.year, doy=self.doy,
+                                       hour=self.hour, minute=str(
+                                           int(self.minute)//10)+'*',
+                                       area=self.area, sat=self.sat,
+                                       areas=self.area[-1],
+                                       mode=mode)
+        else:
+            filenames = locator.search('GOES', product,
+                                       year=self.year, doy=self.doy,
+                                       hour=self.hour, minute=str(
+                                           int(self.minute)//10)+'*',
+                                       area=self.area, sat=self.sat,
+                                       channel=channel, mode=mode)
+
         minutes = np.array([int(f.split('_')[-3][-5:-3]) for f in filenames])
         ind = np.where(
             np.logical_and(
@@ -190,6 +213,24 @@ class Granule():
             bt = (bt-bc1)/bc2
             return bt
 
+    def get_product_data(self, product, mode='*', dqf_filter=None):
+        '''Use for readin in derived data. For DMW, use get_dmw_data.
+        dqf_filter is a lambda that determines returns true if the dqf satisfies the reading requirements'''
+        with xr.open_dataset(
+                self.get_filename(product=product, mode=mode)) as ds:
+            data = ds[self.product_names[product]][:].data
+            if dqf_filter is not None:
+                data = np.where(dqf_filter(ds['DQF']), data, np.nan)
+            return data
+
+    def get_dmw_data(self, product='L2-DMW', mode='*', channel=None):
+        data = {}
+        with xr.open_dataset(
+                self.get_filename(product=product, mode=mode, channel=channel)) as ds:
+            for name in ['lat', 'lon', 'wind_speed', 'wind_direction', 'pressure']:
+                data[name] = ds[name][:]
+            return data
+
     def get_shape(self, channel, product='L1b', mode='*'):
         with xr.open_dataset(
                 self.get_filename(channel, product=product, mode=mode)) as ds:
@@ -211,7 +252,7 @@ class Granule():
                 self.get_filename(channel, product=product, mode=mode)) as ds:
             return ds['x'][0], ds['y'][-1]
 
-    def check(self, channel, product='L1b', mode='*'):
+    def check(self, channel=None, product='L1b', mode='*'):
         '''Is there a filename that satisfies these criteria?'''
         try:
             self.get_filename(channel=channel, product=product, mode=mode)
@@ -219,7 +260,7 @@ class Granule():
         except:
             return False
 
-    def download(self, channel, product='L1b', mode='*', force_redownload=False):
+    def download(self, channel=None, product='L1b', mode='*', force_redownload=False, source='google'):
         if (not force_redownload) and self.check(channel, product, mode):
             logging.info('{} Ch:{} exists'.format(self.astext(), channel))
             return
@@ -237,36 +278,50 @@ class Granule():
 
         dl_minute = str(int(self.minute)//10)+'*'
 
-        bucket = 'gcp-public-data-goes-{sat}'.format(sat=self.sat[1:])
-        pattern = ('ABI-{product}-{area:.4}/{year}/{doy:0>3}/' +
-                   '{hour:0>2}/OR_ABI-{product}-{area}-M{mode}C{channel:0>2}_' +
-                   'G{sat}_s{year}{doy:0>3}{hour:0>2}{minute:0>2}*').format(
-                       product=product,
-                       year=self.year, doy=self.doy,
-                       hour=self.hour, minute=dl_minute,
-                       channel=channel, area=self.area,
-                       mode=mode, sat=self.sat[1:])
-        prefix = os.path.dirname(pattern)
-        logging.debug(prefix)
+        if source == 'google':
+            bucket = 'gcp-public-data-goes-{sat}'.format(sat=self.sat[1:])
+            if product == 'L1b':
+                pattern = ('ABI-{product}-{area:.4}/{year}/{doy:0>3}/' +
+                           '{hour:0>2}/OR_ABI-{product}-{area}-M{mode}C{channel:0>2}_' +
+                           'G{sat}_s{year}{doy:0>3}{hour:0>2}{minute:0>2}*').format(
+                               product=product,
+                               year=self.year, doy=self.doy,
+                               hour=self.hour, minute=dl_minute,
+                               channel=channel, area=self.area,
+                               mode=mode, sat=self.sat[1:])
+            elif product.startswith('L2'):
+                pattern = ('ABI-{product}{area}/{year}/{doy:0>3}/' +
+                           '{hour:0>2}/OR_ABI-{product}{area}-M{mode}_' +
+                           'G{sat}_s{year}{doy:0>3}{hour:0>2}{minute:0>2}*').format(
+                               product=product,
+                               year=self.year, doy=self.doy,
+                               hour=self.hour, minute=dl_minute,
+                               area=self.area[-1],
+                               mode=mode, sat=self.sat[1:])
+            prefix = os.path.dirname(pattern)
+            logging.debug(prefix)
 
-        # You will need to create a credential file for a blank project
-        # There are no permissions here, but otherwise this fails as you
-        # have no authentication file. It may be possible to do this with
-        # a blank file?
-        storage_client = storage.Client.from_service_account_json(
-            os.path.expandvars('${HOME}/.csat2/goes-service-key.json'))
-        logging.debug(storage_client)
-        files = storage_client.get_bucket(bucket).list_blobs(prefix=prefix)
-        
-        for fl in files:
-            logging.debug(fl.name)
-            if fnmatch(fl.name, pattern):
-                re_minutes = int(fl.name.split('_')[-3][-5:-3])
-                if (((re_minutes-self.minute) >= 0) and ((re_minutes-self.minute) < self.inc_minutes[self.area])):
-                    logging.debug(os.path.basename(fl.name))
-                    fl.download_to_filename(
-                        os.path.join(local_folder, os.path.basename(fl.name)))
+            # You will need to create a credential file for a blank project
+            # There are no permissions here, but otherwise this fails as you
+            # have no authentication file. It may be possible to do this with
+            # a blank file?
+            storage_client = storage.Client.from_service_account_json(
+                os.path.expandvars('${HOME}/.csat2/goes-service-key.json'))
+            logging.debug(storage_client)
+            files = storage_client.get_bucket(bucket).list_blobs(prefix=prefix)
 
+            for fl in files:
+                logging.debug(fl.name)
+                if fnmatch(fl.name, pattern):
+                    re_minutes = int(fl.name.split('_')[-3][-5:-3])
+                    if (((re_minutes-self.minute) >= 0) and ((re_minutes-self.minute) < self.inc_minutes[self.area])):
+                        logging.debug(os.path.basename(fl.name))
+                        fl.download_to_filename(
+                            os.path.join(local_folder, os.path.basename(fl.name)))
+
+        elif source == 'amazon':
+            raise NotImplementedError('AWS source not yet implmented')
+                        
 
 class GOESLocator():
     '''For converting between geodetic and satellite 
