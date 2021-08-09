@@ -155,10 +155,13 @@ def readin_icartt(filename):
 
         data = np.array(data, dtype=np.float)
 
-        starttime = datetime.datetime.strptime(filename.split('_')[-2], '%Y%m%d')
-        
+        try:
+            starttime = datetime.datetime.strptime(filename.split('_')[-2], '%Y%m%d')
+        except ValueError: # ACTIVATE files has 'legs' in the filename
+            starttime = datetime.datetime.strptime(filename.split('_')[-3], '%Y%m%d')
+            
         data = pd.DataFrame(data, columns=colnames)
         for name in data.keys():
-            if 'UTC' in name:
+            if ('UTC' in name) or ('Time' in name):
                 data[name] = pd.to_datetime(data[name], unit='s', origin=starttime)
         return data
