@@ -83,6 +83,15 @@ class Granule():
                    hour=int(m.group('hour')),
                    minute=int(m.group('minute')))
 
+    @classmethod
+    def fromdatetime(cls, sat, area, dtime):
+        return cls(sat=sat,
+                   area=area,
+                   year=dtime.year,
+                   doy=dtime.timetuple().tm_yday,
+                   hour=dtime.hour,
+                   minute=dtime.minute)
+    
     def astext(self):
         return '{}.{}{:0>3}.{:0>2}{:0>2}.{}'.format(
             self.sat, self.year, self.doy,
@@ -246,6 +255,14 @@ class Granule():
                 self.get_filename(channel, product=product, mode=mode)) as ds:
             return np.array(np.meshgrid(ds['x'][:],
                                         ds['y'][:]))
+
+    def get_satza(self, channel):
+        self._check_locator(channel)
+        return np.fromfunction(lambda i, j: np.sqrt(
+            self.locator.x[i.astype('int')]**2+
+            self.locator.y[j.astype('int')]**2),
+                               (len(self.locator.x), len(self.locator.y)))
+
 
     def get_llcoord(self, channel, product='L1b', mode='*'):        
         with xr.open_dataset(
