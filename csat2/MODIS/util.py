@@ -276,7 +276,7 @@ def _point_side_line(pt, ln0, ln1):
 
 def _point_intersection_box(pts, boxpoints):
     '''Pts intersectiosn with box, assumes euclidian geometry'''
-    npts = np.array(boxpoints)
+    npts = np.array([[float(b[0]), float(b[1])] for b in boxpoints])
     npts = np.concatenate(
         (npts,
          npts[0][None, :]))

@@ -27,6 +27,7 @@ class Granule(object):
         self.lonlat = None
         self._orbit = None
         self._daynight = None
+        self._gring = None
         # I don't really want the collection to be here, as it is not independent
         # of the data itself. However, I think it is the most sensible place to
         # have it. I can't think of many situations were you would use data from
@@ -92,6 +93,21 @@ class Granule(object):
     #     if not self.locator:
     #         self.locator = _MODISlocator(self, rectified=rectified, col=self.col)
     #     return self.locator.locate(locs, **kwargs)
+
+    def points_intersection(self, locs):
+        '''Do the points intersect with the gring (from geometa)'''
+        if not self._gring:
+            dat = readin('GEOMETA', self.year, self.doy,
+                         {'A': 'aqua',
+                          'T': 'terra'}[self.sat])
+            granind = np.where(
+                dat['StartTime'] == self.datetime().strftime(
+                    '%Y-%m-%d %H:%M'))[0]
+            self._gring = [[dat['GRLon1'][granind], dat['GRLat1'][granind]],
+                           [dat['GRLon2'][granind], dat['GRLat2'][granind]],
+                           [dat['GRLon3'][granind], dat['GRLat3'][granind]],
+                           [dat['GRLon4'][granind], dat['GRLat4'][granind]]]
+        return csat2.MODIS.util.point_intersection_granule(locs, self._gring)
 
     def locate(self, locs, rectified=False, product=None, col=None, factor=2, **kwargs):
         '''Returns the locations in the granule of lon,lat pairs,
