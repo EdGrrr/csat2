@@ -323,7 +323,7 @@ class Granule(object):
                 data[name][:, -4:] = -1000
         return data
         
-    def get_band_radiance(self, band, col=None, refl=False, bowtie_corr=True):
+    def get_band_radiance(self, band, col=None, refl=False, bowtie_corr=True, nrt=False):
         ''' 
         --Bowtie Corrected-- => bowtie_corr=True (default)
 
@@ -331,9 +331,9 @@ class Granule(object):
         Set 'refl' to True to get the reflectance instead (if supported)'''
         if not col:
             col = self.col
-        var, ind, metadata = self.get_metadata_band(band, col=col)
+        var, ind, metadata = self.get_metadata_band(band, col=col, nrt=nrt)
         mod_data = readin(
-            self.product_expand('021KM'),
+            self.product_expand('021KM', nrt=nrt),
             self.year,
             self.doy,
             sds=[var],
@@ -372,12 +372,14 @@ class Granule(object):
         return (scipy.constants.h*scipy.constants.c/
                 (scipy.constants.k*wvl*temp2))
 
-    def product_expand(self, product):
+    def product_expand(self, product, nrt=False):
         if not product.startswith('M'):
             # Add on the correct satellite prefix
             product = 'M{}D{}'.format(
                 {'T': 'O', 'A': 'Y'}[self.sat],
                 product)
+        if nrt:
+            product += '_NRT'
         return product
 
     def download(self, product, col=None, force_redownload=False):
@@ -404,11 +406,11 @@ class Granule(object):
                          col=col,
                          force_redownload=force_redownload)
         
-    def get_metadata_band(self, band, col=None):
+    def get_metadata_band(self, band, col=None, nrt=False):
         if not col:
             col = self.col
         metadata = readin_metadata(
-            self.product_expand('021KM'),
+            self.product_expand('021KM', nrt=nrt),
             self.year,
             self.doy,
             self.timestr(),
