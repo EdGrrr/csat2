@@ -289,7 +289,7 @@ class Granule(object):
     def get_filename(self, product, col=None, return_primary=True):
         if not col:
             col = self.col
-        if product is 'GEOMETA':
+        if product == 'GEOMETA':
             fnames = locator.search(
                 'MODIS', 'GEOMETA',
                 year=self.year, doy=self.doy,
@@ -307,7 +307,7 @@ class Granule(object):
         else:    
             return fnames
         
-    def get_variable(self, product, sds, col=None):
+    def get_variable(self, product, sds, col=None, bowtie_corr=False):
         '''Get data from a specific product e.g. '06_L2' '''
         if not col:
             col = self.col
@@ -317,6 +317,10 @@ class Granule(object):
             self.doy,
             sds=sds,
             time=self.timestr(), col=col)
+        for name in sds:
+            if data[name].shape[1] == 1354: # 1km data only
+                data[name][:, :-4] = bowtie_correct(data[name][:, :-4])
+                data[name][:, -4:] = -1000
         return data
         
     def get_band_radiance(self, band, col=None, refl=False, bowtie_corr=True):
