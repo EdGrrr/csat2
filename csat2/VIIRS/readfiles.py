@@ -27,15 +27,10 @@ def readin(product, *args, **kwargs):
             int - year
             int - day of year (Jan 1st = 1)
             list - list of Datasets required)'''
-    if (product in ['VNP02IMG', 'VNP02MOD', 'VNP02DNB',
-                    'VNP03IMG', 'VNP03MOD', 'VNP03DNB',
-                    'VJ102IMG', 'VJ102MOD', 'VJ102DNB',
-                    'VJ103IMG', 'VJ103MOD', 'VJ103DNB']):
-        return readin_VIIRS_L2(product, *args, **kwargs)
-    elif (product == 'GEOMETA'):
+    if (product == 'GEOMETA'):
         return readin_VIIRS_GEOMETA(*args, **kwargs)
     else:
-        print('Product not implemented yet')
+        return readin_VIIRS_L2(product, *args, **kwargs)
 
 
 def dictkeysappend(dict1, dict2, axis=0):

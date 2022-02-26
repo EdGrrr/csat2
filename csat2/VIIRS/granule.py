@@ -102,7 +102,7 @@ class Granule(object):
         self.lonlat = [data['longitude'],
                        data['latitude']]
 
-    def get_band_radiance(self, band, col=None, refl=False, bowtie_corr=False):
+    def get_band_radiance(self, band, col=None, refl=False, bowtie_corr=False, nrt=False):
         ''' 
         --Bowtie Corrected-- => bowtie_corr=True
 
@@ -111,9 +111,9 @@ class Granule(object):
         if col is None:
             col = self.col
 
-        metadata = self.get_metadata_band(band, col=col)
+        metadata = self.get_metadata_band(band, col=col, nrt=nrt)
         vir_data = readin(
-            self.get_radiance_product(band),
+            self.get_radiance_product(band, nrt=nrt),
             self.year,
             self.doy,
             [band],
@@ -141,12 +141,12 @@ class Granule(object):
             else:
                 return vir_data/metadata['radiance_scale_factor']
 
-    def get_band_bt(self, band, col=None, bowtie_corr=False):
+    def get_band_bt(self, band, col=None, bowtie_corr=False, nrt=False):
         if col is None:
             col = self.col
 
         vir_data = readin(
-            self.get_radiance_product(band),
+            self.get_radiance_product(band, nrt=nrt),
             self.year,
             self.doy,
             [band, band+'_brightness_temperature_lut'],
@@ -160,7 +160,7 @@ class Granule(object):
             return vir_data[band+'_brightness_temperature_lut'][
                 vir_data[band].astype('int')]
 
-    def download_product(self, product, col=None):
+    def download_product(self, product, col=None, nrt=False):
         if col is None:
             col = self.col
 
@@ -206,23 +206,27 @@ class Granule(object):
         else:
             return 0
 
-    def get_radiance_product(self, band):
+    def get_radiance_product(self, band, nrt=False):
         prefix = {'N': 'VNP', 'J': 'VJ1'}[self.sat]
+        if nrt:
+            suffix = '_NRT'
+        else:
+            suffix = ''    
         if band.startswith('I'):
-            return prefix+'02IMG'
+            return prefix+'02IMG'+suffix
         elif band.startswith('M'):
-            return prefix+'02MOD'
+            return prefix+'02MOD'+suffix
         elif band.startswith('DNB'):
-            return prefix+'02DNB'
+            return prefix+'02DNB'+suffix
         else:
             raise KeyError('Not a valid band')
 
-    def get_metadata_band(self, band, col=None):
+    def get_metadata_band(self, band, col=None, nrt=False):
         if col is None:
             col = self.col
 
         metadata = readin_metadata(
-            self.get_radiance_product(band),
+            self.get_radiance_product(band, nrt=nrt),
             self.year,
             self.doy,
             self.timestr(),

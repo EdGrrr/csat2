@@ -74,13 +74,34 @@ def get_token():
         raise IOError('Place your LAADS API key in {}'.format(TOKENFILE))
 
 
+    
+def download_file_locations(product, year, doy, times=None, col=DEFAULT_COLLECTION):
+    base_url = 'https://ladsweb.modaps.eosdis.nasa.gov/'
+    laads_folder = (base_url +
+                    f'archive/allData/{col}/{product}/{year}/{doy:0>3}')
+
+    token = get_token()
+    files = [base_url + a['downloadsLink'] for a in
+             json.loads(_geturl(laads_folder+'.json', token))]
+    return files
+
+
+def download_file_locations_nrt(product, year, doy, times=None, col=DEFAULT_COLLECTION):
+    base_url = 'https://nrt4.modaps.eosdis.nasa.gov'
+    laads_folder = (base_url +
+                    f'/api/v2/content/details/allData/{col}/{product}/{year}/{doy:0>3}')
+
+    token = get_token()
+    files = [base_url+a['downloadsLink'] for a in
+             json.loads(_geturl(laads_folder+'?fields=all&formats=json', token))['content']]
+    return files
+
+
 def download(product, year, doy, times=None, col='5110'):
-    laads_folder = ('https://ladsweb.modaps.eosdis.nasa.gov/' +
-                    'archive/allData/{}/{}/{}/{:0>3}'.format(
-                        col,
-                        product,
-                        year,
-                        doy))
+    if product.endswith('NRT'):
+        files = download_file_locations_nrt(product, year, doy, times, col)
+    else:
+        files = download_file_locations(product, year, doy, times, col)
 
     local_folder = locator.get_folder('VIIRS', product,
                                       year=year, doy=doy,
@@ -91,25 +112,19 @@ def download(product, year, doy, times=None, col='5110'):
     except FileExistsError:
         pass
 
-    logging.debug(laads_folder)
-    token = get_token()
-    files = [a['name'] for a in
-             json.loads(_geturl(laads_folder+'.json', token))]
-
     if len(files) == 0:
         raise ValueError('No files for {} on {}, {}'.format(product, year, doy))
 
     if times is not None:
-        files = [a for a in files if str(a.split('.')[2]) in times]
+        files = [a for a in files if str(os.path.basename(a).split('.')[2]) in times]
 
     for filename in files:
-        laads_loc = laads_folder + '/' + filename
-        newfile = local_folder + '/' + filename
+        newfile = local_folder + '/' + os.path.basename(filename)
         if not os.path.exists(newfile):
             with open(newfile, 'w+b') as fh:
-                _geturl(laads_loc, token, fh)
+                _geturl(filename, get_token(), fh)
         else:
-            logging.info('Skipping {}'.format(filename))
+            logging.info('Skipping {}'.format(os.path.basename(filename)))
 
 
 def download_geometa(year, doy, sat, col=DEFAULT_COLLECTION, force_redownload=False):
