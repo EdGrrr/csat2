@@ -29,11 +29,11 @@ class Granule(object):
         self.col = col
 
     @classmethod
-    def fromtext(cls, gran_text):
+    def fromtext(cls, gran_text, col=DEFAULT_COLLECTION):
         return cls(int(gran_text[:4]),
                    int(gran_text[4:7]),
                    int(gran_text[8:12]),
-                   gran_text[-1])
+                   gran_text[-1], col)
 
     @classmethod
     def fromfilename(cls, filename):
@@ -71,9 +71,36 @@ class Granule(object):
         if not product.startswith('V'):
             # Add on the correct satellite prefix
             product = 'V{}{}'.format(
-                {'N': 'NP', 'J': 'Ji'}[self.sat],
+                {'N': 'NP', 'J': 'J1'}[self.sat],
                 product)
         return product
+
+    def get_lonlat(self, product=None, col=None, dateline=False):
+        '''Get lon lat data - can specify the product or the collection
+        used to the geolocation data from'''
+        if not self.lonlat:
+            self._read_lonlat(product=product, col=col, dateline=dateline)
+        return self.lonlat
+    
+    def _read_lonlat(self, product=None, col=None, dateline=False):
+        if not col:
+            col = self.col
+        if not product:
+            product = '03MOD'
+        data = readin(
+            self.product_expand(product),
+            self.year,
+            self.doy,
+            sds=['longitude', 'latitude'],
+            time=self.timestr(), col=col)
+        if dateline:
+            # Ignores the poles
+            if (data['longitude'].max()>160) and (data['longitude'].min()<-160):
+                data['longitude'] = np.where(data['longitude']<0,
+                                             data['longitude']+360,
+                                             data['Longitude'])
+        self.lonlat = [data['longitude'],
+                       data['latitude']]
 
     def get_band_radiance(self, band, col=None, refl=False, bowtie_corr=False):
         ''' 
@@ -145,7 +172,7 @@ class Granule(object):
     def get_filename(self, product, col=None, return_primary=True):
         if not col:
             col = self.col
-        if product is 'GEOMETA':
+        if product == 'GEOMETA':
             fnames = locator.search(
                 'VIIRS', 'GEOMETA',
                 year=self.year, doy=self.doy,

@@ -72,7 +72,7 @@ def band_res(band):
 
 def bowtie_correct(datafield, res='375m'):
     file_correct = locator.search(
-        'VIIRS', 'bowtie', res=res)[0]
+        'VIIRS', 'bowtie', res=res[:4])[0]
     with Dataset(file_correct) as ncdf:
         along_track_index = ncdf.variables['at_ind'][:]
         cross_track_index = ncdf.variables['ct_ind'][:]
@@ -87,8 +87,8 @@ def bowtie_correct(datafield, res='375m'):
     return datafield[atind, ctind]
 
 
-def _create_bowtie_correct(mod_data, output_file):
-    scan_width = 32
+def _create_bowtie_correct(img_data, mod_data, output_file, res=375):
+    scan_width = int(12000//res)
 
     centre_scan_row = int(np.floor(scan_width//2))
     inc_lon = (mod_data['longitude'][centre_scan_row+scan_width] -
@@ -106,9 +106,9 @@ def _create_bowtie_correct(mod_data, output_file):
         inc_lat[None, :]) + mod_data['latitude'][centre_scan_row][None, :]
     
     old_lon = mod_data['longitude'][:scan_width, :]
-    old_lon[np.isnan(mod_data['I01'][:scan_width, :])] = -90
+    old_lon[np.isnan(img_data[:scan_width, :])] = -90
     old_lat = mod_data['latitude'][:scan_width, :]
-    old_lat[np.isnan(mod_data['I01'][:scan_width, :])] = -90
+    old_lat[np.isnan(img_data[:scan_width, :])] = -90
 
     along_track_index = np.zeros(lon.shape)
     for j in range(scan_width):
@@ -126,4 +126,8 @@ def _create_bowtie_correct(mod_data, output_file):
 def _create_bowtie_correct_files():
     mod_data = readin('VNP03IMG', 2015, 80, ['longitude', 'latitude'], time='0800')
     mod_data['I01'] = readin('VNP02IMG', 2015, 80, ['I01'], time='0800')['I01']
-    _create_bowtie_correct(mod_data, 'bowtie_correction_375m.nc')
+    _create_bowtie_correct(mod_data['I01'], mod_data, 'bowtie_correction_375m.nc', res=375)
+    
+    mod_data = readin('VNP03MOD', 2015, 80, ['longitude', 'latitude'], time='0800')
+    mod_data['M01'] = readin('VNP02MOD', 2015, 80, ['M01'], time='0800')['M01']
+    _create_bowtie_correct(mod_data['M01'], mod_data, 'bowtie_correction_750m.nc', res=750)

@@ -28,7 +28,9 @@ def readin(product, *args, **kwargs):
             int - day of year (Jan 1st = 1)
             list - list of Datasets required)'''
     if (product in ['VNP02IMG', 'VNP02MOD', 'VNP02DNB',
-                    'VNP03IMG', 'VNP03MOD', 'VNP03DNB']):
+                    'VNP03IMG', 'VNP03MOD', 'VNP03DNB',
+                    'VJ102IMG', 'VJ102MOD', 'VJ102DNB',
+                    'VJ103IMG', 'VJ103MOD', 'VJ103DNB']):
         return readin_VIIRS_L2(product, *args, **kwargs)
     elif (product == 'GEOMETA'):
         return readin_VIIRS_GEOMETA(*args, **kwargs)
