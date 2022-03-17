@@ -113,6 +113,9 @@ class Granule():
         else:
             return util_get_resolution(channel)*0.000028
 
+    def get_resolution_km(self, channel, product='L1b'):
+        return util_get_resolution(channel)
+
     def _check_locator(self, channel, product='L1b', mode='*'):
         if not self.locator:
             self.locator = GOESLocator(self.get_filename(
@@ -127,13 +130,21 @@ class Granule():
             2, -1).transpose(), channel, product, mode)
         return llp[:, 0].reshape(ipc[0].shape), llp[:, 1].reshape(ipc[0].shape)
 
-    def geolocate(self, coords, channel=None, product='L1b', mode='*', interp=False):
+    def geolocate(self, coords, channel=None, product='L1b', mode='*', interp=False, force_new_locator=False):
         '''Returns the lon/lat of the gridbox indicies passed as coords'''
-        self._check_locator(channel, product, mode)
+        if force_new_locator:
+            self.locator = GOESLocator(self.get_filename(
+                channel=channel, product=product, mode=mode))        
+        else:
+            self._check_locator(channel, product, mode)
         return self.locator.geolocate(coords, interp)
 
-    def locate(self, coords, alt=None, channel=None, product='L1b', mode='*', interp=False):
-        self._check_locator(channel, product, mode)
+    def locate(self, coords, alt=None, channel=None, product='L1b', mode='*', interp=False, force_new_locator=False):
+        if force_new_locator:
+            self.locator = GOESLocator(self.get_filename(
+                channel=channel, product=product, mode=mode))        
+        else:
+            self._check_locator(channel, product, mode)
         return self.locator.locate(coords, alt, interp)
 
     def points_in_radius(self, loc, dist, channel, product='L1b', mode='*'):
