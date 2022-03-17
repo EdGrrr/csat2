@@ -45,7 +45,14 @@ def readin(product, *args, **kwargs):
                      'MOD02QKM', 'MYD02QKM',
                      'MOD03', 'MYD03',
                      'MOD04_L2', 'MYD04_L2',
-                     'MOD06_L2', 'MYD06_L2']:
+                     'MOD06_L2', 'MYD06_L2',
+                     'MODATML2_NRT', 'MYDATML2_NRT',
+                     'MOD021KM_NRT', 'MYD021KM_NRT',
+                     'MOD02HKM_NRT', 'MYD02HKM_NRT',
+                     'MOD02QKM_NRT', 'MYD02QKM_NRT',
+                     'MOD03_NRT', 'MYD03_NRT',
+                     'MOD04_L2_NRT', 'MYD04_L2_NRT',
+                     'MOD06_L2_NRT', 'MYD06_L2_NRT']:
         return readin_MODIS_L2(product, *args, **kwargs)
     elif (product == 'subset'):
         return readin_MODIS_subset(*args, **kwargs)

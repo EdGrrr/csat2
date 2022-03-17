@@ -92,7 +92,7 @@ def download_file_locations(product, year, doy, times=None, col=DEFAULT_COLLECTI
 def download_file_locations_nrt(product, year, doy, times=None, col=DEFAULT_COLLECTION):
     base_url = 'https://nrt4.modaps.eosdis.nasa.gov'
     laads_folder = (base_url +
-                    f'/api/v2/content/details/allData/{col}/{product}/{year}/{doy:0>3}')
+                    f'/api/v2/content/details/allData/{col}/{product[:-4]}/{year}/{doy:0>3}')
 
     token = get_token()
     files = [base_url+a['downloadsLink'] for a in
@@ -121,8 +121,6 @@ def download(product, year, doy, times=None, col=DEFAULT_COLLECTION, force_redow
         os.makedirs(local_folder)
     except FileExistsError:
         pass
-
-    logging.debug(laads_folder)
 
     if times is not None:
         files = [a for a in files if str(os.path.basename(a).split('.')[2]) in times]
