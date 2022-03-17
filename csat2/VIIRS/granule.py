@@ -3,7 +3,7 @@ from csat2 import misc
 from csat2 import locator
 # , field_interpolate, bowtie_correct
 from .readfiles import readin, readin_metadata, DEFAULT_COLLECTION
-from .util import band_res, bowtie_correct
+from .util import band_res, bowtie_correct, mesh_correct
 from .download import download
 import numpy as np
 
@@ -102,7 +102,7 @@ class Granule(object):
         self.lonlat = [data['longitude'],
                        data['latitude']]
 
-    def get_band_radiance(self, band, col=None, refl=False, bowtie_corr=False, nrt=False):
+    def get_band_radiance(self, band, col=None, refl=False, bowtie_corr=False, mesh_corr=False, nrt=False):
         ''' 
         --Bowtie Corrected-- => bowtie_corr=True
 
@@ -118,30 +118,20 @@ class Granule(object):
             self.doy,
             [band],
             time=self.timestr(), col=col)[band]
-        if bowtie_corr:
-            if refl:
-                if 'radiance' in metadata['long_name']:
-                    raise ValueError(
-                        'Radiance cannot be computed for {}'.format(band))
-                return bowtie_correct(vir_data, res=band_res(band))
+        if refl:
             if 'radiance' in metadata['long_name']:
-                return bowtie_correct(vir_data, res=band_res(band))
-            else:
-                return bowtie_correct(
-                    vir_data/metadata['radiance_scale_factor'],
-                    res=band_res(band))
+                raise ValueError(
+                    'Radiance cannot be computed for {}'.format(band))
         else:
-            if refl:
-                if 'radiance' in metadata['long_name']:
-                    raise ValueError(
-                        'Radiance cannot be computed for {}'.format(band))
-                return vir_data
-            if 'radiance' in metadata['long_name']:
-                return vir_data
-            else:
-                return vir_data/metadata['radiance_scale_factor']
+            vir_data /= metadata['radiance_scale_factor']
+        if bowtie_corr:
+            return bowtie_correct(vir_data, res=band_res(band))
+        elif mesh_corr:
+            return mesh_correct(vir_data, res=band_res(band))
+        else:
+            return vir_data
 
-    def get_band_bt(self, band, col=None, bowtie_corr=False, nrt=False):
+    def get_band_bt(self, band, col=None, bowtie_corr=False, mesh_corr=False, nrt=False):
         if col is None:
             col = self.col
 
@@ -156,6 +146,11 @@ class Granule(object):
                 vir_data[band+'_brightness_temperature_lut'][
                     vir_data[band].astype('int')],
                 res=band_res(band))
+        elif mesh_corr:
+            return mesh_correct(
+                vir_data[band+'_brightness_temperature_lut'][
+                    vir_data[band].astype('int')],
+                res=band_res(band))            
         else:
             return vir_data[band+'_brightness_temperature_lut'][
                 vir_data[band].astype('int')]

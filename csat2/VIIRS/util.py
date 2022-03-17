@@ -70,9 +70,9 @@ def band_res(band):
     return _bands_res[str(band)]
 
 
-def bowtie_correct(datafield, res='375m'):
+def _remap_by_file(datafield, filetype, res):
     file_correct = locator.search(
-        'VIIRS', 'bowtie', res=res[:4])[0]
+        'VIIRS', filetype, res=res[:4])[0]
     with Dataset(file_correct) as ncdf:
         along_track_index = ncdf.variables['at_ind'][:]
         cross_track_index = ncdf.variables['ct_ind'][:]
@@ -85,6 +85,33 @@ def bowtie_correct(datafield, res='375m'):
         lambda x, y: cross_track_index[x%scan_width, y],
         datafield.shape, dtype=np.int).astype('int')
     return datafield[atind, ctind]
+
+
+def bowtie_correct(datafield, res='375m'):
+    return _remap_by_file(datafield, 'bowtie', res=res)
+
+
+def mesh_correct(datafield, res='375m'):
+    return _remap_by_file(datafield, 'mesh', res=res)
+
+
+def _create_mesh_correct(img_data, mod_data, output_file, res=375):
+    scan_width = int(12000//res)
+
+    img_vals = np.isfinite(img_data[:scan_width, :])
+    img_min = np.argmax(img_vals, axis=0)
+    
+    along_track_index = np.fromfunction(lambda x, y: x, img_vals.shape, dtype='i')
+    for i in range(1, scan_width):
+        rep_inds = np.where(img_min == i)[0]
+        along_track_index[:i, rep_inds] = i
+        along_track_index[(-i-1):, rep_inds] = scan_width-i-1
+
+    cross_track_index = np.fromfunction(lambda x, y:y, along_track_index.shape, dtype=np.int)
+
+    csat2.misc.fileops.nc4_dump_mv(output_file,
+                                   {'at_ind': along_track_index,
+                                    'ct_ind': cross_track_index})
 
 
 def _create_bowtie_correct(img_data, mod_data, output_file, res=375):
@@ -127,7 +154,9 @@ def _create_bowtie_correct_files():
     mod_data = readin('VNP03IMG', 2015, 80, ['longitude', 'latitude'], time='0800')
     mod_data['I01'] = readin('VNP02IMG', 2015, 80, ['I01'], time='0800')['I01']
     _create_bowtie_correct(mod_data['I01'], mod_data, 'bowtie_correction_375m.nc', res=375)
+    _create_mesh_correct(mod_data['I01'], mod_data, 'mesh_correction_375m.nc', res=375)
     
     mod_data = readin('VNP03MOD', 2015, 80, ['longitude', 'latitude'], time='0800')
     mod_data['M01'] = readin('VNP02MOD', 2015, 80, ['M01'], time='0800')['M01']
     _create_bowtie_correct(mod_data['M01'], mod_data, 'bowtie_correction_750m.nc', res=750)
+    _create_mesh_correct(mod_data['M01'], mod_data, 'mesh_correction_750m.nc', res=750)
