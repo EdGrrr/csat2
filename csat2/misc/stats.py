@@ -27,9 +27,21 @@ class DataAccumulator():
             self.output[name] = zero_nans(data)
             self.output[name+'_num'] = np.isfinite(data).astype('int')
 
+    def insert_numbertotal(self, name, number, total):
+        '''Store data in the accumulator under 'name'. Paases the number of
+        points and the total separtely. The size of the array doesn't
+        need to be specified, but it should be the same as any
+        previous data stored under this name.'''
+        if name in self.output.keys():
+            self.output[name] += zero_nans(total)
+            self.output[name+'_num'] += zero_nans(number)
+        else:
+            self.output[name] = zero_nans(total)
+            self.output[name+'_num'] = zero_nans(number)
+            
     def insert_dict(self, data_dict):
         '''Store a dictionary of data, with the variable names
-        taken fromt he dictionary'''
+        taken from the dictionary'''
         for name in data_dict.keys():
             self.insert(name, data_dict[name])
 
