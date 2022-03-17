@@ -73,7 +73,7 @@ def download(year, month, variables, level, resolution,
              times=8,
              lst=True, lst_times=['0730', '1030', '1330', '1630'],
              force_redownload=False):
-    '''Downloads ECMWF data for a single month. Multiple variables can be selected,
+    '''Downloads ECMWF ERA5 data for a single month. Multiple variables can be selected,
     but only a single level at each time.
 
     days - download specific days, leave a None to get the whole month.
