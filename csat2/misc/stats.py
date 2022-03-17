@@ -107,6 +107,22 @@ def nanlinregress(data_x, data_y):
     return scipy.stats.linregress(data_x[mask], data_y[mask])
 
 
+def bootstrap_nanlinregress(data_x, data_y, nsamples, percentiles=None):
+    mask = np.where(np.isfinite(data_x+data_y))[0]
+    output = {'slope': [],
+              'intercept': [],
+              'rvalue': []}
+    for n in range(nsamples):
+        nmask = np.random.choice(mask, len(mask))
+        lrdata = scipy.stats.linregress(data_x[nmask], data_y[nmask])
+        output['slope'].append(lrdata.slope)
+        output['intercept'].append(lrdata.intercept)
+        output['rvalue'].append(lrdata.rvalue)
+    if percentiles:
+        for name in output.keys():
+            output[name] = np.percentile(output[name], percentiles)
+    return output
+
 def nanmean(data, *args, **kwargs):
     '''Returns of mean of a numpy array ignoring missing data'''
     return np.ma.filled(np.ma.array(
