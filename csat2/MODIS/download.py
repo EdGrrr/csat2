@@ -7,7 +7,7 @@ import os
 import os.path
 import json
 import logging
-from csat2.earthdata_download import get_token, geturl
+from csat2.download.earthdata import get_token, geturl
 
 
 def download_file_locations(product, year, doy, times=None,
