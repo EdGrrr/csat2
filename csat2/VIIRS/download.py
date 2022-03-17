@@ -6,94 +6,30 @@ import os
 import os.path
 import json
 import logging
-
-USERAGENT = 'csat2/download_v0.1' + \
-    sys.version.replace('\n', '').replace('\r', '')
-TOKENFILE = os.environ['HOME']+'/.csat2/laadsdaacrc'
-
-
-def _geturl(url, token=None, out=None):
-    headers = {'user-agent': USERAGENT}
-    if token is not None:
-        headers['Authorization'] = 'Bearer ' + token
-        try:
-            import ssl
-            CTX = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-            from urllib.request import urlopen, Request, HTTPError, URLError
-            try:
-                fh = urlopen(Request(url, headers=headers), context=CTX)
-                if out is None:
-                    return fh.read().decode('utf-8')
-                else:
-                    length = fh.getheader('content-length')
-                    if length:
-                        length = int(length)
-                        blocksize = max(4096, length//100)
-                    else:
-                        raise HTTPError('No content-length from LAADS')
-                    size = 0
-                    while True:
-                        buf1 = fh.read(blocksize)
-                        if not buf1:
-                            break
-                        out.write(buf1)
-                        size += len(buf1)
-                        if length:
-                            print('Downloading {} {:6.2f}MB {:6.0f}%\r'.format(os.path.basename(url), length/(1024*1024), 100*size/length), end='')
-                    print()
-            except HTTPError:
-                return IOError('Data not available')
-            except URLError:
-                return IOError('Data not available')
-
-        except AttributeError:
-            # OS X Python 2 and 3 don't support tlsv1.1+ therefore... curl
-            import subprocess
-            try:
-                args = ['curl', '--fail', '-sS', '-L', '--get', url]
-                for (k, v) in headers.items():
-                    args.extend(['-H', ': '.join([k, v])])
-                if out is None:
-                    # python3's subprocess.check_output returns stdout as a byte string
-                    result = subprocess.check_output(args)
-                    return result.decode('utf-8') if isinstance(result, bytes) else result
-                else:
-                    subprocess.call(args, stdout=out)
-            except subprocess.CalledProcessError as e:
-                print('curl GET error message: %' +
-                      (e.message if hasattr(e, 'message') else e.output),
-                      file=sys.stderr)
-        return None
-
-
-def get_token():
-    try:
-        with open(TOKENFILE) as f:
-            return f.read().strip()
-    except:
-        raise IOError('Place your LAADS API key in {}'.format(TOKENFILE))
-
+from csat2.earthdata_download import get_token, geturl
 
     
-def download_file_locations(product, year, doy, times=None, col=DEFAULT_COLLECTION):
+def download_file_locations(product, year, doy, times=None,
+                            col=DEFAULT_COLLECTION):
     base_url = 'https://ladsweb.modaps.eosdis.nasa.gov/'
     laads_folder = (base_url +
                     f'archive/allData/{col}/{product}/{year}/{doy:0>3}')
 
     token = get_token()
     files = [base_url + a['downloadsLink'] for a in
-             json.loads(_geturl(laads_folder+'.json', token))]
+             json.loads(geturl(laads_folder+'.json', token))]
     return files
 
 
-def download_file_locations_nrt(product, year, doy, times=None, col=DEFAULT_COLLECTION):
+def download_file_locations_nrt(product, year, doy, times=None,
+                                col=DEFAULT_COLLECTION):
     base_url = 'https://nrt4.modaps.eosdis.nasa.gov'
     laads_folder = (base_url +
                     f'/api/v2/content/details/allData/{col}/{product}/{year}/{doy:0>3}')
 
     token = get_token()
     files = [base_url+a['downloadsLink'] for a in
-             json.loads(_geturl(laads_folder+'?fields=all&formats=json', token))['content']]
+             json.loads(geturl(laads_folder+'?fields=all&formats=json', token))['content']]
     return files
 
 
@@ -122,7 +58,7 @@ def download(product, year, doy, times=None, col='5110'):
         newfile = local_folder + '/' + os.path.basename(filename)
         if not os.path.exists(newfile):
             with open(newfile, 'w+b') as fh:
-                _geturl(filename, get_token(), fh)
+                geturl(filename, get_token(), fh)
         else:
             logging.info('Skipping {}'.format(os.path.basename(filename)))
 
@@ -155,7 +91,7 @@ def download_geometa(year, doy, sat, col=DEFAULT_COLLECTION, force_redownload=Fa
         if force_redownload:
             os.remove(local_file)
         with open(local_file, 'w+b') as fh:
-            _geturl(laads_file, token, fh)
+            geturl(laads_file, token, fh)
     else:
         logging.info('Skipping {}'.format(os.path.basename(local_file)))
 
