@@ -47,7 +47,7 @@ def readin_ERA(year, doy, variable, level=None, product='ERAInterim', time='LST'
                               level=level,
                               resolution=resolution,
                               time=time)
-    if (resolution is '1grid'):  # and (returndata['time'].dtype == np.float):
+    if (resolution == '1grid'):  # and (returndata['time'].dtype == np.float):
         # These should match the MODIS files, so will build the xarray directly
         # xarray is very slow at transposing arrays (for some reason)
         with Dataset(filename[0]) as ncdf:
@@ -383,6 +383,53 @@ class ERA5WindData():
                 lon, lat, time, simple=simple))
 
 
+class ERA5Data3D():
+    '''3D interpolation for ERA5 data. All levels are specified as pressure levels in hPa'''
+    def __init__(self, variable, levels, res='0.25grid', linear_interp=False):
+        self.levels = np.array([int(l.replace('hPa', '')) for l in levels])
+        # Keep the levels sorted internally (even if not supplied as such)
+        self.levels.sort()
+
+        # Store the actual data in a list
+        self.data = []
+        for level in self.levels:
+            self.data.append(ERA5Data(variable, level=str(level)+'hPa', res=res))
+
+    def _level_interpolator(self, level):
+        '''Return the index in the data array and weights for each level'''
+        # Lower index - lower pressure
+        ind_lower = (np.digitize(level, self.levels)-1).clip(0, len(self.levels)-1)
+        ind_upper = (np.digitize(level, self.levels)).clip(0, len(self.levels)-1)
+        # Linear interpolation (for now)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            frac = np.where(
+                ind_lower != ind_upper, 
+                ((level-self.levels[ind_lower])/
+                 (self.levels[ind_upper]-self.levels[ind_lower])),
+                1)
+        return ind_lower, ind_upper, frac
+        
+    def get_data_time(self, time, level):
+        '''Get the variable at time interpolated to a pressure level'''
+        ind_lower, ind_upper, frac = self._level_interpolator(level)
+        # Simple linear interpolation
+        return (self.data[ind_upper].get_data_time(time)*(1-frac) +
+                self.data[ind_lower].get_data_time(time)*frac)
+
+    def get_data(self, lon, lat, level, time, simple=False):
+        '''Get data at lon, lat, height, for a given datetime 'time' '''
+        ind_lower, ind_upper, frac = self._level_interpolator(level)
+        output = np.zeros(ind_lower.shape)
+        # Just go through all levels...
+        for ind in range(len(self.levels)):
+            mask = (ind_lower == ind)
+            if mask.sum() > 0:
+                output[mask] += (1-frac[mask])*self.data[ind].get_data(lon[mask], lat[mask], time, simple=simple)
+            mask = (ind_upper == ind)
+            if mask.sum() > 0:
+                output[mask] += (frac[mask])*self.data[ind].get_data(lon[mask], lat[mask], time, simple=simple)
+        return output
+    
 ##################
 # MACC functions #
 ##################
