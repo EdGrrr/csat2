@@ -11,6 +11,7 @@ import ftplib
 import typing
 from html.parser import HTMLParser
 from requests import Session
+from tqdm import tqdm
 
 session = Session()
 
@@ -32,12 +33,21 @@ class LinkParser(HTMLParser):
 
 
 def asdc_download_file(url, output_fname=None):
-    response = session.get(url)
+    response = session.get(url, stream=True)
     if response.status_code != 200:
         raise ValueError(f'Download failed status:{response.status_code}')
+    total = int(response.headers.get('content-length', 0))
     if output_fname:
-        with open(output_fname, 'wb') as f:
-            f.write(response.content)
+        with open(output_fname, 'wb') as f, tqdm(
+                desc=os.path.basename(output_fname),
+                total=total,
+                unit='iB',
+                unit_scale=True,
+                unit_divisor=1024,
+        ) as bar:
+            for data in response.iter_content(chunk_size=1024):
+                size = f.write(data)
+                bar.update(size)
     else:
         return response.content
 

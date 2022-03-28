@@ -40,6 +40,11 @@ class Granule(object):
     def astext(self):
         return f'CAL.{self.year}{self.doy:0>3}.{self.hour:0>2}{self.minute:0>2}{self.second:0>2}'
 
+    @property
+    def daynight(self):
+        '''Granule is (D)ay or (N)ighttime data'''
+        return self.filename('LID_L1')[-5]
+    
     def get_lonlat(self, product, col=None):
         '''Get lon lat data - can specify the product or the collection
         used to the geolocation data from'''
@@ -61,7 +66,7 @@ class Granule(object):
         if not col:
             col = self.col
         return readin_calipso_curtain(
-            product, self.year, self.doy, self.hour, self.minute, sds=varnames, col=col)
+            product, self.year, self.doy, self.hour, self.minute, self.second, sds=varnames, col=col)
 
     def download_product(self, product, col=None):
         if col is None:
@@ -69,10 +74,9 @@ class Granule(object):
         if not check(product, self.year, self.doy,
                      self.hour, self.minute,
                      col=col):
-            fname = self.filename('LID_L1')
             download(product, self.year, self.doy,
                      self.hour, self.minute,
-                     self.second, fname[-4],
+                     self.second, self.daynight,
                      col=col)
 
     def __repr__(self):

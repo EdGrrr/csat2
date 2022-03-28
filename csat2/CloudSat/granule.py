@@ -62,6 +62,26 @@ class Granule(object):
         self.lonlat = [data['Longitude'],
                        data['Latitude']]
 
+    def get_decimal_times(self, product, col=None):
+        if not col:
+            col = self.col
+        data = self.get_variable(
+            product,
+            varnames=['Profile_time', 'UTC_start'],
+            col=col)
+        times = data['UTC_start']+data['Profile_time']
+        return times/3600
+
+    def get_datetimes(self, product, col=None):
+        if not col:
+            col = self.col
+        data = self.get_variable(
+            product,
+            varnames=['Profile_time', 'UTC_start'],
+            col=col)
+        times = data['UTC_start']+data['Profile_time']
+        raise NotImplementedError()
+        
     def get_variable(self, product, varnames, col=None):
         if not col:
             col = self.col
