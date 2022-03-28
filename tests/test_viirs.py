@@ -43,7 +43,7 @@ class TestVIIRSDownload(unittest.TestCase):
                 pass
         except IndexError:
             pass
-        gran.download('02IMG')
+        gran.download_product('02IMG')
         assert isinstance(gran.get_filename('02IMG'), str)
 
     def test_VIIRS_download_geometa(self):
@@ -61,6 +61,14 @@ class TestVIIRSDownload(unittest.TestCase):
             pass
         gran.download_geometa()
         assert isinstance(gran.get_filename('GEOMETA'), str)
+
+    @pytest.mark.skip
+    def test_VIIRS_download_NRT(self):
+        pass
+
+    @pytest.mark.skip
+    def test_VIIRS_download_geometa_NRT(self):
+        pass
 
 
 class TestVIIRSGranule(unittest.TestCase):

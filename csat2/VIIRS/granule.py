@@ -4,7 +4,7 @@ from csat2 import locator
 # , field_interpolate, bowtie_correct
 from .readfiles import readin, readin_metadata, DEFAULT_COLLECTION
 from .util import band_res, bowtie_correct, mesh_correct
-from .download import download
+from .download import download, download_geometa
 import numpy as np
 
 granule_length_minutes = 6
@@ -118,12 +118,20 @@ class Granule(object):
             self.doy,
             [band],
             time=self.timestr(), col=col)[band]
-        if refl:
-            if 'radiance' in metadata['long_name']:
+        if 'radiance' in metadata['long_name']: # TIR bands
+            if refl:
                 raise ValueError(
-                    'Radiance cannot be computed for {}'.format(band))
-        else:
-            vir_data /= metadata['radiance_scale_factor']
+                    'Reflectance cannot be computed for {}'.format(band))
+            else:
+                # Already radiance, so continue
+                pass
+        else: # A VIS/NIR band
+            if refl:
+                # Already reflectance, so continue
+                pass
+            else:
+                vir_data /= metadata['radiance_scale_factor']
+
         if bowtie_corr:
             return bowtie_correct(vir_data, res=band_res(band))
         elif mesh_corr:
@@ -163,6 +171,15 @@ class Granule(object):
             download(self.product_expand(product),
                      self.year, self.doy,
                      times=[self.timestr()], col=col)
+
+    def download_geometa(self, col=None, force_redownload=False):
+        if not col:
+            col = self.col
+        download_geometa(self.year, self.doy,
+                         {'N': 'NPP',
+                          'J': 'JPSS1'}[self.sat],
+                         col=col,
+                         force_redownload=force_redownload)
 
     def get_filename(self, product, col=None, return_primary=True):
         if not col:

@@ -62,6 +62,14 @@ class TestMODISDownload(unittest.TestCase):
         gran.download_geometa()
         assert isinstance(gran.get_filename('GEOMETA'), str)
 
+    @pytest.mark.skip
+    def test_MODIS_download_NRT(self):
+        pass
+
+    @pytest.mark.skip
+    def test_MODIS_download_geometa_NRT(self):
+        pass
+
 
 class TestMODISGranule(unittest.TestCase):
     def setUp(self):

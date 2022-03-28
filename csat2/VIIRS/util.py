@@ -80,10 +80,10 @@ def _remap_by_file(datafield, filetype, res):
     atind = np.fromfunction(
         lambda x, y: along_track_index[
             x%scan_width, y]+x-x%scan_width,
-        datafield.shape, dtype=np.int).astype('int')
+        datafield.shape, dtype=int).astype('int')
     ctind = np.fromfunction(
         lambda x, y: cross_track_index[x%scan_width, y],
-        datafield.shape, dtype=np.int).astype('int')
+        datafield.shape, dtype=int).astype('int')
     return datafield[atind, ctind]
 
 

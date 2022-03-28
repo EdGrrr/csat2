@@ -15,11 +15,11 @@ def download_file_locations(product, year, doy, times=None,
                             col=DEFAULT_COLLECTION):
     base_url = 'https://ladsweb.modaps.eosdis.nasa.gov/'
     laads_folder = (base_url +
-                    f'archive/allData/{col}/{product}/{year}/{doy:0>3}')
+                    f'archive/allData/{col}/{product}/{year}/{doy:0>3}/')
 
     token = get_token()
-    files = [base_url + a['downloadsLink'] for a in
-             json.loads(geturl(laads_folder+'.json', token))]
+    files = [laads_folder + a['name'] for a in
+             json.loads(geturl(laads_folder+'.json', token).decode('utf-8'))]
     return files
 
 
@@ -27,11 +27,11 @@ def download_file_locations_nrt(product, year, doy, times=None,
                                 col=DEFAULT_COLLECTION):
     base_url = 'https://nrt4.modaps.eosdis.nasa.gov'
     laads_folder = (base_url +
-                    f'/api/v2/content/details/allData/{col}/{product[:-4]}/{year}/{doy:0>3}')
+                    f'/api/v2/content/details/allData/{col}/{product[:-4]}/{year}/{doy:0>3}/')
 
     token = get_token()
     files = [base_url+a['downloadsLink'] for a in
-             json.loads(geturl(laads_folder+'?fields=all&formats=json', token))['content']]
+             json.loads(geturl(laads_folder+'?fields=all&formats=json', token).decode('utf-8'))['content']]
     return files
 
 
