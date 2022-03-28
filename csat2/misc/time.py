@@ -38,10 +38,13 @@ def doy_step(year, doy, step):
 
 
 def ydh_to_datetime(year, doy, hour):
+    minutes = (hour % 1)*60
+    seconds = (minutes % 1)*60
     dat = (datetime.datetime(*doy_to_date(year, doy)) +
            datetime.timedelta(
                hours=int(hour//1),
-               minutes=int((hour % 1)*60)))
+               minutes=int(minutes),
+               seconds=int(seconds)))
     return dat
 
 
