@@ -6,10 +6,11 @@ from pyhdf.error import HDF4Error
 import numpy as np
 import logging
 from datetime import datetime, timedelta
+log = logging.getLogger(__name__)
 
 DEFAULT_COLLECTION = 'V4-10'
 
-print('Default CALIPSO collection: {}'.format(DEFAULT_COLLECTION))
+log.info('CALIPSO default collection: {}'.format(DEFAULT_COLLECTION))
 
 ########################################################################
 # Functions for reading in Satellite data, CloudSat data

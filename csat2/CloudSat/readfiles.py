@@ -6,10 +6,11 @@ from pyhdf.error import HDF4Error
 import numpy as np
 import logging
 from datetime import datetime, timedelta
+log = logging.getLogger(__name__)
 
 DEFAULT_COLLECTION = 'P2_R05'
 
-print('Default CloudSat collection: {}'.format(DEFAULT_COLLECTION))
+log.info('CloudSat default collection: {}'.format(DEFAULT_COLLECTION))
 
 ########################################################################
 # Functions for reading in Satellite data, CloudSat data
@@ -117,7 +118,6 @@ def readin_cloudsat_curtain(product, year=None, doy=None, orbit=None, sds=None,
     filename = locator.search(
         'CLOUDSAT', product, year=year,
         doy=doy, mon=mon, day=day, col=col, orbit=orbit)[0]
-    # logging.getLogger(__name__).debug(f'Readin {filename}')
     
     if isinstance(sds, str):
         sds = [sds]

@@ -9,6 +9,7 @@ from netCDF4 import Dataset, num2date
 import xarray as xr
 import numpy as np
 
+log = logging.getLogger(__name__)
 
 # This translates between local names and the cdsapi names
 # Partly to ensure independence if they decide to change names
@@ -102,7 +103,7 @@ def download(year, month, variables, level, resolution,
 
     if (not force_redownload and check(
             year, month, variables, level, resolution, days=days)[0]):
-        logging.info('All files exist')
+        log.info('All files exist')
         return
     
     if isinstance(variables, str):
@@ -151,7 +152,7 @@ def download(year, month, variables, level, resolution,
     # In future it may be better just to submit the request,
     # but that can wait
     c = cdsapi.Client()
-    logging.info('Submitting CDS request')
+    log.info('Submitting CDS request')
     if level == 'surf':
         c.retrieve(
             'reanalysis-era5-single-levels',
@@ -206,7 +207,7 @@ def download(year, month, variables, level, resolution,
 
     # These are the files we have
     variable_files = glob.glob(slice_prefix+'*')
-    logging.info('Created files: '+' '.join(variable_files))
+    log.info('Created files: '+' '.join(variable_files))
 
     for vfile in variable_files:
         # Work out the relevant longname
@@ -369,7 +370,7 @@ def create_lst_files(year, doys, variable, levelstr, resolution,
                 newvar = ncdf.createVariable(variable, 'f', ('time', 'lat', 'lon'))
                 newvar[:] = output_tdata.astype('float32')
                 setattr(newvar, 'longname', variable.replace('_', ' '))
-            logging.info('Created LST: {}'.format(os.path.basename(filename)))
+            log.info('Created LST: {}'.format(os.path.basename(filename)))
         except FileNotFoundError:
             continue
         except:

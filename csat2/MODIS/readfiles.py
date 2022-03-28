@@ -5,19 +5,20 @@ import numpy as np
 from netCDF4 import Dataset
 import logging
 import xarray as xr
+log = logging.getLogger(__name__)
 
 ####################
 # Collection setup #
 ####################
 
 DEFAULT_COLLECTION = '61'
-logging.info('Default is now collection {}'.format(DEFAULT_COLLECTION))
+log.info('MODIS default is collection {}'.format(DEFAULT_COLLECTION))
 
 
 def setCollection(col):
     global DEFAULT_COLLECTION
     DEFAULT_COLLECTION = col
-    print('Default is now collection {}'.format(DEFAULT_COLLECTION))
+    log.info('MODIS default is collection {}'.format(DEFAULT_COLLECTION))
 
 
 ###################
@@ -69,7 +70,7 @@ def readin_MODIS_L3(year, doy, sds, sat='aqua', col=DEFAULT_COLLECTION):
     product = {'aqua': 'MYD08_D3', 'terra': 'MOD08_D3'}[sat]
     filename = locator.search('MODIS', product,
                               year=year, doy=doy, collection=col)[0]
-    logging.info(filename)
+    log.info(filename)
     return readin_MODIS_L3_filename(filename, sds)
 
 
@@ -196,7 +197,7 @@ def readin_MODIS_L2(product, year, doy, time, sds=None,
 
     filename = locator.search('MODIS', product, year=year, doy=doy,
                               collection=col, time=time)[0]
-    logging.debug(filename)
+    log.debug(filename)
 
     if len(filename) == 0:
         raise IOError('No files for ' + str(year) +
@@ -214,7 +215,7 @@ def readin_metadata(product, year, doy, time, col, sds):
     filename = locator.search('MODIS', product, year=year, doy=doy,
                               collection=col, time=time)[0]
     if isinstance(sds, type('')):
-        logging.debug('Listifying')
+        log.debug('Listifying')
         sds = [sds]
     metadata = {}
     with Dataset(filename) as ncdf:
@@ -234,7 +235,7 @@ def remove_dim_suffix(dim):
 
 
 def readin_MODIS_L2_filename(filename, names):
-    logging.debug(filename)
+    log.debug(filename)
     with Dataset(filename) as ncdf:
         ds = xr.Dataset()
         tdims = []
@@ -268,7 +269,7 @@ def readin_MODIS_L2_filename(filename, names):
 
 def readin_MODIS_L2_filename_fast(filename, names, varind=None):
     # If the input is a string, put it into a list
-    logging.debug(filename)
+    log.debug(filename)
     with Dataset(filename) as ncdf:
         ds = xr.Dataset()
         tdims = []

@@ -4,6 +4,7 @@ import logging
 from csat2 import locator
 import csat2.misc.time
 import csat2.misc.geo
+log = logging.getLogger(__name__)
 
 DEFAULT_COLLECTION = '5110'
 
@@ -66,7 +67,7 @@ def readin_VIIRS_L2(product, year, doy, sds=None, time=None,
     else:
         filename = locator.search('VIIRS', product, year=year, doy=doy,
                                   collection=col, time=time[0])[0]
-    logging.info(filename)
+    log.info(filename)
     return readin_VIIRS_L2_filename(filename, sds, scale)
 
 
@@ -88,7 +89,7 @@ def netcdf_search_groups(ncdf, varname):
     Returns 
         str - group name'''
     groups = ncdf.groups.keys()
-    logging.debug(groups)
+    log.debug(groups)
     for group in groups:
         if varname in ncdf.groups[group].variables.keys():
             return group
@@ -108,7 +109,7 @@ def readin_VIIRS_L2_filename(filename, names, scale=True):
         indata = {}
         for name in names:
             group = netcdf_search_groups(ncdf, name)
-            logging.debug(group, name)
+            log.debug(group, name)
             indata[name] = ncdf.groups[group].variables[name][:]
             indata[name] = indata[name].astype('float')
             if scale:

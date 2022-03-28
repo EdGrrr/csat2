@@ -7,6 +7,7 @@ import os.path
 import json
 import logging
 from csat2.download.earthdata import get_token, geturl
+log = logging.getLogger(__name__)
 
     
 def download_file_locations(product, year, doy, times=None,
@@ -60,7 +61,7 @@ def download(product, year, doy, times=None, col='5110'):
             with open(newfile, 'w+b') as fh:
                 geturl(filename, get_token(), fh)
         else:
-            logging.info('Skipping {}'.format(os.path.basename(filename)))
+            log.info('Skipping {}'.format(os.path.basename(filename)))
 
 
 def download_geometa(year, doy, sat, col=DEFAULT_COLLECTION, force_redownload=False):
@@ -93,7 +94,7 @@ def download_geometa(year, doy, sat, col=DEFAULT_COLLECTION, force_redownload=Fa
         with open(local_file, 'w+b') as fh:
             geturl(laads_file, token, fh)
     else:
-        logging.info('Skipping {}'.format(os.path.basename(local_file)))
+        log.info('Skipping {}'.format(os.path.basename(local_file)))
 
 
 def check(product, year, doy, time, col=DEFAULT_COLLECTION):

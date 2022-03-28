@@ -7,6 +7,7 @@ Either:
 import numpy as np
 import logging
 import xarray as xr
+log = logging.getLogger(__name__)
 
 
 def dictkeysappend(dict_main, dict_addition, axis=-1):
@@ -37,7 +38,7 @@ def l_toarray(dict1, axis=None):
     Modifies dict1 inplace'''
     names = list(dict1.keys())
     if isinstance(dict1[names[0]][0], (xr.DataArray)):
-        logging.debug('xarray merging')
+        log.debug('xarray merging')
         if axis is None:
             # If axis is not specified, use the zeroth axis
             axis = 0
@@ -54,7 +55,7 @@ def l_toarray(dict1, axis=None):
                         dict1[key],
                         dim=dict1[names[0]][0].dims[axis])
     else:
-        logging.debug('numpy merging')
+        log.debug('numpy merging')
         if not axis:
             axis = 0
         for key in names:

@@ -15,6 +15,7 @@ from .util import get_resolution as util_get_resolution
 import logging
 import xarray as xr
 import warnings
+log = logging.getLogger(__name__)
 
 
 def readin_radiances_filename(filename):
@@ -222,7 +223,7 @@ class Granule():
                         ds['planck_fk2'])
             bc1, bc2 = (ds['planck_bc1'],
                         ds['planck_bc2'])
-            logging.info(fk1, fk2, bc1, bc2)
+            log.info(fk1, fk2, bc1, bc2)
             # TODO: This either throws an xarray warning for an invalid logbook
             # or an error if you try and use np.where to avoid the nans
             # For now, I am going to suppress the warning, which will work as long
@@ -290,7 +291,7 @@ class Granule():
 
     def download(self, channel=None, product='L1b', mode='*', force_redownload=False, source='google'):
         if (not force_redownload) and self.check(channel, product, mode):
-            logging.info('{} Ch:{} exists'.format(self.astext(), channel))
+            log.info('{} Ch:{} exists'.format(self.astext(), channel))
             return
         local_folder = locator.get_folder('GOES', product,
                                           year=self.year, doy=self.doy,
@@ -327,7 +328,7 @@ class Granule():
                                area=self.area[-1],
                                mode=mode, sat=self.sat[1:])
             prefix = os.path.dirname(pattern)
-            logging.debug(prefix)
+            log.debug(prefix)
 
             # You will need to create a credential file for a blank project
             # There are no permissions here, but otherwise this fails as you
@@ -335,15 +336,15 @@ class Granule():
             # a blank file?
             storage_client = storage.Client.from_service_account_json(
                 os.path.expandvars('${HOME}/.csat2/goes-service-key.json'))
-            logging.debug(storage_client)
+            log.debug(storage_client)
             files = storage_client.get_bucket(bucket).list_blobs(prefix=prefix)
 
             for fl in files:
-                logging.debug(fl.name)
+                log.debug(fl.name)
                 if fnmatch(fl.name, pattern):
                     re_minutes = int(fl.name.split('_')[-3][-5:-3])
                     if (((re_minutes-self.minute) >= 0) and ((re_minutes-self.minute) < self.inc_minutes[self.area])):
-                        logging.debug(os.path.basename(fl.name))
+                        log.debug(os.path.basename(fl.name))
                         fl.download_to_filename(
                             os.path.join(local_folder, os.path.basename(fl.name)))
 

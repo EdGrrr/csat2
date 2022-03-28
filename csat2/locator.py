@@ -6,6 +6,7 @@ import yaml
 import pkgutil
 import fnmatch
 from csat2.misc.time import doy_to_date
+log = logging.getLogger(__name__)
 
 
 class FileLocator:
@@ -46,7 +47,7 @@ class FileLocator:
         self.macros = {}
         if searchfile:
             with open(searchfile) as f:
-                logging.debug('Loading {}'.format(searchfile))
+                log.debug('Loading {}'.format(searchfile))
                 searchfiledata = f.readlines()
             self.load_search_paths(searchfiledata)
         elif data:
@@ -62,8 +63,9 @@ class FileLocator:
         filenames = []
         for p in patterns:
             pat = self.pattern_format(p, **kwargs)
-            logging.debug('Pattern: '+pat)
-            filenames.extend(glob(pat))
+            newfiles = glob(pat)
+            log.debug(f'Pattern: {pat} - {len(newfiles)} matches')
+            filenames.extend(newfiles)
             if exit_first and (len(filenames) > 0):
                 return filenames
         return filenames
@@ -167,13 +169,13 @@ def configloader(user_location=None, default_fallback=True):
     user_location - specified location for the config file
     default_fallback - use the package supplied defaults'''
     _hostname = socket.getfqdn()
-    logging.debug('Hostname: {}'.format(_hostname))
+    log.debug('Hostname: {}'.format(_hostname))
     
     if user_location:
         config = yaml.safe_load(open(user_location))
 
     if (not user_location) or default_fallback:
-        logging.info('Appending default config')
+        log.info('Appending default config')
         data = pkgutil.get_data(__name__, "config/config.cfg")
         newconfig = yaml.safe_load(data)
         if not config:
@@ -185,12 +187,12 @@ def configloader(user_location=None, default_fallback=True):
     if (not user_location) and (not default_fallback):
         raise ValueError('Must supply user_location or set default feedback as true')
 
-    logging.debug('machine_config{}'.format(config))
+    log.debug('machine_config{}'.format(config))
     
     # Match the current machine with the config file
     for machine in config['machines'].keys():
         if fnmatch.fnmatch(_hostname, machine):
-            logging.info('Current machine is: {}'.format(machine))
+            log.info('Current machine is: {}'.format(machine))
             spfile = config['machines'][machine]
             mfile = os.path.join(os.path.dirname(user_location), spfile)
             # First check the override directory and use in preference
@@ -216,7 +218,7 @@ def configloader(user_location=None, default_fallback=True):
                 raise IOError('No matching machine file in {}'.format(user_location))
             break # Break on a match
     else:
-        logging.warning('No matching machine found, empty locator created')
+        log.warning('No matching machine found, empty locator created')
         locator = FileLocator()
 
     return locator
