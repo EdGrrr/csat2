@@ -4,7 +4,7 @@ Utility files for using ECMWF data
 Edward Gryspeerdt, Imperial College London, 2020
 '''
 from .. import locator
-from csat2.misc.time import ydh_to_datetime
+from csat2.misc.time import ydh_to_datetime, date_to_doy
 import numpy as np
 from netCDF4 import Dataset, num2date
 from csat2 import misc
@@ -176,6 +176,83 @@ def readin_ERA_EIS(year, doy, product='ERAInterim', time='LST', resolution='1gri
         return _calc_eis(t700, t1000, rh1000)[1].rename('eis')
     else:
         return _calc_eis(t700, t1000)[1].rename('eis')
+
+
+def available(variable=None, year=None, res=None, time=None):
+    '''List available files for a given variable. If year is specified, give numbers per month, otherwise numbers per year.
+
+    Note that this depends on the file setup specified in the default config. TODO - change this to use the locator and regex'''
+    if variable is None:
+        if time is None:
+            time = '*'
+        if year is None:
+            year = '*'
+        if res is None:
+            res = '*'
+        files = locator.search('ECMWF', 'ERA5', variable='*', year=year, doy='*', level='*', resolution=res, time=time) 
+        variables = list(set(['_'.join(f.split('/')[-1].split('_')[:-2]) for f in files]))
+        variables.sort()
+        print(f'Valid variables are:')
+        print('\n'.join(variables))
+        return
+    elif time is None:
+        if year is None:
+            year = '*'
+        if res is None:
+            res = '*'
+        files = locator.search('ECMWF', 'ERA5', variable=variable, year=year, doy='*', level='*', resolution=res, time='*') 
+        times = set([f.split('/')[-3].split('_')[-1] for f in files])
+        print(f'Must specify time, options on this system are {times}')
+        return
+    elif res is None:
+        if year is None:
+            year = '*'
+        files = locator.search('ECMWF', 'ERA5', variable=variable, year=year, doy='*', level='*', resolution='*', time=time) 
+        res_vals = set([f.split('/')[-3].split('_')[-2] for f in files])
+        print(f'Must specify time, options on this system are {res_vals}')
+        return
+    elif year is None:
+        # Show values by level and year
+        files = locator.search('ECMWF', 'ERA5', variable=variable, year='*', doy='*', level='*', resolution=res, time=time) 
+        levels = np.array([f.split('/')[-1].split('_')[-2] for f in files])
+        levels_unique = list(set(levels))
+        levels_unique.sort(key=lambda x: '{: >4}'.format(x.replace('hPa', '')))
+        years = np.array([f.split('/')[-2] for f in files])
+        years_unique = list(set(years))
+        years_unique.sort()
+        formatstr = ' '.join(['{: <7}']+len(years_unique)*['{: >4}'])
+        print(formatstr.format('', *years_unique))
+        for level in levels_unique:
+            counts = [((years==y)&(levels==level)).sum() for y in years_unique]
+            print(formatstr.format(level, *counts))
+        return
+    else:
+        # Print something to show how much data exists by month
+        # Split into 5 day chunks
+        #  # complete
+        #  . partial
+        files = locator.search('ECMWF', 'ERA5', variable=variable, year=year, doy='*', level='*', resolution=res, time=time) 
+        levels = np.array([f.split('/')[-1].split('_')[-2] for f in files])
+        levels_unique = list(set(levels))
+        levels_unique.sort(key=lambda x: '{: >4}'.format(x.replace('hPa', '')))
+        doys = np.array([int(f.split('_')[-1][:-3]) for f in files])
+
+        doy_str = np.array([' ']+['.']*4+['#']*2) # Extra # to cope with leap year
+        
+        formatstr = '{: <7} {: <74}'
+        monstr = 'JFMAMJJASOND'
+        opmonstr = [' ']*74
+        for mon in range(12):
+            mon_index = date_to_doy(year, mon+1, 1)[1]//5
+            opmonstr[mon_index] = monstr[mon]
+        print(formatstr.format('', ''.join(opmonstr)))
+        
+        for level in levels_unique:
+            doy_counts = np.histogram((doys[levels==level]), bins=np.arange(1, 367, 5))[0]
+            
+            opstr = ''.join(doy_str[doy_counts])
+            print(formatstr.format(level, opstr))
+        return
 
 
 class ERA5Data():

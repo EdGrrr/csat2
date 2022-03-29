@@ -81,8 +81,13 @@ class FileLocator:
         '''Like format, but adds in a few extra things (e.g. day, month)'''
         sd = kwargs
         if ('year' in sd.keys()) and ('doy' in sd.keys()):
-            # Get the month and day if only the year and doy are provided
-            _, sd['mon'], sd['day'] = doy_to_date(sd['year'], sd['doy'])
+            if (sd['doy'] == '*') or (sd['doy'] == '***'):
+                sd['doy'] = '***'
+                sd['day'] = '**'
+                sd['mon'] = '**'
+            else:
+                # Get the month and day if only the year and doy are provided
+                _, sd['mon'], sd['day'] = doy_to_date(sd['year'], sd['doy'])
         return pattern.format(**sd)
     
     def paths(self):
