@@ -1,9 +1,9 @@
-from pyhdf import SD, HDF
+from pyhdf import SD, HDF, VS # VS is not used in this code, but not importing it generates issues elsewhere
 import numpy as np
 import copy
 
 
-def read_hdf4(filename, names=None, vdata=None, fill_missing=True):
+def read_hdf4(filename, names=None, vdata=None, fill_missing=True, datadict=None):
     '''Reads data from a HDF4 file into a dictionary.'''
 
     # Is set to true if we are reading in all variables
@@ -13,7 +13,8 @@ def read_hdf4(filename, names=None, vdata=None, fill_missing=True):
         datafile = SD.SD(filename)
         if not names:
             names = datafile.datasets()
-        datadict = {}
+        if not datadict:
+            datadict = {}
 
         for name in names:
             sds = datafile.select(name)
