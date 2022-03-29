@@ -361,28 +361,6 @@ class ERA5Data():
         self.lat_inc = self.lat[1]-self.lat[0]
         
 
-class ERA5WindData():
-    def __init__(self, level='850hPa', res='0.25grid', wind_scaling=(1, 1), *args, **kwargs):
-        self.udata = ERA5Data('U-wind-component', level=level, res=res,
-                              scaling=wind_scaling[0],
-                              *args, **kwargs)
-        self.vdata = ERA5Data('V-wind-component', level=level, res=res,
-                              scaling=wind_scaling[1],
-                              *args, **kwargs)
-
-    def get_data_time(self, time):
-        '''Returns the wind fields at a given time'''
-        return (self.udata.get_data_time(time),
-                self.vdata.get_data_time(time))
-
-    def get_data(self, lon, lat, time, simple=False):
-        return (
-            self.udata.get_data(
-                lon, lat, time, simple=simple),
-            self.vdata.get_data(
-                lon, lat, time, simple=simple))
-
-
 class ERA5Data3D():
     '''3D interpolation for ERA5 data. All levels are specified as pressure levels in hPa'''
     def __init__(self, variable, levels, res='0.25grid', linear_interp=False):
@@ -429,6 +407,50 @@ class ERA5Data3D():
             if mask.sum() > 0:
                 output[mask] += (frac[mask])*self.data[ind].get_data(lon[mask], lat[mask], time, simple=simple)
         return output
+
+
+class ERA5WindData():
+    def __init__(self, level='850hPa', res='0.25grid', wind_scaling=(1, 1), *args, **kwargs):
+        self.udata = ERA5Data('U-wind-component', level=level, res=res,
+                              scaling=wind_scaling[0],
+                              *args, **kwargs)
+        self.vdata = ERA5Data('V-wind-component', level=level, res=res,
+                              scaling=wind_scaling[1],
+                              *args, **kwargs)
+
+    def get_data_time(self, time):
+        '''Returns the wind fields at a given time'''
+        return (self.udata.get_data_time(time),
+                self.vdata.get_data_time(time))
+
+    def get_data(self, lon, lat, time, simple=False):
+        return (
+            self.udata.get_data(
+                lon, lat, time, simple=simple),
+            self.vdata.get_data(
+                lon, lat, time, simple=simple))
+
+
+class ERA5WindData3D():
+    def __init__(self, levels, res='0.25grid'):
+        self.udata = ERA5Data3D('U-wind-component', levels=levels, res=res)
+        self.vdata = ERA5Data3D('V-wind-component', levels=levels, res=res)
+
+    def get_data_time(self, time, level):
+        '''Returns the wind fields at a given time'''
+        return (self.udata.get_data_time(time, level),
+                self.vdata.get_data_time(time, level))
+
+    def get_data(self, lon, lat, level, time, simple=False):
+        return (
+            self.udata.get_data(
+                lon, lat, level, time, simple=simple),
+            self.vdata.get_data(
+                lon, lat, level, time, simple=simple))
+
+
+
+
     
 ##################
 # MACC functions #
