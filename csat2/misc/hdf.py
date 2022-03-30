@@ -1,6 +1,9 @@
 from pyhdf import SD, HDF, VS # VS is not used in this code, but not importing it generates issues elsewhere
 import numpy as np
 import copy
+import logging
+
+log = logging.getLogger(__name__)
 
 
 def read_hdf4(filename, names=None, vdata=None, fill_missing=True, datadict=None):
@@ -43,16 +46,16 @@ def read_hdf4(filename, names=None, vdata=None, fill_missing=True, datadict=None
         for name in names:
             try:
                 vd = vs.attach(name)
-                data = vd.read(nRec=vd.inquire()[0])
-                for x in range(0, len(data)):
-                    data[x] = data[x][0]
-                data = np.array(data)
+                vdnames = [v[0] for v in vd.fieldinfo()]
+                vddata = vd.read(vd._nrecs)
+                if len(vdnames) == 1: # Cloudsat data
+                    data = np.array(vddata).squeeze()
+                elif len(vdnames) > 1: # CALIPSO metadata
+                    data = {vdnames[i]: vddata[0][i] for i in range(len(vdnames))}
                 if fill_missing:
                     try:  # Deal with missing data
                         missingval = vd.attrinfo()['missing'][2]
-                        wfillmask = 0
-                        wfillmask = np.where(data == missingval, np.nan, 1)
-                        data = data * wfillmask
+                        data = np.where(data == missingval, np.nan, data)
                     except KeyError:
                         pass
                 datadict[name] = data
