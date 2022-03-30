@@ -448,7 +448,11 @@ class ERA5Data3D():
         # Store the actual data in a list
         self.data = []
         for level in self.levels:
-            self.data.append(ERA5Data(variable, level=str(level)+'hPa', res=res))
+            self.data.append(ERA5Data(
+                variable,
+                level=str(level)+'hPa',
+                res=res,
+                linear_interp=linear_interp))
 
     def _level_interpolator(self, level):
         '''Return the index in the data array and weights for each level'''
@@ -509,9 +513,9 @@ class ERA5WindData():
 
 
 class ERA5WindData3D():
-    def __init__(self, levels, res='0.25grid'):
-        self.udata = ERA5Data3D('U-wind-component', levels=levels, res=res)
-        self.vdata = ERA5Data3D('V-wind-component', levels=levels, res=res)
+    def __init__(self, levels, res='0.25grid', *args, **kwargs):
+        self.udata = ERA5Data3D('U-wind-component', levels=levels, res=res, *args, **kwargs)
+        self.vdata = ERA5Data3D('V-wind-component', levels=levels, res=res, *args, **kwargs)
 
     def get_data_time(self, time, level):
         '''Returns the wind fields at a given time'''
