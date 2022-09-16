@@ -31,6 +31,14 @@ class Granule(object):
         filename = get_filename_by_time(dtime)
         return cls.from_filename(filename, col)
 
+    @classmethod
+    def fromtext(cls, name, col=DEFAULT_COLLECTION):
+        return cls(int(name[4:8]),
+                   int(name[8:11]),
+                   int(name[12:14]),
+                   int(name[14:16]),
+                   int(name[15:18]), col=col)
+    
     def filename(self, product, col=DEFAULT_COLLECTION):
         return get_filename_by_time(self.datetime()+timedelta(minutes=1))
     
