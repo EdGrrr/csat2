@@ -145,7 +145,7 @@ def _calc_lcl(t1000, rh1000):
     return (t1000 - tlcl)/9.8 * 1000
 
 
-def _calc_lts(t1000, t700):
+def _calc_lts(t700, t1000):
     return 1.1082*t700 - t1000
 
 
@@ -156,7 +156,7 @@ def _calc_eis(t700, t1000, rh1000=80):
     g850 = _sat_adiabatic_potential_gradient(0.5*(t700+t1000), 85000, rh1000)
     # td = _td(t1000, rh1000)
     lcl = _calc_lcl(t1000, rh1000)
-    lts = _calc_lts(t1000, t700)
+    lts = _calc_lts(t700, t1000)
     # lts = 1.11075*t700 - t1000 # To match WH06
     eis = lts - g850*z700+g850*lcl
     return lts, eis, g850*1000
@@ -351,6 +351,8 @@ class ERA5Data():
             lon_ind = np.digitize(np.mod(lon, 360), self.lon -
                                   0.5*self.lon_inc)-1
 
+        lat_ind = np.clip(lat_ind, 0, None)
+            
         t_interp = False
         if self.linear_interp in ['time', 'both']:
             time_ind = np.argmin(time >= self.time)-1
