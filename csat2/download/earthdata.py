@@ -12,12 +12,10 @@ TOKENFILE = os.environ['HOME']+'/.csat2/laadsdaacrc'
 
 def geturl(url, token=None, out=None):
     session = requests.Session()
-    response = session.get(url, stream=True)
-    headers = {'user-agent': USERAGENT}
+    session.headers['user-agent'] = USERAGENT
     if token is not None:
-        headers['Authorization'] = 'Bearer ' + token
-    session = requests.Session()
-    session.headers = headers
+        session.headers['Authorization'] = f'Bearer {token}'
+    response = session.get(url, stream=True)
 
     if response.status_code != 200:
         raise ValueError(f'Download failed status:{response.status_code}')
