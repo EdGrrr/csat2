@@ -118,7 +118,7 @@ class TestECMWFBasic(unittest.TestCase):
         # Less than 1% error in component calculations (email from Rob Wood)
         # LTS
         assert self.rel_err(
-            ECMWF.ECMWF._calc_lts(t1000, t700),
+            ECMWF.ECMWF._calc_lts(t700, t1000),
             9.78815) < 0.01
         # MALR
         assert self.rel_err(
