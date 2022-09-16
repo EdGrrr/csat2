@@ -30,7 +30,7 @@ def download_file_locations_nrt(product, year, doy, times=None,
                     f'/api/v2/content/details/allData/{col}/{product[:-4]}/{year}/{doy:0>3}/')
 
     token = get_token()
-    files = [base_url+a['downloadsLink'] for a in
+    files = [a['downloadsLink'] for a in
              json.loads(geturl(laads_folder+'?fields=all&formats=json', token).decode('utf-8'))['content']]
     return files
 
