@@ -8,11 +8,12 @@ import json
 import logging
 import json
 import ftplib
+import pysftp
 
 with open(os.path.expandvars('${HOME}/.csat2/cloudsat_cira.json')) as f:
     cloudsat_auth = json.load(f)
 
-cloudsat_server = 'ftp.cloudsat.cira.colostate.edu'
+cloudsat_server = 'www.cloudsat.cira.colostate.edu'
 
 # product = '2B-GEOPROF-LIDAR'
 # year, doy = 2008, 100
@@ -24,15 +25,15 @@ def download_file_locations(product, year, doy, orbits=None,
                             col=DEFAULT_COLLECTION):
     _, mon, _ = csat2.misc.time.doy_to_date(year, doy)
     
-    folder = f'{product}.{col}/{year}/{doy:0>3}/'
+    folder = f'Data/{product}.{col}/{year}/{doy:0>3}/'
 
-    ftp = ftplib.FTP(cloudsat_server)
-    ftp.login(user=cloudsat_auth['username'], passwd=cloudsat_auth['password'])
-    for fld in folder.split('/'):
-        ftp.cwd(fld)
+    srv = pysftp.Connection(host=cloudsat_server,
+                            username=cloudsat_auth['username'],
+                            private_key=cloudsat_auth['keyfile'])
+    srv.chdir(folder)
 
-    files = ftp.nlst()
-    ftp.close()
+    files = srv.listdir()
+    srv.close()
 
     if orbits is not None:
         return [f for f in files if int(f.split('_')[1]) in orbits]
@@ -56,21 +57,23 @@ def download(product, year, doy, orbits=None, col=DEFAULT_COLLECTION):
         raise ValueError('No files for {} on {}, {}'.format(product, year, doy))
 
     # Assumes there is only one valid folder for this collection of files
-    folder = f'{product}.{col}/{year}/{doy:0>3}/'
+    folder = f'Data/{product}.{col}/{year}/{doy:0>3}/'
 
-    ftp = ftplib.FTP(cloudsat_server)
-    ftp.login(user=cloudsat_auth['username'], passwd=cloudsat_auth['password'])
-    for fld in folder.split('/'):
-        ftp.cwd(fld)
+    srv = pysftp.Connection(host=cloudsat_server,
+                            username=cloudsat_auth['username'],
+                            private_key=cloudsat_auth['keyfile'])
+    srv.chdir(folder)
 
     for filename in files:
         newfile = local_folder + '/' + os.path.basename(filename)
         if not os.path.exists(newfile):
-            with open(newfile, 'w+b') as fh:
-                ftp.retrbinary(f'RETR {filename}', fh.write)
+            srv.get(filename, newfile)
+            # with open(newfile, 'w+b') as fh:
+            #     ftp.retrbinary(f'RETR {filename}', fh.write)
             print(f'{filename} complete')
         else:
             logging.info('Skipping {}'.format(os.path.basename(filename)))
+    srv.close()
 
 
 def check(product, year, doy, orbit, col=DEFAULT_COLLECTION):
