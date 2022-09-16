@@ -28,14 +28,15 @@ def plt_bestfit(data_x, data_y, linec='r', stats=True, statspos='tl', *args, **k
         else:
             plt.plot(xlim, y_out, c=linec)
     if stats == True:
-        xlim = np.array(plt.xlim())
-        ylim = np.array(plt.ylim())
+        # Plot using the axis transform
         if statspos == 'tl':
-            x = xlim[0] + 0.05 * (xlim[1]-xlim[0])
-            y = ylim[1] - 0.15 * (ylim[1]-ylim[0])
+            statspos = [0.05, 0.95]
+            ha = 'left'
+            va = 'top'
         elif statspos == 'bl':
-            x = xlim[0] + 0.05 * (xlim[1]-xlim[0])
-            y = ylim[0] + 0.05 * (ylim[1]-ylim[0])
+            statspos = [0.05, 0.05]
+            ha = 'left'
+            va = 'bottom'
         else:
             try:
                 x = statspos[0]
@@ -44,7 +45,7 @@ def plt_bestfit(data_x, data_y, linec='r', stats=True, statspos='tl', *args, **k
                 raise ValueError(
                     "Statpos should be 'tl', 'bl' or a two element tuple/list")
         text = 'Slope: %.4f\nIntercept: %.4f\nCorr: %.4f' % (a, b, r)
-        plt.text(x, y, text)
+        plt.text(statspos[0], statspos[1], text, ha=ha, va=va, transform=plt.gca().transAxes)
 
 
 def plt_sublabel(text, *args, **kwargs):
