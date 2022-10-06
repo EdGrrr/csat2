@@ -51,7 +51,7 @@ def plt_bestfit(data_x, data_y, linec='r', stats=True, statspos='tl', *args, **k
 def plt_sublabel(text, *args, **kwargs):
     '''Plots a sublabel in the top left corner of the plot, hopefully just outside the plotting area'''
     xlim, ylim = plt.xlim(), plt.ylim()
-    plt.text(xlim[0], ylim[1]+0.02*(ylim[1]-ylim[0]), text, *args, **kwargs)
+    plt.text(0, 1.02, text, *args, **kwargs, transform=plt.gca().transAxes)
 
 
 def plt_sublabel_index(i, *args, **kwargs):
