@@ -33,5 +33,5 @@ setup(name = 'csat2',
                         'pyhdf'],
       packages = ['csat2'],
       package_dir = {'csat2': 'csat2'},
-      package_data = {'csat2': ['data/*']}
+      package_data = {'csat2': ['data/*', 'config/*']}
 )
