@@ -20,6 +20,7 @@ class LinkParser(HTMLParser):
     '''Based on example code from NASA Langley ASDC'''
     def __init__(self, *args, **kwargs):
         self.hrefs = []
+        super().__init__()
 
     def handle_starttag(self, tag, attrs):
         if tag == "a":
@@ -64,7 +65,7 @@ def download_file_locations(product, year, mon,
              href.startswith('mailto')))
 
     linkpage = asdc_download_file(folder).decode('utf-8')
-    parser = MyHTMLParser()
+    parser = LinkParser()
     hrefs = [link for link in parser.get_hrefs(linkpage) if is_child_href(link) and link.endswith('hdf')]
 
     #Remove duplicates

@@ -15,7 +15,7 @@ def create_metadata_year(year):
     outputfile = f'{output_folder}/calipso_{year}.txt'
 
     product = 'LID_L1'
-    col = 'V4-10'
+    col = 'V4-11'
 
     filenames = []
     for mon in range(1, 13):
