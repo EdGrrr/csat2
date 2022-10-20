@@ -30,15 +30,25 @@ def download_file_locations(product, year, doy, orbits=None,
     srv = pysftp.Connection(host=cloudsat_server,
                             username=cloudsat_auth['username'],
                             private_key=cloudsat_auth['keyfile'])
-    srv.chdir(folder)
-
-    files = srv.listdir()
-    srv.close()
-
-    if orbits is not None:
-        return [f for f in files if int(f.split('_')[1]) in orbits]
-    else:
-        return files
+    
+    
+    # if collection isn't available, will raise error and give alternative collection options that col must be set to 
+    try:
+        srv.chdir(folder)
+        files = srv.listdir()
+        srv.close()
+        
+        if orbits is not None:
+            return [f for f in files if int(f.split('_')[1]) in orbits]
+        else:
+            return files
+       
+    except FileNotFoundError:
+        srv.chdir('Data')
+        collections = srv.listdir()
+        matches = [s.strip(product) for s in [match for match in collections if str(product+'.') in match]]
+        matches = [s.strip('.') for s in matches]
+        raise ValueError('Selected collection {} not available. Available collections are:{}'.format(col, matches))
 
 
 def download(product, year, doy, orbits=None, col=DEFAULT_COLLECTION):
