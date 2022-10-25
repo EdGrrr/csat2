@@ -48,7 +48,7 @@ def download_file_locations(product, year, doy, orbits=None,
         collections = srv.listdir()
         matches = [s.strip(product) for s in [match for match in collections if str(product+'.') in match]]
         matches = [s.strip('.') for s in matches]
-        raise ValueError('Selected collection {} not available. Available collections are:{}'.format(col, matches))
+        raise ValueError(f'Selected collection {col} not available. Available collections are:{matches}')
 
 
 def download(product, year, doy, orbits=None, col=DEFAULT_COLLECTION):
