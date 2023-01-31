@@ -494,10 +494,17 @@ class ERA5Data3D():
 
 class ERA5WindData():
     def __init__(self, level='850hPa', res='0.25grid', wind_scaling=(1, 1), *args, **kwargs):
-        self.udata = ERA5Data('U-wind-component', level=level, res=res,
+        if level == '10m':
+            varname_u = '10m-U-wind-component'
+            varname_v = '10m-V-wind-component'
+            level = 'surf'
+        else:
+            varname_u = 'U-wind-component'
+            varname_v = 'V-wind-component'
+        self.udata = ERA5Data(varname_u, level=level, res=res,
                               scaling=wind_scaling[0],
                               *args, **kwargs)
-        self.vdata = ERA5Data('V-wind-component', level=level, res=res,
+        self.vdata = ERA5Data(varname_v, level=level, res=res,
                               scaling=wind_scaling[1],
                               *args, **kwargs)
 
