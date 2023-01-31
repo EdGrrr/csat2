@@ -19,7 +19,7 @@ def download_file_locations(product, year, doy, times=None,
 
     token = get_token()
     files = [laads_folder + a['name'] for a in
-             json.loads(geturl(laads_folder+'.json', token).decode('utf-8'))]
+             json.loads(geturl(laads_folder+'.json', token).decode('utf-8'))['content']]
     return files
 
 
