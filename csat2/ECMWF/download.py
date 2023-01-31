@@ -17,6 +17,10 @@ log = logging.getLogger(__name__)
 # The list is ['local_name', 'cds_name']
 CDS_NAME_TABLE = [['U-wind-component', 'u_component_of_wind'],
                   ['V-wind-component', 'v_component_of_wind'],
+                  ['10m-U-wind-component', '10m_u_component_of_wind'],
+                  ['10m-V-wind-component', '10m_v_component_of_wind'],
+                  ['10m-U-wind-component', '10_metre_u_wind_component'],
+                  ['10m-V-wind-component', '10_metre_v_wind_component'],
                   ['SST', 'sea_surface_temperature']]
 LOCAL_NAMES, CDS_NAMES = list(zip(*CDS_NAME_TABLE))
 
