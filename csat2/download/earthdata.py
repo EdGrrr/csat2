@@ -10,7 +10,7 @@ USERAGENT = 'csat2/download_v{}'.format(csat2.__version__).replace('\r', '')
 TOKENFILE = os.environ['HOME']+'/.csat2/laadsdaacrc'
 
 
-def geturl(url, token=None, out=None):
+def geturl(url, token=None, out=None, quiet=False):
     session = requests.Session()
     session.headers['user-agent'] = USERAGENT
     if token is not None:
@@ -27,6 +27,7 @@ def geturl(url, token=None, out=None):
                 unit='iB',
                 unit_scale=True,
                 unit_divisor=1024,
+                disable=quiet
         ) as bar:
             blocksize = max(4096, total//100)
             for data in response.iter_content(chunk_size=blocksize):

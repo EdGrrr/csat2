@@ -41,7 +41,7 @@ def download(product, year, doy, times=None,
         '''If times are supplied, check to see if they all exist. If not,
         assume that we are trying to download lots of things and ask 
         the server'''
-        times = [t for t in times if not check(product, year, doy, t, col=col)]
+        times = [t for t in times if ((not check(product, year, doy, t, col=col)) or force_redownload)]
         if len(times) == 0: # All files exist
             return
         

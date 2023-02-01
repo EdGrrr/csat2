@@ -76,7 +76,7 @@ Finally, you can step forward a specified number of granules
 Downloading MODIS data
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The granule object can be used to download MODIS files if you place a LAADS DAAC APIkey in ``laadsdaacrc`` in the csat configuration directory (``${HOME}/.csat2`` by default).
+The granule object can be used to download MODIS files if you place a LAADS DAAC APIkey in ``laadsdaacrc`` in the csat configuration directory (``${HOME}/.csat2`` by default). Note that you need to get this from the LAADS website, an Earthdata key is not suitable (`details <https://ladsweb.modaps.eosdis.nasa.gov/learn/download-files-using-laads-daac-tokens/>`_).
 
 .. code-block:: python
 

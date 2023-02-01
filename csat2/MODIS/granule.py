@@ -74,7 +74,16 @@ class Granule(object):
                     dat['StartTime'] == self.datetime().strftime(
                         '%Y-%m-%d %H:%M'))[0]][0]
         return self._daynight
-    
+
+    def geometa(self):
+        dat = readin('GEOMETA', self.year, self.doy,
+                     {'A': 'aqua',
+                      'T': 'terra'}[self.sat])
+        gdata = dat[:][np.where(
+            dat['StartTime'] == self.datetime().strftime(
+                '%Y-%m-%d %H:%M'))[0]]
+        return {name: gdata[name][0] for name in gdata.dtype.names}
+        
     def timestr(self):
         '''Formatted time string'''
         return '{:0>4}'.format(self.time)
