@@ -15,6 +15,7 @@ class DataAccumulator():
     Note that np.nan is treated as no data, rather than zero.'''
     def __init__(self):
         self.output = {}
+        self.bins = {}
 
     def insert(self, name, data):
         '''Store data in the accumulator under 'name'. The size of the
@@ -99,7 +100,26 @@ class DataAccumulator():
                          np.array((sxy/np.sqrt(sxx*syy)))),
                         np.nan)
 
+    def create_histogram(self, name, bins):
+        '''Keep an extra bin to store the out of range data'''
+        self.output[name] = np.zeros([len(b) for b in bins])
+        self.bins[name] = bins
+        
+    def insert_histogram(self, name, data):
+        '''Data is an iterable with the same number of entries as the dimension of bins for this histogram'''
+        # Remove nans
+        mask = ~(np.sum(np.array([~np.isfinite(d) for d in data]), axis=0)>0)
+        indicies = [np.digitize(data[i][mask], self.bins[name][i])-1 for i in range(len(data))]
+        np.add.at(self.output[name], indicies, 1)
 
+    def get_histogram(self, name, remove_bad=True):
+        '''Normally remove the last bin of each axis as that is where the bad/out of range data is put'''
+        if remove_bad:
+            opslice = [np.s_[:-1]]*self.output[name].ndim
+            return self.output[name][opslice]
+        else:
+            return self.output[name]
+        
 def nanlinregress(data_x, data_y):
     ''' A version of the scipy linear regression function that can cope
     with missing data - by ignoring it'''
