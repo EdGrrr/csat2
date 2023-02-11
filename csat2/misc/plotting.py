@@ -50,7 +50,6 @@ def plt_bestfit(data_x, data_y, linec='r', stats=True, statspos='tl', *args, **k
 
 def plt_sublabel(text, *args, **kwargs):
     '''Plots a sublabel in the top left corner of the plot, hopefully just outside the plotting area'''
-    xlim, ylim = plt.xlim(), plt.ylim()
     plt.text(0, 1.02, text, *args, **kwargs, transform=plt.gca().transAxes)
 
 
@@ -119,6 +118,20 @@ def plt_cbar(vmin, vmax, cmap, title, nticks=5, title_size=10, tick_size=8,
                         labelleft=False, labelright=True)
         plt.ylabel(title, size=title_size)
     return
+
+
+############
+# Plotting #
+############
+
+def get_display_aspect(ax):
+    # Total figure size
+    figW, figH = ax.get_figure().get_size_inches()
+    # Axis size on figure
+    _, _, w, h = ax.get_position().bounds
+    # Ratio of display units
+    disp_ratio = (figH * h) / (figW * w)
+    return disp_ratio
 
 
 ####################
