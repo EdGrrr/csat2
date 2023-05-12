@@ -1,4 +1,5 @@
 from datetime import timedelta
+import numpy as np
 from csat2 import misc
 from .readfiles import readin_calipso_curtain, get_filename_by_time, filename_to_datetime, DEFAULT_COLLECTION
 from .download import download, check
@@ -86,6 +87,16 @@ class Granule(object):
                      self.hour, self.minute,
                      self.second, self.daynight,
                      col=col)
+
+    def locate(self, locs):
+        # Determine the CALIPSO index for a given lon/latbounds
+
+        # This is fast, so we don't need to do it in advance
+        callon, callat = self.get_lonlat('LID_L1')
+
+        return np.array([np.argmin(
+            misc.geo.haversine(
+                loc[0], loc[1], callon, callat)) for loc in locs])
 
     def __repr__(self):
         return self.astext()
