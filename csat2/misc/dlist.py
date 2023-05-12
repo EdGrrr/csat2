@@ -33,30 +33,34 @@ def l_dictkeysappend(dict_main, dict_addition):
             dict_main[key] = [dict_addition[key]]
 
 
+def _merge_numpy(dict1, key, axis=None):
+    dict1[key] = np.concatenate(dict1[key], axis=axis)
+
+def _merge_xarray(dict1, key, axis=None):
+    # Should allow specification of a dimension names
+    # e.g. 'time'
+    if axis in dict1[key][0].dims:
+        dict1[key] = xr.concat(
+            dict1[key],
+            dim=axis)
+    else:
+        # Using axis number
+        dict1[key] = xr.concat(
+            dict1[key],
+            dim=dict1[key][0].dims[axis])
+
 def l_toarray(dict1, axis=None):
     '''Converts the lists in dict1 to arrays
     Modifies dict1 inplace'''
+    if axis is None:
+        # If axis is not specified, use the zeroth axis
+        axis = 0
+
     names = list(dict1.keys())
-    if isinstance(dict1[names[0]][0], (xr.DataArray)):
-        log.debug('xarray merging')
-        if axis is None:
-            # If axis is not specified, use the zeroth axis
-            axis = 0
-        for key in names:
-            # Should allow specification of a dimension names
-            # e.g. 'time'
-            if isinstance(dict1[key], (list)):
-                if axis in dict1[key][0].dims:
-                    dict1[key] = xr.concat(
-                        dict1[key],
-                        dim=axis)
-                else:
-                    dict1[key] = xr.concat(
-                        dict1[key],
-                        dim=dict1[names[0]][0].dims[axis])
-    else:
-        log.debug('numpy merging')
-        if not axis:
-            axis = 0
-        for key in names:
-            dict1[key] = np.concatenate(dict1[key], axis=axis)
+    for key in names:
+        if isinstance(dict1[key], (list)):
+            # Dont both merging if not a list
+            if isinstance(dict1[key][0], (xr.DataArray)):
+                _merge_xarray(dict1, key, axis) 
+            else:
+                _merge_numpy(dict1, key, axis) 
