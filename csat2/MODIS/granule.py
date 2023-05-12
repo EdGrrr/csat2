@@ -78,11 +78,14 @@ class Granule(object):
             dat = readin(
                 "GEOMETA", self.year, self.doy, {"A": "aqua", "T": "terra"}[self.sat]
             )
-            self._orbit = dat["Orbit"][
-                np.where(
-                    dat["StartTime"] == self.datetime().strftime("%Y-%m-%d %H:%M")
-                )[0]
-            ][0]
+            try:
+                self._orbit = dat["Orbit"][
+                    np.where(
+                        dat["StartTime"] == self.datetime().strftime("%Y-%m-%d %H:%M")
+                    )[0]
+                ][0]
+            except IndexError:
+                raise IOError('No MODIS data for this granule')
         return self._orbit
 
     def daynight(self):
