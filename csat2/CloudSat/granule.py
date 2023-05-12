@@ -98,6 +98,16 @@ class Granule(object):
             download(product, year, doy,
                      orbits=[self.orbit], col=col)
 
+    def locate(self, locs, product, col=None):
+        if col is None:
+            col = self.col
+        cslon, cslat = self.get_lonlat(product, col=col)
+
+        return np.array([np.argmin(
+            misc.geo.haversine(
+                loc[0], loc[1], cslon, cslat)) for loc in locs])
+
+            
     def __repr__(self):
         return self.astext()
 
