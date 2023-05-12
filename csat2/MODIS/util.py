@@ -337,3 +337,8 @@ def granule_intersections(year, doy, sat, points):
             points,
             granpoints))
     return np.array(gtimes), np.array(output)
+
+
+def datetime_to_orbit(dtime, sat):
+    gran = csat2.MODIS.Granule.from_datetime(dtime, sat=sat)
+    return gran.orbit()

@@ -63,11 +63,11 @@ class Granule(object):
 
     @classmethod
     def from_datetime(cls, dtime, sat, col=DEFAULT_COLLECTION):
-        mins = (dtime.minutes // 5) * 5
+        mins = (dtime.minute // 5) * 5
         return Granule(
             dtime.year,
             dtime.strftime("%j"),
-            f"{dtime.hours:0>2}{mins:0>2}",
+            f"{dtime.hour:0>2}{mins:0>2}",
             sat=sat,
             col=col,
         )
