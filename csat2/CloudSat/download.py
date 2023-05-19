@@ -10,10 +10,10 @@ import json
 import ftplib
 import pysftp
 
-with open(os.path.expandvars('${HOME}/.csat2/cloudsat_cira.json')) as f:
+with open(os.path.expandvars("${HOME}/.csat2/cloudsat_cira.json")) as f:
     cloudsat_auth = json.load(f)
 
-cloudsat_server = 'www.cloudsat.cira.colostate.edu'
+cloudsat_server = "www.cloudsat.cira.colostate.edu"
 
 # product = '2B-GEOPROF-LIDAR'
 # year, doy = 2008, 100
@@ -21,32 +21,39 @@ cloudsat_server = 'www.cloudsat.cira.colostate.edu'
 # DEFAULT_COLLECTION = 'P2_R05'
 
 
-def download_file_locations(product, year, doy, orbits=None,
-                            col=DEFAULT_COLLECTION):
+def download_file_locations(product, year, doy, orbits=None, col=DEFAULT_COLLECTION):
     _, mon, _ = csat2.misc.time.doy_to_date(year, doy)
-    
-    folder = f'Data/{product}.{col}/{year}/{doy:0>3}/'
 
-    srv = pysftp.Connection(host=cloudsat_server,
-                            username=cloudsat_auth['username'],
-                            private_key=cloudsat_auth['keyfile'])
-    
-    
-    # if collection isn't available, will raise ValueError and give alternative collection options that col must be set to 
+    folder = f"Data/{product}.{col}/{year}/{doy:0>3}/"
+
+    srv = pysftp.Connection(
+        host=cloudsat_server,
+        username=cloudsat_auth["username"],
+        private_key=cloudsat_auth["keyfile"],
+    )
+
+    # if collection isn't available, will raise ValueError and give alternative collection options that col must be set to
     try:
-        srv.chdir(folder)  
+        srv.chdir(folder)
     except FileNotFoundError:
-        srv.chdir('Data')
+        srv.chdir("Data")
         collections = srv.listdir()
-        matches = [s.strip(product) for s in [match for match in collections if str(product+'.') in match]]
-        matches = [s.strip('.') for s in matches]
-        raise ValueError('Selected collection {} not available. Available collections are:{}'.format(col, matches))
-    
+        matches = [
+            s.strip(product)
+            for s in [match for match in collections if str(product + ".") in match]
+        ]
+        matches = [s.strip(".") for s in matches]
+        raise ValueError(
+            "Selected collection {} not available. Available collections are:{}".format(
+                col, matches
+            )
+        )
+
     files = srv.listdir()
     srv.close()
-        
+
     if orbits is not None:
-        return [f for f in files if int(f.split('_')[1]) in orbits]
+        return [f for f in files if int(f.split("_")[1]) in orbits]
     else:
         return files
 
@@ -54,9 +61,7 @@ def download_file_locations(product, year, doy, orbits=None,
 def download(product, year, doy, orbits=None, col=DEFAULT_COLLECTION):
     files = download_file_locations(product, year, doy, orbits, col)
 
-    local_folder = locator.get_folder('CLOUDSAT', product,
-                                      year=year, doy=doy,
-                                      col=col)
+    local_folder = locator.get_folder("CLOUDSAT", product, year=year, doy=doy, col=col)
 
     try:
         os.makedirs(local_folder)
@@ -64,37 +69,35 @@ def download(product, year, doy, orbits=None, col=DEFAULT_COLLECTION):
         pass
 
     if len(files) == 0:
-        raise ValueError('No files for {} on {}, {}'.format(product, year, doy))
+        raise ValueError("No files for {} on {}, {}".format(product, year, doy))
 
     # Assumes there is only one valid folder for this collection of files
-    folder = f'Data/{product}.{col}/{year}/{doy:0>3}/'
+    folder = f"Data/{product}.{col}/{year}/{doy:0>3}/"
 
-    srv = pysftp.Connection(host=cloudsat_server,
-                            username=cloudsat_auth['username'],
-                            private_key=cloudsat_auth['keyfile'])
+    srv = pysftp.Connection(
+        host=cloudsat_server,
+        username=cloudsat_auth["username"],
+        private_key=cloudsat_auth["keyfile"],
+    )
     srv.chdir(folder)
 
     for filename in files:
-        newfile = local_folder + '/' + os.path.basename(filename)
+        newfile = local_folder + "/" + os.path.basename(filename)
         if not os.path.exists(newfile):
             srv.get(filename, newfile)
             # with open(newfile, 'w+b') as fh:
             #     ftp.retrbinary(f'RETR {filename}', fh.write)
-            print(f'{filename} complete')
+            print(f"{filename} complete")
         else:
-            logging.info('Skipping {}'.format(os.path.basename(filename)))
+            logging.info("Skipping {}".format(os.path.basename(filename)))
     srv.close()
 
 
 def check(product, year, doy, orbit, col=DEFAULT_COLLECTION):
-    '''Does a product already exist for a specific time/date/collection'''
+    """Does a product already exist for a specific time/date/collection"""
     filename = locator.search(
-        'CLOUDSAT',
-        product,
-        year=year,
-        doy=doy,
-        col=col,
-        orbit=orbit)
+        "CLOUDSAT", product, year=year, doy=doy, col=col, orbit=orbit
+    )
     if len(filename) == 1:
         return True
     else:

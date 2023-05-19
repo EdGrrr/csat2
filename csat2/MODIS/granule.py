@@ -85,7 +85,7 @@ class Granule(object):
                     )[0]
                 ][0]
             except IndexError:
-                raise IOError('No MODIS data for this granule')
+                raise IOError("No MODIS data for this granule")
         return self._orbit
 
     def daynight(self):

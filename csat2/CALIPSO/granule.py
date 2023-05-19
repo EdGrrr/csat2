@@ -1,16 +1,21 @@
 from datetime import timedelta
 import numpy as np
 from csat2 import misc
-from .readfiles import readin_calipso_curtain, get_filename_by_time, filename_to_datetime, DEFAULT_COLLECTION
+from .readfiles import (
+    readin_calipso_curtain,
+    get_filename_by_time,
+    filename_to_datetime,
+    DEFAULT_COLLECTION,
+)
 from .download import download, check
 import os
 
 
 class Granule(object):
-    '''CALIPSO granules are defined by time'''
+    """CALIPSO granules are defined by time"""
 
     def __init__(self, year, doy, hour, minute, second, col=DEFAULT_COLLECTION):
-        '''orbit - int'''
+        """orbit - int"""
         super(Granule, self).__init__()
         self.year = year
         self.doy = doy
@@ -34,72 +39,88 @@ class Granule(object):
 
     @classmethod
     def fromtext(cls, name, col=DEFAULT_COLLECTION):
-        return cls(int(name[4:8]),
-                   int(name[8:11]),
-                   int(name[12:14]),
-                   int(name[14:16]),
-                   int(name[15:18]), col=col)
-    
+        return cls(
+            int(name[4:8]),
+            int(name[8:11]),
+            int(name[12:14]),
+            int(name[14:16]),
+            int(name[15:18]),
+            col=col,
+        )
+
     def filename(self, product, col=DEFAULT_COLLECTION):
-        return get_filename_by_time(self.datetime()+timedelta(minutes=1))
-    
+        return get_filename_by_time(self.datetime() + timedelta(minutes=1))
+
     def datetime(self):
-        return misc.time.ydh_to_datetime(self.year, self.doy, self.hour+self.minute/60+self.second/3600)
-    
+        return misc.time.ydh_to_datetime(
+            self.year, self.doy, self.hour + self.minute / 60 + self.second / 3600
+        )
+
     def astext(self):
-        return f'CAL.{self.year}{self.doy:0>3}.{self.hour:0>2}{self.minute:0>2}{self.second:0>2}'
+        return f"CAL.{self.year}{self.doy:0>3}.{self.hour:0>2}{self.minute:0>2}{self.second:0>2}"
 
     @property
     def daynight(self):
-        '''Granule is (D)ay or (N)ighttime data'''
-        return self.filename('LID_L1')[-5]
-    
+        """Granule is (D)ay or (N)ighttime data"""
+        return self.filename("LID_L1")[-5]
+
     def get_lonlat(self, product, col=None):
-        '''Get lon lat data - can specify the product or the collection
-        used to the geolocation data from'''
+        """Get lon lat data - can specify the product or the collection
+        used to the geolocation data from"""
         if not self.lonlat:
             self._read_lonlat(product=product, col=col)
         return self.lonlat
-    
+
     def _read_lonlat(self, product, col=None):
         if not col:
             col = self.col
-        data = self.get_variable(
-            product,
-            varnames=['Longitude', 'Latitude'],
-            col=col)
-        self.lonlat = [data['Longitude'],
-                       data['Latitude']]
+        data = self.get_variable(product, varnames=["Longitude", "Latitude"], col=col)
+        self.lonlat = [data["Longitude"], data["Latitude"]]
 
     def get_variable(self, product, varnames, col=None):
         if not col:
             col = self.col
         return readin_calipso_curtain(
-            product, self.year, self.doy, self.hour, self.minute, self.second, sds=varnames, col=col)
+            product,
+            self.year,
+            self.doy,
+            self.hour,
+            self.minute,
+            self.second,
+            sds=varnames,
+            col=col,
+        )
 
     def download_product(self, product, col=None):
         if col is None:
             col = self.col
-        if not check(product, self.year, self.doy,
-                     self.hour, self.minute,
-                     col=col):
-            download(product, self.year, self.doy,
-                     self.hour, self.minute,
-                     self.second, self.daynight,
-                     col=col)
+        if not check(product, self.year, self.doy, self.hour, self.minute, col=col):
+            download(
+                product,
+                self.year,
+                self.doy,
+                self.hour,
+                self.minute,
+                self.second,
+                self.daynight,
+                col=col,
+            )
 
     def locate(self, locs):
         # Determine the CALIPSO index for a given lon/latbounds
 
         # This is fast, so we don't need to do it in advance
-        callon, callat = self.get_lonlat('LID_L1')
+        callon, callat = self.get_lonlat("LID_L1")
 
-        return np.array([np.argmin(
-            misc.geo.haversine(
-                loc[0], loc[1], callon, callat)) for loc in locs])
+        return np.array(
+            [
+                np.argmin(misc.geo.haversine(loc[0], loc[1], callon, callat))
+                for loc in locs
+            ]
+        )
 
     def __repr__(self):
         return self.astext()
 
     def increment(self):
-        return Granule.from_datetime(self.datetime()+timedelta(hours=1))
+        return Granule.from_datetime(self.datetime() + timedelta(hours=1))

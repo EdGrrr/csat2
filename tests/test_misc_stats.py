@@ -18,8 +18,10 @@ class TestNans(unittest.TestCase):
         self.assertEqual(stats.lin_av(testx[:3])[1], 1)
 
         testy = np.array([np.nan, 0, 2, 1, 1])
-        self.assertEqual(stats.nanlinregress(testx, testy),
-                         scipy.stats.linregress(testx[[1, 2, 4]], testy[[1, 2, 4]]))
+        self.assertEqual(
+            stats.nanlinregress(testx, testy),
+            scipy.stats.linregress(testx[[1, 2, 4]], testy[[1, 2, 4]]),
+        )
 
         assert stats.nanmask(testx).mask is not None
 
@@ -30,13 +32,15 @@ class TestLatWeights(unittest.TestCase):
         self.data2 = np.array([[0], [0], [1]])
 
     def test_latweightedav(self):
-        assert np.isclose(stats.lat_weighted_av(self.data, [-90, 90]),  4.5)
-        assert np.isclose(stats.lat_weighted_av(self.data % 5, [-90, 90]),  2)
-        assert np.isclose(stats.lat_weighted_av(self.data % 5, [-60, 60]),  2)
-        assert np.isclose(stats.lat_weighted_av(self.data % 5, [-30, 30]),  2)
+        assert np.isclose(stats.lat_weighted_av(self.data, [-90, 90]), 4.5)
+        assert np.isclose(stats.lat_weighted_av(self.data % 5, [-90, 90]), 2)
+        assert np.isclose(stats.lat_weighted_av(self.data % 5, [-60, 60]), 2)
+        assert np.isclose(stats.lat_weighted_av(self.data % 5, [-30, 30]), 2)
 
-        assert stats.lat_weighted_av(
-            self.data, (-90, 0)) > stats.lat_weighted_av(self.data, (0, 90))
+        assert stats.lat_weighted_av(self.data, (-90, 0)) > stats.lat_weighted_av(
+            self.data, (0, 90)
+        )
         assert np.isclose(stats.lat_weighted_av(self.data2, (-90, 0)), 0.5)
-        assert np.isclose(stats.lat_weighted_av(
-            self.data2, (0, 90)), 1-np.sqrt(3)/2)
+        assert np.isclose(
+            stats.lat_weighted_av(self.data2, (0, 90)), 1 - np.sqrt(3) / 2
+        )

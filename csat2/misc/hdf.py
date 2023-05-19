@@ -1,4 +1,8 @@
-from pyhdf import SD, HDF, VS # VS is not used in this code, but not importing it generates issues elsewhere
+from pyhdf import (
+    SD,
+    HDF,
+    VS,
+)  # VS is not used in this code, but not importing it generates issues elsewhere
 import numpy as np
 import copy
 import logging
@@ -7,7 +11,7 @@ log = logging.getLogger(__name__)
 
 
 def read_hdf4(filename, names=None, vdata=None, fill_missing=True, datadict=None):
-    '''Reads data from a HDF4 file into a dictionary.'''
+    """Reads data from a HDF4 file into a dictionary."""
 
     # Is set to true if we are reading in all variables
     nonameflag = False
@@ -25,7 +29,7 @@ def read_hdf4(filename, names=None, vdata=None, fill_missing=True, datadict=None
             attributes = sds.attributes()
             if fill_missing:
                 try:
-                    fillvalue = attributes['_FillValue']  # Missing data.
+                    fillvalue = attributes["_FillValue"]  # Missing data.
                     data = np.where(data == fillvalue, np.nan, data)
                 except KeyError:
                     pass
@@ -48,13 +52,13 @@ def read_hdf4(filename, names=None, vdata=None, fill_missing=True, datadict=None
                 vd = vs.attach(name)
                 vdnames = [v[0] for v in vd.fieldinfo()]
                 vddata = vd.read(vd._nrecs)
-                if len(vdnames) == 1: # Cloudsat data
+                if len(vdnames) == 1:  # Cloudsat data
                     data = np.array(vddata).squeeze()
-                elif len(vdnames) > 1: # CALIPSO metadata
+                elif len(vdnames) > 1:  # CALIPSO metadata
                     data = {vdnames[i]: vddata[0][i] for i in range(len(vdnames))}
                 if fill_missing:
                     try:  # Deal with missing data
-                        missingval = vd.attrinfo()['missing'][2]
+                        missingval = vd.attrinfo()["missing"][2]
                         data = np.where(data == missingval, np.nan, data)
                     except KeyError:
                         pass

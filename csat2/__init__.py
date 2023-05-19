@@ -2,9 +2,10 @@ from ._version import __version__
 from .locator import configloader
 import os
 import logging
-logging.getLogger('csat2').addHandler(logging.NullHandler())
+
+logging.getLogger("csat2").addHandler(logging.NullHandler())
 
 # user_location - the default location for the user override file
-user_location = os.path.expanduser('~/.csat2/config.cfg')
+user_location = os.path.expanduser("~/.csat2/config.cfg")
 
 locator = configloader(user_location, default_fallback=True)
