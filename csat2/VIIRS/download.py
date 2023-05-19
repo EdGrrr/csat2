@@ -18,7 +18,7 @@ def download_file_locations(product, year, doy, times=None,
 
     token = get_token()
     files = [laads_folder + a['name'] for a in
-             json.loads(geturl(laads_folder+'.json', token).decode('utf-8'))]
+             json.loads(geturl(laads_folder+'.json', token).decode('utf-8'))['content']]
     return files
 
 
@@ -68,7 +68,7 @@ def download_geometa(year, doy, sat, col=DEFAULT_COLLECTION, force_redownload=Fa
     _, mon, day = csat2.misc.time.doy_to_date(year, doy)
     laads_file = (
         'https://ladsweb.modaps.eosdis.nasa.gov/' +
-        'archive/geoMetaJPSS/' +
+        'archive/geoMetaVIIRS/' +
         '{col}/{sat}/{year}/{si}03MOD_{year}-{mon:0>2}-{day:0>2}.txt'.format(
             col=col,
             sat=sat,
