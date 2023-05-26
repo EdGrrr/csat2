@@ -141,7 +141,7 @@ def variable_names(ncdf):
         varname = pvars[0]
         return varname
     else:
-        raise (KeyError, "Unable to infer variable name, {}".format(pvars))
+        raise KeyError("Unable to infer variable name, {}".format(pvars))
 
 
 def readin_ERA_LTS(year, doy, product="ERAInterim", time="LST", resolution="1grid"):
