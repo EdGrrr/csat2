@@ -616,35 +616,57 @@ class ERA5Data:
 class ERA5Data3D:
     """3D interpolation for ERA5 data. All levels are specified as pressure levels in hPa"""
 
-    def __init__(self, variable, levels, res="0.25grid", linear_interp=False):
-        self.levels = np.array([int(l.replace("hPa", "")) for l in levels])
-        # Keep the levels sorted internally (even if not supplied as such)
-        self.levels.sort()
+    def __init__(
+        self, variable, levels, level_vals=None, res="0.25grid", linear_interp=False
+    ):
+        # levels and level_vals must be sorted in order
+        self.levels = np.array(levels)
+        if level_vals is not None:
+            self.level_vals = np.array(
+                level_vals
+            )  # these are the heights of the levels in the same units
+        else:
+            self.level_vals = np.array([int(l.replace("hPa", "")) for l in levels])
+            # sort values here qhen just hPa levels?
 
         # Store the actual data in a list
         self.data = []
         for level in self.levels:
+            # can handle surface winds as input
+            if level == "10m" and variable == "U-wind-component":
+                variable = "10m-U-wind-component"
+                level = "surf"
+            if level == "10m" and variable == "V-wind-component":
+                variable = "10m-V-wind-component"
+                level = "surf"
+
             self.data.append(
                 ERA5Data(
                     variable,
-                    level=str(level) + "hPa",
+                    level=level,
                     res=res,
                     linear_interp=linear_interp,
                 )
             )
 
     def _level_interpolator(self, level):
-        """Return the index in the data array and weights for each level"""
+        """Return the index in the data array and weights for each level
+        (requires levels to all be in same units, as given by level_vals)"""
+
         # Lower index - lower pressure
-        ind_lower = (np.digitize(level, self.levels) - 1).clip(0, len(self.levels) - 1)
-        ind_upper = (np.digitize(level, self.levels)).clip(0, len(self.levels) - 1)
+        ind_lower = (np.digitize(level, self.level_vals) - 1).clip(
+            0, len(self.level_vals) - 1
+        )
+        ind_upper = (np.digitize(level, self.level_vals)).clip(
+            0, len(self.level_vals) - 1
+        )
         # Linear interpolation (for now)
         with np.errstate(divide="ignore", invalid="ignore"):
             frac = np.where(
                 ind_lower != ind_upper,
                 (
-                    (level - self.levels[ind_lower])
-                    / (self.levels[ind_upper] - self.levels[ind_lower])
+                    (level - self.level_vals[ind_lower])
+                    / (self.level_vals[ind_upper] - self.level_vals[ind_lower])
                 ),
                 1,
             )
@@ -708,12 +730,22 @@ class ERA5WindData:
 
 
 class ERA5WindData3D:
-    def __init__(self, levels, res="0.25grid", *args, **kwargs):
+    def __init__(self, levels, level_vals=None, res="0.25grid", *args, **kwargs):
         self.udata = ERA5Data3D(
-            "U-wind-component", levels=levels, res=res, *args, **kwargs
+            "U-wind-component",
+            levels=levels,
+            level_vals=level_vals,
+            res=res,
+            *args,
+            **kwargs,
         )
         self.vdata = ERA5Data3D(
-            "V-wind-component", levels=levels, res=res, *args, **kwargs
+            "V-wind-component",
+            levels=levels,
+            level_vals=level_vals,
+            res=res,
+            *args,
+            **kwargs,
         )
 
     def get_data_time(self, time, level):
