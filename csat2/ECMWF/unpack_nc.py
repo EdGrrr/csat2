@@ -14,12 +14,20 @@ log = logging.getLogger(__name__)
 
 
 
-def import_netcdf(netcdf_file, year, level, resolution, n_times):
+def import_netcdf(netcdf_file, year, level, resolution, n_times, **kwargs):
     """
-    Unpacks a CDS netcdf file into csat2 file storage
+    Unpacks a CDS netcdf file into csat2 file storage.
+
+    WARNING: Only use this if strictly necessary!
+    Check that the supplied parameters are accurate to avoid mislabelled files, damaging the data store.
+
+    To activate usage, supply the keyword argument confirm=True
     """
     # TODO: Detect and split on level, year. Detect n_times - may reuqire xarray. Issue: level is not given in the netcdf file?
 
+    if not kwargs.get("confirm", False):
+        raise NotImplementedError("Do not use without due caution! Read the documentation.")
+    
     if resolution != "0.25grid":
         raise ValueError("Only 0.25grid resolution is supported")
 
