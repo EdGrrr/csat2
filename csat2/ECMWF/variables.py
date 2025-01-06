@@ -39,3 +39,4 @@ def _get_levelstr(level):
         if isinstance(level, int):
             level = "{.0f}".format(level)
         levelstr = "{}hPa".format(level)
+    return levelstr
