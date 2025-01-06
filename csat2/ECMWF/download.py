@@ -174,7 +174,7 @@ def download(
             "reanalysis-era5-pressure-levels",
             {
                 "variable": cds_variables,
-                "pressure_level": level,
+                "pressure_level": levelstr.removesuffix("hPa"),
                 "product_type": "reanalysis",
                 "year": str(year),
                 "month": ["{:0>2}".format(month)],

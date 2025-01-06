@@ -3,6 +3,8 @@ Utility files for using ECMWF data
 
 Edward Gryspeerdt, Imperial College London, 2020
 """
+
+from csat2.ECMWF.variables import _get_levelstr
 from .. import locator
 from csat2.misc.time import ydh_to_datetime, date_to_doy
 import numpy as np
@@ -135,6 +137,10 @@ def variable_names(ncdf):
             "plev",
             "lat_bnds",
             "lon_bnds",
+            "number",
+            "pressure_level",
+            "valid_time",
+            "expver",
         ]
     ]
     if len(pvars) == 1:
@@ -272,7 +278,8 @@ def readin_ERA_EIS(
 def available(variable=None, year=None, res=None, time=None):
     """List available files for a given variable. If year is specified, give numbers per month, otherwise numbers per year.
 
-    Note that this depends on the file setup specified in the default config. TODO - change this to use the locator and regex"""
+    Note that this depends on the file setup specified in the default config. TODO - change this to use the locator and regex
+    """
     if variable is None:
         if time is None:
             time = "*"
@@ -412,7 +419,7 @@ class ERA5Data:
         self.scaling = scaling
         self.variable = variable
         self.varkey = None
-        self.level = level
+        self.level = _get_levelstr(level)
         self.res = res
         # Define linear interp here, as if it is True or 'time'
         # we need to cache some extra data
@@ -441,7 +448,9 @@ class ERA5Data:
         else:
             # No temporal interpolation, take the nearest index
             time_ind = np.argmin(np.abs(self.time - time))
-            u_ret = self.nc.variables[self.varkey][time_ind, :, :]
+            u_ret = self.nc.variables[self.varkey][time_ind, :, :].squeeze()
+            # squeeze is needed as a 2D array is expected. New CDS data downloads have a pressure_level dimension.
+            # It might be useful for future infrastructure not to squeeeze it out!
 
         if self.res == "1grid":  # Arrange the data to match the MODIS files
             rlon = self.lon

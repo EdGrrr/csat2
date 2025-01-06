@@ -13,7 +13,6 @@ from netCDF4 import Dataset, num2date
 log = logging.getLogger(__name__)
 
 
-
 def import_netcdf(netcdf_file, year, level, resolution, n_times, **kwargs):
     """
     Unpacks a CDS netcdf file into csat2 file storage.
@@ -26,8 +25,10 @@ def import_netcdf(netcdf_file, year, level, resolution, n_times, **kwargs):
     # TODO: Detect and split on level, year. Detect n_times - may reuqire xarray. Issue: level is not given in the netcdf file?
 
     if not kwargs.get("confirm", False):
-        raise NotImplementedError("Do not use without due caution! Read the documentation.")
-    
+        raise NotImplementedError(
+            "Do not use without due caution! Read the documentation."
+        )
+
     if resolution != "0.25grid":
         raise ValueError("Only 0.25grid resolution is supported")
 
@@ -35,12 +36,20 @@ def import_netcdf(netcdf_file, year, level, resolution, n_times, **kwargs):
     _unpack_nc(netcdf_file, year, levelstr, resolution, n_times, lst=False)
 
 
-def _unpack_nc(netcdf_file, year, levelstr, resolution, n_times, lst=True, lst_times=["0730", "1030", "1330", "1630"],):
+def _unpack_nc(
+    netcdf_file,
+    year,
+    levelstr,
+    resolution,
+    n_times,
+    lst=True,
+    lst_times=["0730", "1030", "1330", "1630"],
+):
     """
     Unpack a netcdf file (downloaded or raw) into the csat2 file storage
     """
     output_folder = os.path.dirname(netcdf_file)
-    
+
     # We need to split by variables!
     slice_prefix = output_folder + "/temp_"
     os.system("cdo -b 32 splitname {} {}".format(netcdf_file, slice_prefix))
@@ -57,6 +66,12 @@ def _unpack_nc(netcdf_file, year, levelstr, resolution, n_times, lst=True, lst_t
             vname = variable_names(ncdf)
             long_name = ncdf.variables[vname].long_name.lower().replace(" ", "_")
             prod = _convert_cds_to_vname(long_name)
+            if "valid_time" in ncdf.variables:
+                rename_time = True
+        
+        if rename_time:
+            with Dataset(vfile, "a") as ncdf:
+                ncdf = ncdf.renameVariable("valid_time", "time")
 
         # The output folder may not exist yet
         var_folder = csat2.locator.get_folder(
@@ -103,11 +118,10 @@ def _unpack_nc(netcdf_file, year, levelstr, resolution, n_times, lst=True, lst_t
             new = (file_pattern + index).replace("cdosplit_", "")
             os.rename(file, new)
             doys.append(doy)
-        
+
         # Do the LST convert (if required)
         if lst:
             create_lst_files(year, doys, prod, levelstr, resolution, lst_times)
-
 
 
 def create_lst_files(
@@ -252,5 +266,7 @@ def create_lst_files(
             log.info("Created LST: {}".format(os.path.basename(filename)))
         except FileNotFoundError:
             continue
-        except:
-            print("Readin failed on day ", doy, year)
+        except Exception as e:
+            log.error("Readin failed on day ", doy, year)
+            log.error(e)
+            # print("Readin failed on day ", doy, year)
