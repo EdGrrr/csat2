@@ -6,12 +6,28 @@ from pyhdf import (
 import numpy as np
 import copy
 import logging
+import subprocess
 import netCDF4
 
 log = logging.getLogger(__name__)
 
+
+def check_netcdf_hdf4():
+    try:
+        result = subprocess.run(["nc-config", "--has-hdf4"], capture_output=True, text=True, check=True)
+        hdf4_support = result.stdout.strip()
+        if hdf4_support == 'yes':
+            return True
+        else:
+            return False
+    except FileNotFoundError:
+        return False
+    except subprocess.CalledProcessError as e:
+        return False
+
+
 # Check if the installed version of netCDF4 can open hdf4 files
-if hasattr(netCDF4.Dataset, "HDF4"):
+if  check_netcdf_hdf4():
     Dataset = netCDF4.Dataset
 else:
     class Variable:
