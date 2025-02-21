@@ -6,8 +6,69 @@ from pyhdf import (
 import numpy as np
 import copy
 import logging
+import netCDF4
 
 log = logging.getLogger(__name__)
+
+# Check if the installed version of netCDF4 can open hdf4 files
+if hasattr(netCDF4.Dataset, "HDF4"):
+    Dataset = netCDF4.Dataset
+else:
+    class Variable:
+        def __init__(self, name, datafile):
+            self.name = name
+            self.sds = datafile.select(name)
+            self.attrs = self.sds.attributes()
+            self.auto_scale = True
+            self.auto_mask = True
+            self.dimensions = datafile.datasets[name][0]
+            self.shape = datafile.datasets[name][1]
+            try:
+                self._Fillvalue = self.attrs["_FillValue"]
+            except KeyError:
+                pass
+
+        def set_auto_scale(self, val):
+            self.auto_scale = val
+
+        def set_auto_mask(self, val):
+            self.auto_mask = val
+
+        def ncattrs(self):
+            return self.attrs.keys()
+
+        def __getitem__(self, index):
+            data = self.sds[index]  # Allow indexing like a NumPy array
+            if self.auto_mask:
+                data = np.ma.array(data, mask=(data == self._FillValue))
+            if self.auto_scale:
+                data = data * self.scale_factor + self.add_offset
+            return data
+
+        def __setitem__(self, index, value):
+            raise AttributeError("Cannot edit data")
+
+        def __getattr__(self, name):
+            return self.attrs[name]
+
+    class Variables:
+        def __init__(self, datafile):
+            self.datafile = datafile
+
+        def __getitem__(self, name):
+            return Variable(name, self.datafile)
+
+        def keys(self):
+            return self.datafile.datasets().keys()
+
+    class Dataset:
+        def __init__(self, filename, rw_flag="r"):
+            self.datafile = SD.SD(filename)
+            self.names = list(self.datafile.datasets().keys())
+            self.variables = Variables(self.datafile)
+
+        def __del__(self):
+            self.datafile.end()
 
 
 def read_hdf4(filename, names=None, vdata=None, fill_missing=True, datadict=None):
