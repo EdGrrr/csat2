@@ -47,14 +47,22 @@ class DataAccumulator:
         for name in data_dict.keys():
             self.insert(name, data_dict[name])
 
-    def get(self, name, counts=False):
+    def get(self, name, counts=False, min_no=None):
         """Retrieve the data stored under 'name'. This will by
         default return the mean (excluding nans), but by setting
-        counts=True, you can return the sum"""
+        counts=True, you can return the sum
+
+        If set, min_no will return missing data for any location with
+        fewer tha min_no datapoints"""
         if counts:
-            return self.output[name]
+            outdata =  self.output[name]
         else:
-            return self.output[name] / self.output[name + "_num"]
+            outdata = self.output[name] / self.output[name + "_num"]
+        if min_no:
+            missing_mask = self.output[name + "_num"]<min_no
+            outdata[missing_mask] = np.nan
+
+        return outdata
 
     def insert_corr(self, namex, indatax, namey, indatay):
         """Insert the data required to calculate a correlation between
