@@ -76,7 +76,17 @@ Finally, you can step forward a specified number of granules
 Downloading MODIS data
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The granule object can be used to download MODIS files if you place a LAADS DAAC APIkey in ``laadsdaacrc`` in the csat configuration directory (``${HOME}/.csat2`` by default). Note that you need to get this from the LAADS website, an Earthdata key is not suitable (`details <https://ladsweb.modaps.eosdis.nasa.gov/learn/download-files-using-laads-daac-tokens/>`_).
+The granule object can be used to download MODIS files if you place a NASA Earthdata username and password in the csat2 configuration directory (``${HOME}/.csat2/earthdata_auth.json``). This should be in json format, such that the contents of the file read something like
+
+.. code-block:: json
+
+   {
+       "username": "<YOUR_USERNAME>",
+       "password": "<YOUR_PASSWORD"
+   }
+   
+
+This replaces the old LAADS token API. You can then download granule data as follows. This will also work for VIIRS data.
 
 .. code-block:: python
 

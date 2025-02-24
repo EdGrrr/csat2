@@ -17,12 +17,14 @@ def download_file_locations(product, year, doy, times=None, col=DEFAULT_COLLECTI
     laads_folder = base_url + f"archive/allData/{col}/{product}/{year}/{doy:0>3}/"
 
     token = get_token()
+    log.debug('Getting file list')
     files = [
         laads_folder + a["name"]
         for a in json.loads(geturl(laads_folder + ".json", token).decode("utf-8"))[
             "content"
         ]
     ]
+    log.debug('Got file list')
     return files
 
 
