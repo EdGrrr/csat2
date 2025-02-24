@@ -7,7 +7,7 @@ import csat2.misc.geo
 
 log = logging.getLogger(__name__)
 
-DEFAULT_COLLECTION = "5110"
+DEFAULT_COLLECTION = "5200"
 
 print("Default VIIRS collection: {}".format(DEFAULT_COLLECTION))
 

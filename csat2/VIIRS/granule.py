@@ -124,7 +124,9 @@ class Granule(object):
             time=self.timestr(),
             col=col,
         )[band]
-        if "radiance" in metadata["long_name"]:  # TIR bands
+        if "radiance_scale_factor" not in metadata.keys():  # TIR bands
+            # Test for TIR bands - VIS/NIR bands have a separate radiance scale factor
+            # in addition to the standard scale factor (which is for reflectance)
             if refl:
                 raise ValueError("Reflectance cannot be computed for {}".format(band))
             else:
