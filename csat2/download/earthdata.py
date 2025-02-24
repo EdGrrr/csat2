@@ -15,8 +15,10 @@ log = logging.getLogger(__name__)
 
 USERAGENT = "csat2/download_v{}".format(csat2.__version__).replace("\r", "")
 TOKENFILE = os.environ["HOME"] + "/.csat2/laadsdaacrc"
-with open(os.path.expandvars("${HOME}/.csat2/earthdata_auth.json")) as f:
+AUTHFILE = os.environ["HOME"] + "/.csat2/earthdata_auth.json"
+with open(AUTHFILE) as f:
     earthdata_auth = json.load(f)
+
 
 # Based on code from
 # https://urs.earthdata.nasa.gov/documentation/for_users/data_access/python
