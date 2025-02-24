@@ -16,8 +16,13 @@ log = logging.getLogger(__name__)
 USERAGENT = "csat2/download_v{}".format(csat2.__version__).replace("\r", "")
 TOKENFILE = os.environ["HOME"] + "/.csat2/laadsdaacrc"
 AUTHFILE = os.environ["HOME"] + "/.csat2/earthdata_auth.json"
-with open(AUTHFILE) as f:
-    earthdata_auth = json.load(f)
+
+try:
+    with open(AUTHFILE) as f:
+        earthdata_auth = json.load(f)
+except FileNotFoundError:
+    log.debug('Place your Earthdata username and password in '+AUTHFILE+' to use the Earthdata download functionality. See the csat2 documentation for more information.')
+    raise FileNotFoundError('Missing authentication data in '+AUTHFILE)
 
 
 # Based on code from
