@@ -3,6 +3,7 @@ from csat2 import locator
 from csat2.misc.time import doy_to_date, ydh_to_datetime
 import numpy as np
 from netCDF4 import Dataset
+from csat2.misc import hdf
 import logging
 import xarray as xr
 
@@ -125,7 +126,7 @@ def readin_MODIS_L3_filename_xarray(filename, names):
 def readin_MODIS_L3_filename(filename, names):
     """Builds up the xarray dataset, approximately twice as fast
     Misses out some attributes, but could be added in as required"""
-    with Dataset(filename) as ncdf:
+    with hdf.Dataset(filename) as ncdf:
         ds = xr.Dataset()  # New output dataset
         tdims = []
         for name in names:
@@ -246,7 +247,7 @@ def readin_metadata(product, year, doy, time, col, sds):
         log.debug("Listifying")
         sds = [sds]
     metadata = {}
-    with Dataset(filename) as ncdf:
+    with hdf.Dataset(filename) as ncdf:
         for varname in sds:
             metadata[varname] = {}
             for metname in ncdf.variables[varname].ncattrs():
@@ -263,7 +264,7 @@ def remove_dim_suffix(dim):
 
 def readin_MODIS_L2_filename(filename, names):
     log.debug(filename)
-    with Dataset(filename) as ncdf:
+    with hdf.Dataset(filename) as ncdf:
         ds = xr.Dataset()
         tdims = []
         for name in names:
@@ -279,7 +280,7 @@ def readin_MODIS_L2_filename(filename, names):
             except AttributeError:  # No scale factors
                 indata = var[:]
             try:
-                indata = np.where(indata == var._Fillvalue, np.nan, indata[name])
+                indata = np.where(indata == var._Fillvalue, np.nan, indata)
             except AttributeError:  # No fill value
                 pass
             ds[name] = xr.DataArray(indata, dims=dims)
@@ -300,7 +301,7 @@ def readin_MODIS_L2_filename(filename, names):
 def readin_MODIS_L2_filename_fast(filename, names, varind=None):
     # If the input is a string, put it into a list
     log.debug(filename)
-    with Dataset(filename) as ncdf:
+    with hdf.Dataset(filename) as ncdf:
         ds = xr.Dataset()
         tdims = []
         for name in names:
@@ -324,7 +325,7 @@ def readin_MODIS_L2_filename_fast(filename, names, varind=None):
             except AttributeError:  # No scale factors
                 indata = vdata
             try:
-                indata = np.where(indata == var._Fillvalue, np.nan, indata[name])
+                indata = np.where(indata == var._Fillvalue, np.nan, indata)
             except AttributeError:  # No fill value
                 pass
             ds[name] = xr.DataArray(indata, dims=dims)

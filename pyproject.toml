@@ -1,0 +1,32 @@
+[project]
+name = "csat2"
+version = "0.1"
+description = "Library for reading and processing observational data"
+authors = [
+    {name = "Edward Gryspeerdt", email = "e.gryspeerdt@imperial.ac.uk"},
+]
+dependencies = [
+    "google-cloud-storage",
+    "matplotlib",
+    "netCDF4",
+    "numpy",
+    "pyhdf",
+    "pyyaml",
+    "scikit-learn",
+    "scipy",
+    "xarray",
+    "cdsapi"
+]
+requires-python = ">=3.9"
+readme = "README.md"
+license = {text = "Not currently open source"}
+maintainers = [
+    {name = "Edward Gryspeerdt", email = "e.gryspeerdt@imperial.ac.uk"},
+]
+
+
+[tool.pdm]
+distribution = false
+
+[tool.pdm.package-dir]
+csat2 = "csat2"
