@@ -55,13 +55,21 @@ class DataAccumulator:
         If set, min_no will return missing data for any location with
         fewer tha min_no datapoints"""
         if counts:
-            outdata =  self.output[name]
+            outdata = self.output[name]
         else:
             outdata = self.output[name] / self.output[name + "_num"]
         if min_no:
-            missing_mask = self.output[name + "_num"]<min_no
+            missing_mask = self.output[name + "_num"] < min_no
             outdata[missing_mask] = np.nan
 
+        return outdata
+
+    def get_counts(self, name):
+        """Retrieve the number of valid datapoints stored under 'name'.
+
+        If set, min_no will return missing data for any location with
+        fewer tha min_no datapoints"""
+        outdata = self.output[name + "_num"]
         return outdata
 
     def insert_corr(self, namex, indatax, namey, indatay):
