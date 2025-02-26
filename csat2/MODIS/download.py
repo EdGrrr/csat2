@@ -46,7 +46,7 @@ def download_file_locations_nrt(product, year, doy, times=None, col=DEFAULT_COLL
 
 
 def download(
-    product, year, doy, times=None, col=DEFAULT_COLLECTION, force_redownload=False
+        product, year, doy, times=None, col=DEFAULT_COLLECTION, force_redownload=False, quiet=False
 ):
     if times:
         """If times are supplied, check to see if they all exist. If not,
@@ -87,7 +87,7 @@ def download(
             if force_redownload:
                 os.remove(newfile)
             with open(newfile, "w+b") as fh:
-                geturl(filename, token, fh)
+                geturl(filename, token, fh, quiet=quiet)
         else:
             log.info("Skipping {}".format(os.path.basename(filename)))
 
