@@ -82,9 +82,9 @@ def nc4_dump_mv(filename, data, dnames=None, var_types=False):
         if var_types:
             if data[vname].dtype.kind in ['S', 'U']:
                 if data[vname].dtype.kind == 'U':
-                    vdata = netCDF4.stringtochar(data[vname].astype('S'))
+                    vdata = stringtochar(data[vname].astype('S'))
                 else:
-                    vdata = netCDF4.stringtochar(data[vname])
+                    vdata = stringtochar(data[vname])
                 ncdf.createDimension(f'{vname}_len', vdata.shape[1])
                 Var = ncdf.createVariable(
                     vname, "S1", dnames[:(len(vdata.shape)-1)]+(f'{vname}_len',), zlib=True
