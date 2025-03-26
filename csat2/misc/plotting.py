@@ -3,6 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
+import matplotlib
 import scipy.stats
 import copy
 
@@ -205,8 +206,8 @@ for i in _wbgyr_cdict_r.keys():
 
 cmap = LinearSegmentedColormap("WBGYR", _wbgyr_cdict)
 cmap.set_bad("#D2D2D2")
-plt.register_cmap(cmap=cmap)
+matplotlib.colormaps.register(cmap=cmap)
 
 cmap = LinearSegmentedColormap("WBGYR_r", _wbgyr_cdict_r)
 cmap.set_bad("#D2D2D2")
-plt.register_cmap(cmap=cmap)
+matplotlib.colormaps.register(cmap=cmap)
