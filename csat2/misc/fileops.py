@@ -1,6 +1,6 @@
 import struct
 import numpy as np
-from netCDF4 import Dataset
+from netCDF4 import Dataset, stringtochar, chartostring
 import datetime
 import pandas as pd
 
@@ -56,7 +56,7 @@ def nc_load(filename, vname=None):
     return data
 
 
-def nc4_dump_mv(filename, data, dnames=None):
+def nc4_dump_mv(filename, data, dnames=None, var_types=False):
     """Dumps and array into a netcdf file to store for later.
     Takes a dictionary of arrays of the same partial shape where the key is the variable name.
     i.e. (100,20,35) is the same as (100,20)."""
@@ -79,10 +79,29 @@ def nc4_dump_mv(filename, data, dnames=None):
         dnames = tuple(dnames)
 
     for vname in names:
-        Var = ncdf.createVariable(
-            vname, "f", dnames[: len(data[vname].shape)], zlib=True
-        )
-        Var[:] = data[vname].astype("float")
+        if var_types:
+            if data[vname].dtype.kind in ['S', 'U']:
+                if data[vname].dtype.kind == 'U':
+                    vdata = netCDF4.stringtochar(data[vname].astype('S'))
+                else:
+                    vdata = netCDF4.stringtochar(data[vname])
+                ncdf.createDimension(f'{vname}_len', vdata.shape[1])
+                Var = ncdf.createVariable(
+                    vname, "S1", dnames[:(len(vdata.shape)-1)]+(f'{vname}_len',), zlib=True
+                )
+                Var[:] = vdata
+            elif data[vname].dtype.kind in ['i', 'f']:
+                Var = ncdf.createVariable(
+                    vname, data[vname].dtype, dnames[: len(data[vname].shape)], zlib=True
+                )
+                Var[:] = data[vname]
+            else:
+                raise ValueError('dtype not implemented')
+        else:
+            Var = ncdf.createVariable(
+                vname, "f", dnames[: len(data[vname].shape)], zlib=True
+            )
+            Var[:] = data[vname].astype("float")
     ncdf.close()
     return
 
