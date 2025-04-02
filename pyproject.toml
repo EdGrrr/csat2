@@ -18,15 +18,21 @@ dependencies = [
     "cdsapi"
 ]
 requires-python = ">=3.9"
-readme = "README.md"
+readme = "readme.rst"
 license = {text = "Not currently open source"}
 maintainers = [
     {name = "Edward Gryspeerdt", email = "e.gryspeerdt@imperial.ac.uk"},
 ]
 
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
 
 [tool.pdm]
 distribution = false
 
 [tool.pdm.package-dir]
 csat2 = "csat2"
+
+[tool.pdm.build]
+includes = ["*.py", "CALIPSO", "CloudSat", "config", "data", "download", "ECMWF", "EUMETSAT", "GOES", "misc", "MODIS", "VIIRS"]
