@@ -33,7 +33,7 @@ with open(CREDENTIALFILE, "r") as jfile:
 def get_chunk_files(product):
     return sorted([e for e in product.entries if "FD--CHK-BODY" in e], key=lambda e: e[-7:-3])
 
-def download_fci(directory, selected_product: eumdac.product.Product, load_chunks_iis=None):
+def download_fci(directory, selected_product: eumdac.product.Product, load_chunks_iis=None, force_redownload=False):
     directory = os.path.join(directory, str(selected_product))
     try:
         os.makedirs(directory)
@@ -45,11 +45,14 @@ def download_fci(directory, selected_product: eumdac.product.Product, load_chunk
         chunks = [chunks[i] for i in load_chunks_iis]
     for chunk in tqdm(chunks):
         try:
-            with selected_product.open(chunk) as fsrc, open(
-                os.path.join(directory, fsrc.name), mode="wb"
-            ) as fdst:
-                shutil.copyfileobj(fsrc, fdst)
-            # print(f"Download of product {selected_product} finished.")
+            with selected_product.open(chunk) as fsrc:
+                file = os.path.join(directory, fsrc.name)
+                if not os.path.exists(file) or force_redownload:
+                    with open(
+                        os.path.join(directory, fsrc.name), mode="wb"
+                    ) as fdst:
+                        shutil.copyfileobj(fsrc, fdst)
+                # print(f"Download of product {selected_product} finished.")
         except eumdac.product.ProductError as error:
             print(
                 f"Error related to the product '{selected_product}' while trying to download it: '{error.msg}'"
@@ -151,7 +154,7 @@ class Granule(GOES.Granule):
 
         product = get_eumdac_product(self)
 
-        download_fci(local_folder, product)
+        download_fci(local_folder, product, force_redownload=force_redownload)
 
     @classmethod
     def fromtext(cls, gran_text):
