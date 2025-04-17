@@ -1,11 +1,7 @@
-from calendar import c
 from functools import cached_property
-from gettext import find
-import logging
 
 from tqdm import tqdm
 from csat2 import GOES
-from csat2.GOES.granule import GOESLocator
 import re
 import json
 import os
@@ -13,16 +9,12 @@ import csat2
 import requests
 import datetime
 import warnings
-import numpy as np
-import zipfile
 import shutil
-import satpy  # new requirement -->  a pretty mature codebase at this stage...
 import eumdac
 from satpy.scene import (
     Scene,
 )  # new requirement -->  this is a simple package that provides a simple interface to the EUMETSAT Data Centre API. Could probably reverse engineer these parts of the code to work with the EUMETSAT API directly
 from satpy import find_files_and_readers
-import xarray as xr
 
 CREDENTIALFILE = os.environ["HOME"] + "/.csat2/eumetsat_key.json"
 
@@ -98,9 +90,9 @@ def read_fci_scene(fname):
     return Scene(filenames=files)
 
     
-def read_fci_file(fname, datasets):
+def read_fci_file(fname, datasets, output_variable="radiance"):
     scn = read_fci_scene(fname)
-    scn.load(datasets, upper_right_corner="NE")
+    scn.load(datasets, upper_right_corner="NE", calibration=output_variable)
     ds = scn.to_xarray_dataset().compute() # doing dask and lazy loading would be nice - but needs us to stop the tempfiles.
 
     return ds
@@ -212,11 +204,12 @@ class Granule(GOES.Granule):
             raise IndexError("Non-unique filename")
         return files[0]
 
-    def _read_file(self, datasets):
+    def _read_file(self, datasets, output_variable='radiance'):
         fname = self.get_filename()
-        self.data = read_fci_file(fname, datasets)
+        self.data = read_fci_file(fname, datasets, output_variable=output_variable)
 
     def get_band_radiance(self, channel):
+        # channels e.g. "vis_04" for the .4 micron channel, or wavelength in microns.
         datasets = [channel] if isinstance(channel, str) else channel
         self._read_file(datasets=datasets)
         return self.data[channel]
@@ -226,25 +219,11 @@ class Granule(GOES.Granule):
         fname = self.get_filename()
         return get_available_products(fname)
         
-    def get_band_bt():
-        raise NotImplementedError("Not implemented yet")
-        
-
-    # def get_shape(self, channel=None, product="L1b", *args, **kwargs):
-    #     return (3712, 3712)
-
-    # # def get_viewangles(self, channel=None, product="L1b"):
-    # #     self._check_locator(product)
-    # #     return np.array(np.meshgrid(self.locator.x, self.locator.y))
-
-    # # def get_llcoord(self, channel=None, product="L1b", mode="*"):
-    # #     self._check_locator(product)
-    # #     return self.locator.x[0], self.locator.y[-1]
-
-    # # def _check_locator(self, channel=None, product="L1b", *args, **kwargs):
-    # #     if not self.locator:
-    # #         self.locator = SeviriLocator(self.get_filename(product=product))
-
+    def get_band_bt(self, channel):
+        datasets = [channel] if isinstance(channel, str) else channel
+        self._read_file(datasets=datasets, output_variable="brightness_temperature")
+        return self.data[channel]
+    
     def get_satpy_scene(self):
         fname = self.get_filename()
         scn =  read_fci_scene(fname)
