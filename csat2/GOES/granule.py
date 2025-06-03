@@ -58,10 +58,13 @@ class Granule:
 
     inc_minutes = {"RadM1": 1, "RadM2": 1, "RadC": 5, "RadF": 10}
     product_names = {
-        "L2-CPS": "PSD",
-        "L2-COD": "COD",
-        "L2-AOD": "AOD",
-        "L2-ACTP": "Phase",
+        "L2-CPS": "PSD", # the cloud particle size, the same as the effective radius
+        "L2-COD": "COD", # Cloud Optical Depth
+        "L2-AOD": "AOD", # Aerolsol optical depth
+        "L2-ACTP": "Phase", # Cloud top phase: 0:clear sky, 1: liquid water, 2:supercooled liquid water, 3: mixed phase, 4: ice, 5: unknown
+        "L2-ACM" : "BCM", # this is binary cloud mask 0: clear/ probably clear, 1: cloudy/ probably cloudy
+        "L2-RRQPE": "RRQPE", # Rain rate
+        
     }
 
     def __init__(self, sat, area, year, doy, hour, minute, locator=None):
