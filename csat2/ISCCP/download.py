@@ -1,1 +1,108 @@
+import csat2
+from csat2 import locator
+import csat2.misc.time
+import sys
+import os
+import os.path
+import json
+import logging
+import xarray as xr
+import numpy as np
+import glob
+import requests
 
+
+
+def get_file_from_url(url, local_path):
+    '''helper function to download a file from a URL to a local path'''
+    try:
+        response = requests.get(url, stream=True)
+        response.raise_for_status()  # Raise an error for bad responses
+        with open(local_path, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
+        logging.info(f"Downloaded {local_path} from {url}")
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Failed to download {url}: {e}")
+        sys.exit(1)
+    except Exception as e:
+        logging.error(f"Failed to download {url}: {e}")
+        raise
+
+
+
+def download_files(year:int ,doy:int,times:int,product: str = 'isccp-basic',version: str = 'hgg',force_redownload = False):
+    '''Download file locations for ISCCP data.
+    Args: 
+        product (str): either 'isccp' or 'isccp-basic', basic is just a subset of the full isccp data and generally contains all the data you need, basic is the default
+        version (str): one of hgg,hgh,hgm,hgx (hgg is the default, hgx is unavailable for ISCCP Basic)
+        year (int): the year of the data to download
+        doy (int): the day of year of the data to download, 1-365 (or 366 for leap years)
+        times (int): the times are UTC in three hourly intervals, e.g. 0,3,6,9,12,15,18,21
+
+    Returns:
+        downloads the ISCCP data files to the local filesystem in a structured way.
+    '''
+    if product not in ['isccp', 'isccp-basic']:
+        raise ValueError("Product must be either 'isccp' or 'isccp-basic'.")
+    
+    if version not in ['hgg', 'hgh', 'hgm', 'hgx']:
+        raise ValueError("Version must be one of 'hgg', 'hgh', 'hgm', or 'hgx'.")
+
+
+    if product == 'isccp-basic' and version == 'hgx':
+        raise ValueError("Version 'hgx' is unavailable for ISCCP Basic.")
+    
+    if times not in range(0, 24, 3):
+        raise ValueError("Time must be in 3-hour UTC intervals (0, 3, 6, ..., 21).")
+    
+
+    base_url = f"https://www.ncei.noaa.gov/data/international-satellite-cloud-climate-project-isccp-h-series-data/access/"
+
+
+    version_uppercase = version.upper()  # Convert version to uppercase as it appears uppercase in the remote filename
+    local_dir = locator.get_folder(product,version,year=year,doy = doy)
+
+    year, month,dom = csat2.misc.time.doy_to_date(year, doy) # returns a tuple of integer values for year, month and day of month
+    doy_str = f"{doy:03d}"  # Format day of year as a three-digit string
+    time_str = f"{times:02d}" +'00'   # Format time as a four digit string (HHMM), e.g. 0000, 0300, 0600, etc.
+    year_str = str(year)  # Convert year to string
+    month_str = f"{month:02d}"  # Format month as a two-digit string
+    dom_str = f"{dom:02d}"  # Format day of month as a two-digit string
+
+    ## the data is stored in a directory structure like this:
+    # https://www.ncei.noaa.gov/data/international-satellite-cloud-climate-project-isccp-h-series-data/access/isscp-basic/hgg/YEARMM/files
+
+
+    os.makedirs(local_dir, exist_ok=True)  # Create the local directory if it doesn't exist
+
+
+    local_filename =  locator.format_filename(product,version,year=year,doy = doy,time = time_str) ## This is the expected local filename format for ISCCP data,
+    local_path = os.path.join(local_dir, local_filename)
+
+    remote_filename_converter = {'isccp-basic': 'ISCCP-Basic', 'isccp': 'ISCCP'}
+    remote_dir = f"{base_url}/{product}/{version_uppercase}/{year_str}{month_str}/"
+    remote_filename = f'{remote_filename_converter[product]}.{version_uppercase}.v01r00.GLOBAL.{year}.{month_str}.{dom_str}.{time_str}.GPC.10KM.CS00.EA1.00.nc'  # Construct the remote filename
+
+
+    if (not os.path.exists(local_path)) or force_redownload:
+        remote_url = f"{remote_dir}{remote_filename}"
+        logging.info(f"Downloading from {remote_url} to {local_path}")
+        get_file_from_url(remote_url, local_path)
+        return local_path  # Return the local path of the downloaded file
+
+    else:
+        # If the file already exists, skip the download
+        logging.info(f"File {local_filename} already exists in {local_dir}. Skipping download.")
+        return local_path
+    
+
+
+    
+
+
+
+
+    
+
+    
