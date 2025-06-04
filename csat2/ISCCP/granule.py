@@ -30,24 +30,21 @@ class Granule:
         '''Return the local directory and filename (location) for the granule.'''
         product_uppercase = {'isccp-basic': 'ISCCP-Basic', 'isccp': 'ISCCP'} ## converts the product name as it appears differently inthe filename and directory names
         version_uppercase = self.version.upper()  # Convert version to uppercase as it appears uppercase in the local filename
-        local_dir = locator.get_folder(product_uppercase[self.product],version_uppercase,year=self.year,doy = self.doy)
+        #local_dir = locator.get_folder(product_uppercase[self.product],version_uppercase,year=self.year,doy = self.doy)
 
         time_str = f"{self.time:02d}" + '00'
 
-        local_filename = locator.format_filename(product_uppercase[self.product], version_uppercase, year=self.year, doy=self.doy, time=time_str)
+        fileloc = locator.format_filename(product_uppercase[self.product], version_uppercase, year=self.year, doy=self.doy, time=time_str)
 
-        return local_dir, local_filename
+        return fileloc
 
-    def check(self,download = True):
-
+    def check(self, download=True):
         '''Ensure the granule exists locally; if not, download it.'''
 
-        local_dir, local_filename = self.get_fileloc()
-        
-        self.local_path = os.path.join(local_dir, local_filename)
+        fileloc = self.get_fileloc()
+        self.local_path = fileloc  #cache it
 
-        # Download file if not found and download is True
-        if not os.path.exists(self.local_path):
+        if not os.path.exists(fileloc):
             if download:
                 self.local_path = download_files(
                     self.year, self.doy, self.time,
@@ -56,7 +53,7 @@ class Granule:
                     force_redownload=False
                 )
             else:
-                raise FileNotFoundError(f"Granule file not found: {self.local_path}")
+                raise FileNotFoundError(f"Granule file not found: {fileloc}")
 
         return self.local_path
 
