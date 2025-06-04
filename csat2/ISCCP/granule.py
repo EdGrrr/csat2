@@ -6,6 +6,7 @@ import calendar
 import os
 from .utils import check_valid_args
 import numpy as np
+import netCDF4
 
 
 class Granule:
@@ -56,19 +57,42 @@ class Granule:
                 raise FileNotFoundError(f"Granule file not found: {fileloc}")
 
         return self.local_path
-
+    
     def get_variable(self, varname: str):
-        '''Read in a specific variable from the granule file.'''
-        self.check()
-        with xr.open_dataset(self.local_path) as ds:
-            if varname not in ds:
+        '''Read a specific variable from the granule file using netCDF4 and convert to xarray.
+        netCDF4 handles scale/offset automatically: raw * scale + offset.
+        '''
+        self.check() ## check if the file exists and download it if not
+
+        with netCDF4.Dataset(self.local_path, mode='r') as nc:
+            if varname not in nc.variables:
                 raise ValueError(f"Variable '{varname}' not found in dataset.")
             
-            if self.lonlat is None and 'lat' in ds and 'lon' in ds:
-                self.lonlat = (ds['lon'].values, ds['lat'].values)
+            var = nc.variables[varname]
+            data = var[:]
+            
+            # Handle fill value
+            fill_value = getattr(var, 'fill_value', None)
+            if fill_value is not None:
+                data = np.where(data == fill_value, np.nan, data)
 
-            return ds[varname].load()
-        
+            dims = var.dimensions
+            attrs = {attr: getattr(var, attr) for attr in var.ncattrs()}
+
+            # Get coordinate variables if present
+            coords = {}
+            for dim in dims:
+                if dim in nc.variables:
+                    coords[dim] = nc.variables[dim][:]
+
+            # Cache lon/lat if present and not yet set
+            if self.lonlat is None and 'lon' in nc.variables and 'lat' in nc.variables:
+                self.lonlat = (nc.variables['lon'][:], nc.variables['lat'][:])
+
+        # Convert to xarray DataArray (no fill_value argument needed)
+        da = xr.DataArray(data, dims=dims, coords=coords, attrs=attrs, name=varname)
+        return da
+            
         
     def get_lonlat(self, grid=False):
         '''Return the longitude and latitude arrays from the granule file.
@@ -121,7 +145,8 @@ class Granule:
             'coordinates': {coord  for coord in ds.coords}
         }
         ds.close()
-        return metadata    
+        return metadata
+    
         
     def next(self):
         '''Return a new Granule object for the next 3-hour interval.'''
