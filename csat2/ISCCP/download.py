@@ -4,12 +4,9 @@ import csat2.misc.time
 import sys
 import os
 import os.path
-import json
 import logging
-import xarray as xr
-import numpy as np
-import glob
 import requests
+from .utils import check_valid_args
 
 
 
@@ -43,18 +40,8 @@ def download_files(year:int ,doy:int,times:int,product: str = 'isccp-basic',vers
     Returns:
         downloads the ISCCP data files to the local filesystem in a structured way.
     '''
-    if product not in ['isccp', 'isccp-basic']:
-        raise ValueError("Product must be either 'isccp' or 'isccp-basic'.")
-    
-    if version not in ['hgg', 'hgh', 'hgm', 'hgx']:
-        raise ValueError("Version must be one of 'hgg', 'hgh', 'hgm', or 'hgx'.")
-
-
-    if product == 'isccp-basic' and version == 'hgx':
-        raise ValueError("Version 'hgx' is unavailable for ISCCP Basic.")
-    
-    if times not in range(0, 24, 3):
-        raise ValueError("Time must be in 3-hour UTC intervals (0, 3, 6, ..., 21).")
+    check_valid_args(year, doy, times, product, version)  # Validate the input arguments
+    logging.info(f"Downloading ISCCP data for {year}-{doy:03d} at {times:02d}00 UTC, product: {product}, version: {version}")
     
 
     base_url = f"https://www.ncei.noaa.gov/data/international-satellite-cloud-climate-project-isccp-h-series-data/access"
