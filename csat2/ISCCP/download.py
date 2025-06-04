@@ -57,11 +57,13 @@ def download_files(year:int ,doy:int,times:int,product: str = 'isccp-basic',vers
         raise ValueError("Time must be in 3-hour UTC intervals (0, 3, 6, ..., 21).")
     
 
-    base_url = f"https://www.ncei.noaa.gov/data/international-satellite-cloud-climate-project-isccp-h-series-data/access/"
+    base_url = f"https://www.ncei.noaa.gov/data/international-satellite-cloud-climate-project-isccp-h-series-data/access"
+
+    product_uppercase = {'isccp-basic': 'ISCCP-Basic', 'isccp': 'ISCCP'} ## converts the product name as it appears in two different ways, uppercase version in the remote filename and the local file naming convention
 
 
     version_uppercase = version.upper()  # Convert version to uppercase as it appears uppercase in the remote filename
-    local_dir = locator.get_folder(product,version,year=year,doy = doy)
+    local_dir = locator.get_folder(product_uppercase[product],version_uppercase,year=year,doy = doy)
 
     year, month,dom = csat2.misc.time.doy_to_date(year, doy) # returns a tuple of integer values for year, month and day of month
     doy_str = f"{doy:03d}"  # Format day of year as a three-digit string
@@ -77,12 +79,12 @@ def download_files(year:int ,doy:int,times:int,product: str = 'isccp-basic',vers
     os.makedirs(local_dir, exist_ok=True)  # Create the local directory if it doesn't exist
 
 
-    local_filename =  locator.format_filename(product,version,year=year,doy = doy,time = time_str) ## This is the expected local filename format for ISCCP data,
+    local_filename =  locator.format_filename(product_uppercase[product],version_uppercase,year=year,doy = doy,time = time_str) ## This is the expected local filename format for ISCCP data,
     local_path = os.path.join(local_dir, local_filename)
 
-    remote_filename_converter = {'isccp-basic': 'ISCCP-Basic', 'isccp': 'ISCCP'}
-    remote_dir = f"{base_url}/{product}/{version_uppercase}/{year_str}{month_str}/"
-    remote_filename = f'{remote_filename_converter[product]}.{version_uppercase}.v01r00.GLOBAL.{year}.{month_str}.{dom_str}.{time_str}.GPC.10KM.CS00.EA1.00.nc'  # Construct the remote filename
+    
+    remote_dir = f"{base_url}/{product}/{version}/{year_str}{month_str}/"
+    remote_filename = f'{product_uppercase[product]}.{version_uppercase}.v01r00.GLOBAL.{year}.{month_str}.{dom_str}.{time_str}.GPC.10KM.CS00.EA1.00.nc'  # Construct the remote filename
 
 
     if (not os.path.exists(local_path)) or force_redownload:
