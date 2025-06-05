@@ -69,12 +69,14 @@ class Granule:
                 raise ValueError(f"Variable '{varname}' not found in dataset.")
             
             var = nc.variables[varname]
-            data = var[:]
+            data = var[:] # this is a masked array object with fill values attribute .fill_value
             
             # Handle fill value
-            fill_value = getattr(var, 'fill_value', None)
+            fill_value = data.fill_value
             if fill_value is not None:
-                data = np.where(data == fill_value, np.nan, data)
+                print(f"Replacing fill value {fill_value} with NaN in variable '{varname}'")
+                data = np.ma.masked_equal(data, fill_value)
+
 
             dims = var.dimensions
             attrs = {attr: getattr(var, attr) for attr in var.ncattrs()}
