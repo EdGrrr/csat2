@@ -74,7 +74,7 @@ class Granule:
             # Handle fill value
             fill_value = data.fill_value
             if fill_value is not None:
-                print(f"Replacing fill value {fill_value} with NaN in variable '{varname}'")
+                #print(f"Replacing fill value {fill_value} with NaN in variable '{varname}'")
                 data = np.ma.masked_equal(data, fill_value)
 
 
