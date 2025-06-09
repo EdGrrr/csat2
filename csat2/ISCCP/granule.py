@@ -28,7 +28,7 @@ class Granule:
 
     
     def get_fileloc(self):
-        '''Return the local directory and filename (location) for the granule.'''
+        '''Return the local directory and filename (location) for the granule. Note that this does not require the file to be downloaded'''
         product_uppercase = {'isccp-basic': 'ISCCP-Basic', 'isccp': 'ISCCP'} ## converts the product name as it appears differently inthe filename and directory names
         version_uppercase = self.version.upper()  # Convert version to uppercase as it appears uppercase in the local filename
         #local_dir = locator.get_folder(product_uppercase[self.product],version_uppercase,year=self.year,doy = self.doy)
@@ -38,9 +38,12 @@ class Granule:
         fileloc = locator.format_filename(product_uppercase[self.product], version_uppercase, year=self.year, doy=self.doy, time=time_str)
 
         return fileloc
+    
 
     def check(self, download=True):
-        '''Ensure the granule exists locally; if not, download it.'''
+        '''Ensure the granule exists locally; if not, download it.
+        Returns the file path'''
+
 
         fileloc = self.get_fileloc()
         self.local_path = fileloc  #cache it
@@ -57,6 +60,7 @@ class Granule:
                 raise FileNotFoundError(f"Granule file not found: {fileloc}")
 
         return self.local_path
+    
     
     def get_variable(self, varname: str):
         '''Read a specific variable from the granule file using netCDF4 and convert to xarray.
@@ -166,9 +170,6 @@ class Granule:
         return Granule(next_year, next_doy, next_time, product=self.product, version=self.version)
     
 
-    # def(self,lon,lat, varname=None, method='nearest'):
-    #     '''function to read out variable and coloate given an arbitrary number of lon, lats'''
-    #     )
-   
+
     
 
