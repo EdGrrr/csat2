@@ -11,6 +11,7 @@ from .readfiles import (
 from .download import download, check
 import numpy as np
 import os
+import pandas as pd
 
 
 class Granule(object):
@@ -74,11 +75,13 @@ class Granule(object):
     def get_datetimes(self, product, col=None):
         if not col:
             col = self.col
-        data = self.get_variable(
-            product, varnames=["Profile_time", "UTC_start"], col=col
-        )
-        times = data["UTC_start"] + data["Profile_time"]
-        raise NotImplementedError()
+        data = self.get_variable(product, varnames=["Profile_time"], col=col)
+        times = self.datetime() + pd.to_timedelta(data["Profile_time"], unit="s")
+        # times = np.datetime64(self.datetime()) + data["Profile_time"].astype(
+        # "timedelta64"
+        # )
+        return times
+        # raise NotImplementedError()
 
     def get_variable(self, product, varnames, col=None):
         if not col:

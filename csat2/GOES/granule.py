@@ -1,4 +1,5 @@
 """Provides simple functions for using GOES data"""
+
 from .. import locator
 import os
 import os.path
@@ -307,9 +308,12 @@ class Granule:
 
     def get_product_data(self, product, mode="*", dqf_filter=None):
         """Use for readin in derived data. For DMW, use get_dmw_data.
-        dqf_filter is a lambda that determines returns true if the dqf satisfies the reading requirements"""
-        with xr.open_dataset(self.get_filename(product=product, mode=mode)) as ds:
-            data = ds[self.product_names[product]][:].data
+        dqf_filter is a lambda that determines returns true if the dqf satisfies the reading requirements
+        """
+        with xr.open_dataset(
+            self.get_filename(product=product, mode=mode), decode_times=False
+        ) as ds:
+            data = ds[self.product_names[product]][:]
             if dqf_filter is not None:
                 data = np.where(dqf_filter(ds["DQF"]), data, np.nan)
             return data
@@ -533,8 +537,7 @@ class GOESLocator:
 
         lon = self.lam0 - np.arctan(sy / (self.H - sx))
         lat = np.arctan(
-            (self.req**2 * sz)
-            / (self.rpol**2 * np.sqrt((self.H - sx) ** 2 + sy**2))
+            (self.req**2 * sz) / (self.rpol**2 * np.sqrt((self.H - sx) ** 2 + sy**2))
         )
         return lon, lat
 
@@ -550,9 +553,7 @@ class GOESLocator:
         if isinstance(x, float):
             if np.isnan(sx + sy + sz):  # Catch nans
                 return np.nan, np.nan
-            elif (self.H * (self.H - sx)) < (
-                sy**2 + (self.req * sz / self.rpol) ** 2
-            ):
+            elif (self.H * (self.H - sx)) < (sy**2 + (self.req * sz / self.rpol) ** 2):
                 return np.nan, np.nan
             else:
                 return x, y

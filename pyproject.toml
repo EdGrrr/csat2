@@ -35,4 +35,4 @@ distribution = false
 csat2 = "csat2"
 
 [tool.pdm.build]
-includes = ["*.py", "CALIPSO", "CloudSat", "config", "data", "download", "ECMWF", "EUMETSAT", "GOES", "misc", "MODIS", "VIIRS"]
+includes = ["*.py", "CALIPSO", "CloudSat", "config", "data", "download", "ECMWF", "EUMETSAT", "GOES", "misc", "MODIS", "VIIRS","MADIS"]
