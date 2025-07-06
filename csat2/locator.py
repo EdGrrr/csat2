@@ -193,7 +193,7 @@ def configloader(user_location=None, default_fallback=True):
                 config["machines"][name] = newconfig["machines"][name]
 
     if (not user_location) and (not default_fallback):
-        raise ValueError("Must supply user_location or set default feedback as true")
+        raise ValueError("Must supply user_location or set default_fallback=True")
 
     log.debug("machine_config{}".format(config))
 
