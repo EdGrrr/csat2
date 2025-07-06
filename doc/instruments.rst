@@ -216,3 +216,35 @@ This should then allow you to use the granule download functions for GOES-16 and
 .. code-block:: python
 
    >>> gran.download(channel=13)
+
+
+
+CloudSat
+--------
+
+CloudSat Granules
+.................
+
+CloudSat granules are single orbits, defined by the orbit number. This requires a *geometa* file, in the same manner as the MODIS data. However, as a suitable file is not created by the CloudSat science team, this will be distributed as part of the csat2 library.
+
+
+
+Downloading CloudSat data
+.........................
+
+This requires an SSH key registered with the CloudSat data centre.
+
+
+CALIPSO
+-------
+
+CALIPSO Granules
+................
+
+The CALIPSO and CloudSat classes are very similar.
+
+
+Downloading CALIPSO data
+........................
+
+CALIPSO data is downloaded with the NASA Langley ASDC.
