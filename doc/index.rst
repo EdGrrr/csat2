@@ -13,6 +13,8 @@ Welcome to csat2's documentation!
 
    installation
    usage
+   instruments
+   misc
    examples
    reference
 

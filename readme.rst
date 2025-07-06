@@ -24,4 +24,7 @@ Build the documentation with
   make html
 
 
-  
+Getting help
+------------
+
+If you have questions about csat2, are having trouble getting something running or want to contribute, please raise an issue in the bugtracker or email e.gryspeerdt@imperial.ac.uk.  
