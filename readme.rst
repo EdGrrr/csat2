@@ -4,6 +4,9 @@ csat2 library for reading and processing observational data
 The csat2 package is a python library for using meteorological observation data, with a focus on data from satellites. Csat2 aims to simplify running code on different machines/systems where different file naming conventions are used and provide a set of common functions for accessing and processing different observational datasets.
 
 
+*Breaking changes:* csat2 is under active development and may be subject to breaking changes, although we will aim to avoid these where possible.
+
+
 
 Installation
 ------------
