@@ -20,6 +20,10 @@ M data_folder=/home/edward/LocalData
 -[MACC-surf]
   {data_folder}/MACC/surface{time}/macc.aod550.{year}.{doy:0>3}.nc
 
+[FCI]
+-[L1c]
+  {data_folder}/FCI/{sat}/{resolution}/{area}/{year}/{doy:0>3}/{hour:0>2}/W_XX-EUMETSAT-Darmstadt*FCI-1C-RRAD-{resolution}-{area}*{year}{mon:0>2}{day:0>2}{hour:0>2}{minute:0>2}*
+
 [GOES]
 -[L1b]
 #Sat is {G16, G17}, area is {RadC, RadF, RadM1, RadM2} for CONUS, Full disc and mesoscale  respectively
