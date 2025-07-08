@@ -1,8 +1,8 @@
 import csat2
 import csat2.misc.geo
 import csat2.misc.fileops
-from .readfiles import readin, field_interpolate
-
+from csat2.MODIS.readfiles import readin, field_interpolate
+import pkg_resources
 import numpy as np
 from netCDF4 import Dataset
 
@@ -86,9 +86,8 @@ def bowtie_correct(field_1km):
     by re-ordering pixels. Note this is really a costmetic change as the swath
     edge pixels are still large"""
     try:
-        file_correct = csat2.locator.search(
-            "MODIS", "bowtie", res="1km", length=field_1km.shape[0]
-        )[0]
+        file_correct = pkg_resources.resource_filename(
+            "csat2", f"data/modis_remapping/bowtie_correction_1km_{field_1km.shape[0]}.nc")
     except IndexError:  # No files returned
         raise FileNotFoundError(
             """Bowtie correct file not found. You need 
@@ -110,7 +109,8 @@ def crosstrack_rectify(field_1km, nearest=False, missing=False):
     between pixels. Note this is cosmetic, it doesn't account for the changes
     in pixel size"""
     try:
-        file_correct = csat2.locator.search("MODIS", "ctrect", res="1km")[0]
+        file_correct = pkg_resources.resource_filename(
+            "csat2", f"data/modis_remapping/crosstrack_rectify_1km.nc")
     except IndexError:  # No files returned
         raise FileNotFoundError(
             """Crosstrack rectify file not found. You need
@@ -146,7 +146,8 @@ def crosstrack_rectify(field_1km, nearest=False, missing=False):
 def crosstrack_rectcoords():
     """Returns the coordinates in the rectified frame"""
     try:
-        file_correct = csat2.locator.search("MODIS", "ctrect", res="1km")[0]
+        file_correct = pkg_resources.resource_filename(
+            "csat2", f"data/modis_remapping/crosstrack_rectify_1km.nc")
     except IndexError:  # No files returned
         raise FileNotFoundError(
             """Crosstrack rectify file not found. You need
@@ -170,10 +171,10 @@ def _create_bowtie_correct(mod_data, output_file):
         inc_lon = (centre_lon - mod_data["Longitude"][(2 * i), :]) / 5
         inc_lat = (centre_lat - mod_data["Latitude"][(2 * i), :]) / 5
 
-        centre_lon = MODIS.field_interpolate(centre_lon[:, None])[:, 2]
-        centre_lat = MODIS.field_interpolate(centre_lat[:, None])[:, 2]
-        inc_lon = MODIS.field_interpolate(inc_lon[:, None])[:, 2]
-        inc_lat = MODIS.field_interpolate(inc_lat[:, None])[:, 2]
+        centre_lon = field_interpolate(centre_lon.values[:, None])[:, 2]
+        centre_lat = field_interpolate(centre_lat.values[:, None])[:, 2]
+        inc_lon = field_interpolate(inc_lon.values[:, None])[:, 2]
+        inc_lat = field_interpolate(inc_lat.values[:, None])[:, 2]
 
         lon[(10 * i) : (10 * (i + 1))] = (
             centre_lon + np.arange(-9, 10, 2)[:, None] * inc_lon[None, :]
@@ -197,30 +198,32 @@ def _create_bowtie_correct(mod_data, output_file):
 
     cross_track_index = np.fromfunction(lambda x, y: y, along_track_index.shape)
 
-    csat2.misc.fileops.nc4_dump_mv(
-        output_file,
-        {
-            "dist_bl": distance_from_baseline,
-            "at_ind": along_track_index,
-            "ct_ind": cross_track_index,
-        },
-    )
+    with Dataset(output_file, 'w', format='NETCDF4') as ncdf:
+        ncdf.createDimension('along_track', distance_from_baseline.shape[0])
+        ncdf.createDimension('cross_track', distance_from_baseline.shape[1])
+
+        # Var = ncdf.createVariable('dist_bl', 'f', ('along_track', 'cross_track'), zlib=True)
+        # Var[:] = distance_from_baseline
+        Var = ncdf.createVariable('at_ind', 'i2', ('along_track', 'cross_track'), zlib=True)
+        Var[:] = along_track_index.astype('i2')
+        Var = ncdf.createVariable('ct_ind', 'i2', ('along_track', 'cross_track'), zlib=True)
+        Var[:] = cross_track_index.astype('i2')
 
 
 def _create_bowtie_correct_files():
-    mod_data = MODIS.readin(
-        "MYD06_L2", 2015, 24, ["Cloud_Effective_Radius"], times=["2220"]
+    mod_data = readin(
+        "MYD06_L2", 2015, 24,  time="2220", sds=["Cloud_Effective_Radius"],
     )
     _create_bowtie_correct(mod_data, "bowtie_correction_1km_2030.nc")
-    mod_data = MODIS.readin(
-        "MYD06_L2", 2015, 4, ["Cloud_Effective_Radius"], times=["2105"]
+    mod_data = readin(
+        "MYD06_L2", 2015, 4, time="2105", sds=["Cloud_Effective_Radius"],
     )
     _create_bowtie_correct(mod_data, "bowtie_correction_1km_2040.nc")
 
 
 def _create_crosstrack_rectify(mod_data, output_file):
-    lon = MODIS.field_interpolate(mod_data["Longitude"])
-    lat = MODIS.field_interpolate(mod_data["Latitude"])
+    lon = field_interpolate(mod_data["Longitude"])
+    lat = field_interpolate(mod_data["Latitude"])
 
     dist = csat2.misc.geo.haversine(lon[0], lat[0], lon[0, 0], lat[0, 0])
     # The nearest point in the stardard MODIS across-track grid
@@ -263,8 +266,8 @@ def _create_crosstrack_rectify(mod_data, output_file):
 
 
 def _create_crosstrack_rectify_files():
-    mod_data = MODIS.readin(
-        "MYD06_L2", 2015, 24, ["Cloud_Effective_Radius"], times=["2220"], col="61"
+    mod_data = readin(
+        "MYD06_L2", 2015, 24, time="2220", sds=["Cloud_Effective_Radius"], col="61"
     )
     _create_crosstrack_rectify(mod_data, "crosstrack_rectify_1km.nc")
 
