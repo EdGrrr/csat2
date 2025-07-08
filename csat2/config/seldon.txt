@@ -26,14 +26,10 @@ M input_folder=/net/seldon/disk1/erg10/Input/
 [CALIPSO]
 -[LID_L1|LID_L2_VFM]
   {csat_folder}/CALIPSO/{product}/{col}/{year}/{doy:0>3}/CAL_{product}-Standard-{col}.{year}-{mon:0>2}-{day:0>2}T{hour:0>2}-{minute:0>2}-*.hdf
--[GEOMETA]
-  {csat_folder}/CALIPSO/GEOMETA/calipso_{year}.txt
 
 [CLOUDSAT]
 -[1B-CPR|2B-GEOPROF|2B-GEOPROF-LIDAR|2B-CWC-RVOD|2C-PRECIP-COLUMN|ECMWF-AUX|MODIS-AUX|2B-FLXHR-LIDAR|2B-TAU|2C-ICE]
   {csat_folder}/CloudSat/{product}/{col}/{year}/{doy:0>3}/*_{orbit:0>5}_*.hdf
--[GEOMETA]
-  {csat_folder}/CloudSat/GEOMETA/cloudsat_{year}.txt
 
 [ECMWF]
 -[ERAInterim|ERA40|ERA5]
@@ -71,10 +67,6 @@ M input_folder=/net/seldon/disk1/erg10/Input/
   {csat_folder}/MODIS/{product}/{collection:0>3}/{year}/*.A{year}{doy:0>3}*
 -[GEOMETA]
   {csat_folder}/MODIS/GEOMETA/{year}/{sat}_{year}-{mon:0>2}-{day:0>2}.txt
--[bowtie]
-  {csat_folder}/MODIS/bowtie_correction_{res}_{length}.nc
--[ctrect]
-  {csat_folder}/MODIS/crosstrack_rectify_{res}.nc
 
 [VIIRS]
 -[VNP02IMG|VNP02MOD|VNP02DNB|VNP03IMG|VNP03MOD|VNP03DNB|CLDPROP_L2_VIIRS_SNPP|VJ102IMG|VJ102MOD|VJ102DNB|VJ103IMG|VJ103MOD|VJ103DNB]
@@ -85,7 +77,3 @@ M input_folder=/net/seldon/disk1/erg10/Input/
   {csat_folder}/VIIRS/{product}/{collection:0>4}/{year}/{doy:0>3}/*.{time}.*.nc
 -[GEOMETA]
   {csat_folder}/VIIRS/GEOMETA/{year}/{sat}_{year}-{mon:0>2}-{day:0>2}.txt
--[bowtie]
-  {csat_folder}/VIIRS/bowtie_correction_{res}.nc
--[mesh]
-  {csat_folder}/VIIRS/mesh_correction_{res}.nc

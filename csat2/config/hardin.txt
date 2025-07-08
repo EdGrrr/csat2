@@ -66,10 +66,6 @@ M seldon_folder=/net/seldon/disk1/Data/
   {seldon_folder}/MODIS/{product}/{collection:0>3}/{year}/*.A{year}{doy:0>3}*
 -[GEOMETA]
   {seldon_folder}/MODIS/GEOMETA/{year}/{sat}_{year}-{mon:0>2}-{day:0>2}.txt
--[bowtie]
-  {seldon_folder}/MODIS/bowtie_correction_{res}_{length}.nc
--[ctrect]
-  {seldon_folder}/MODIS/crosstrack_rectify_{res}.nc
 
 [VIIRS]
 -[VNP02IMG|VNP02MOD|VNP02DNB|VNP03IMG|VNP03MOD|VNP03DNB|CLDPROP_L2_VIIRS_SNPP|VJ102IMG|VJ102MOD|VJ102DNB|VJ103IMG|VJ103MOD|VJ103DNB]
@@ -80,7 +76,3 @@ M seldon_folder=/net/seldon/disk1/Data/
   {seldon_folder}/VIIRS/{product}/{collection:0>4}/{year}/{doy:0>3}/*.{time}.*.nc
 -[GEOMETA]
   {seldon_folder}/VIIRS/GEOMETA/{year}/{sat}_{year}-{mon:0>2}-{day:0>2}.txt
--[bowtie]
-  {seldon_folder}/VIIRS/bowtie_correction_{res}.nc
--[mesh]
-  {seldon_folder}/VIIRS/mesh_correction_{res}.nc
