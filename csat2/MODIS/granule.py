@@ -14,6 +14,7 @@ import numpy as np
 from sklearn.neighbors import BallTree
 import scipy.constants
 from netCDF4 import Dataset
+import pkg_resources
 
 
 class Granule(object):
@@ -590,7 +591,8 @@ class _MODISlocator:
         lon = field_interpolate(data["Longitude"])[:, :-5]
 
         if rectified:
-            file_correct = locator.search("MODIS", "ctrect", res="1km")[0]
+            file_correct = pkg_resources.resource_filename(
+                "csat2", f"data/modis_remapping/crosstrack_rectify_1km.nc")
             with Dataset(file_correct) as ncdf:
                 self.rect_conv = ncdf.variables["remap_locate"][:]
             self.rectified = True
