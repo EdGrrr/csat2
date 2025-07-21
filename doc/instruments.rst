@@ -248,3 +248,142 @@ Downloading CALIPSO data
 ........................
 
 CALIPSO data is downloaded with the NASA Langley ASDC.
+
+
+
+EarthCARE
+---------
+
+This module adds support for downloading and managing EarthCARE Level-2 data products
+within the `csat2` library.
+
+
+Prerequisites
+.............
+
+Before using the EarthCARE module, ensure the following:
+
+- Python 3.8 or later
+
+- **Install the csat2 library**
+
+  After you’ve cloned (or downloaded) the project:
+
+  .. code-block:: bash
+
+      # from the repository root
+      cd /path/to/csat2
+      # install in *editable* mode so any code changes take effect instantly
+      pip install -e .
+
+  *(If you just need to use the library and won’t be editing the code,
+  you can do a normal install instead: `pip install .`.)*
+
+- The `lftp` command‑line tool must be installed. You can install it via:
+  
+  - **conda**: `conda install -c conda-forge lftp`
+  - **apt (Debian/Ubuntu)**: `sudo apt install lftp`
+  - **brew (macOS)**: `brew install lftp`
+
+- You must register for an account at the **ESA EarthCARE Data Access Portal**:  
+  https://ec-pdgs-dissemination1.eo.esa.int/oads/access/
+
+- After registering, create a credentials file at:
+
+  ``~/.csat2/earthcare_auth.json``
+
+  with the following content:
+
+  .. code-block:: json
+
+      {
+          "username": "your_esa_username",
+          "password": "your_esa_password"
+      }
+
+- In your ``~/.csat2/config.cfg``, make sure your machine is listed under
+  ``machines`` and points to a `.txt` file that holds the path mappings. Example:
+
+  .. code-block:: yaml
+
+      machines:
+          "your-machine-name": hardin.txt
+
+- In that referenced file (e.g. ``hardin.txt``), **ensure an ``[EARTHCARE]`` section is included**,
+  for example:
+
+  .. code-block:: ini
+
+      [EARTHCARE]
+      -[CPR_CLD_2A|MSI_COP_2A]
+        {my_data}/EarthCARE/EarthCAREL2Validated/{product}/{baseline}/{year}/{month}/{day}/*_{orbit:0>5}{orbit_id}.ZIP
+        {my_data}/EarthCARE/EarthCAREL2Validated/{product}/{baseline}/{year}/{month}/{day}/*.h5
+
+
+
+Testing Connection
+..................
+
+To verify that your credentials and network access to the EarthCARE FTPS server are working, run:
+
+.. code-block:: bash
+
+    cd /path/to/csat2
+    python -m csat2.EarthCARE.download
+
+This will perform a simple connection test and report success or failure.
+
+
+Basic Usage Examples
+....................
+
+**List the files available for a specific day**
+
+.. code-block:: python
+
+    from csat2.EarthCARE.download import download_file_locations
+
+    files = download_file_locations(
+        product_type="CPR_CLD_2A",
+        baseline="AB",
+        year=2025, month=3, day=20
+    )
+    print(files)
+
+**Download files**
+
+Most arguments have sensible defaults, so you can be as explicit—or as minimal—as you like:
+
+.. code-block:: python
+
+    from csat2.EarthCARE.download import download
+
+    # Download only two missing files
+    downloaded = download(
+        product_type="CPR_CLD_2A",
+        baseline="AB",
+        year=2025, month=3, day=20,
+        max_files=2        # optional
+    )
+    print("Files downloaded:", downloaded)
+
+    # Same date, but download *all* missing files (uses defaults)
+    download(year=2025, month=3, day=20)
+
+If `max_files` is omitted, **all** missing ZIPs for that date are downloaded.
+
+**Check if a particular file is already present**
+
+.. code-block:: python
+
+    from csat2.EarthCARE.download import check
+
+    exists = check(
+        product_type="CPR_CLD_2A",
+        baseline="AB",
+        year=2025, month=3, day=20,
+        orbit=4603,
+        orbit_id="H"
+    )
+    print("File present:", exists)
+
