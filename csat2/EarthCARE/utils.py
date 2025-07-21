@@ -1,15 +1,17 @@
 from datetime import datetime, timedelta
 
-DEFAULT_BASELINE = "AB"
-DEFAULT_PRODUCT_TYPE = "CPR_CLD_2A"
-DEFAULT_YEAR = 2025
-
-
+# Default EarthCare product version. This is much less consistent than MODIS,
+# so we might remove this and force users to specify it.
+DEFAULT_VERSION = "AE"
 
 # same constants as before
 REFERENCE_ORBIT   = 4451
 REFERENCE_DATE    = datetime(2025, 3, 11, 0, 52, 6)     # orbit 4451 timestamp
 ORBIT_DAY_PORTION = 0.0642650462962963                 # days per orbit ≈ 1/14.57
+
+
+def get_product_level(product):
+    return product.split('_')[-1][0]
 
 
 def get_orbit_date_approx(orbit_number=None):
@@ -42,8 +44,6 @@ def get_orbit_date_approx(orbit_number=None):
             "Accuracy is roughly ±1 day due to orbital timing drift.")
 
     return (year, doy), estimated_date, note
-
-
 
 
 def get_orbit_number_approx(dt):

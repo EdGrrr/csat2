@@ -23,10 +23,9 @@
 M csat_folder=/disk1/Data/
 M seldon_folder=/net/seldon/disk1/Data/
 
-[EARTHCARE]
--[CPR_CLD_2A|MSI_COP_2A]
- {csat_folder}/EarthCARE/EarthCAREL2Validated/{product}/{baseline}/{year}/{month}/{day}/*_{orbit:0>5}{orbit_id}.ZIP
- {csat_folder/EarthCARE/EarthCAREL2Validated/{product}/{baseline}/{year}/{month}/{day}/*.h5
+[EarthCARE]
+-[ATL_NOM_1B|CPR_NOM_1B|MSI_RGR_1C|CPR_CLD_2A|MSI_COP_2A]
+  {csat_folder}/EarthCARE/{product}/{version}/{year}/{mon:0>2}/{day:0>2}/*_{orbit:0>5}{frame}.h5
 
 [ECMWF]
 -[ERAInterim|ERA40|ERA5]

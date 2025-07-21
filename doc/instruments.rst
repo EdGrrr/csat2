@@ -263,22 +263,6 @@ Prerequisites
 
 Before using the EarthCARE module, ensure the following:
 
-- Python 3.8 or later
-
-- **Install the csat2 library**
-
-  After you’ve cloned (or downloaded) the project:
-
-  .. code-block:: bash
-
-      # from the repository root
-      cd /path/to/csat2
-      # install in *editable* mode so any code changes take effect instantly
-      pip install -e .
-
-  *(If you just need to use the library and won’t be editing the code,
-  you can do a normal install instead: `pip install .`.)*
-
 - The `lftp` command‑line tool must be installed. You can install it via:
   
   - **conda**: `conda install -c conda-forge lftp`
@@ -315,9 +299,8 @@ Before using the EarthCARE module, ensure the following:
   .. code-block:: ini
 
       [EARTHCARE]
-      -[CPR_CLD_2A|MSI_COP_2A]
-        {my_data}/EarthCARE/EarthCAREL2Validated/{product}/{baseline}/{year}/{month}/{day}/*_{orbit:0>5}{orbit_id}.ZIP
-        {my_data}/EarthCARE/EarthCAREL2Validated/{product}/{baseline}/{year}/{month}/{day}/*.h5
+      -[ATL_NOM_1B|CPR_NOM_1B|MSI_RGR_1C|CPR_CLD_2A|MSI_COP_2A]
+       {csat_folder/EarthCARE/{product}/{baseline}/{year}/{month}/{day}/*_{orbit:0>5}{orbit_id}.h5
 
 
 

@@ -19,32 +19,26 @@ from pathlib import Path
 from datetime import datetime, timedelta
 import h5py
 from csat2 import locator
-from csat2.misc.hdf import read_hdf5   
-from csat2.EarthCARE.utils import DEFAULT_BASELINE, DEFAULT_PRODUCT_TYPE
+import csat2.misc.hdf
 from csat2.misc.time import doy_to_date
+from csat2.EarthCARE.utils import DEFAULT_VERSION
 from csat2.EarthCARE.geometa import get_or_create_earthcare_geometa
-
 from csat2.EarthCARE.utils import get_orbit_date_approx, get_orbit_number_approx
 from csat2.EarthCARE.geometa import get_or_create_earthcare_geometa
 
 
 
-def files_available(product_type=DEFAULT_PRODUCT_TYPE,
-                    baseline=DEFAULT_BASELINE,
-                    year=None, month=None, day=None):
+def files_available(product,
+                    year, doy,
+                    version=DEFAULT_VERSION):
     """
     Return a sorted list of local EarthCARE filenames for one day.
-
-    Example: files_available(year=2025, month=3, day=20)
     """
-    if None in (year, month, day):
-        raise ValueError("year, month, and day must all be provided")
-
     filenames = locator.search(
-        "EARTHCARE", product_type,
-        baseline=baseline,
-        year=year, month=month, day=day,
-        orbit="*****", orbit_id="*",
+        "EarthCARE", product,
+        year=year, doy=doy,
+        version=version,
+        orbit="*****", frame="*",
         exit_first=False,
     )
 
@@ -54,60 +48,44 @@ def files_available(product_type=DEFAULT_PRODUCT_TYPE,
     return sorted(filenames)
 
 # ------------------------------------------------------------------
-def variables_available(product_type=DEFAULT_PRODUCT_TYPE,
-                        baseline=DEFAULT_BASELINE,
-                        year=None, month=None, day=None):
+def variables_available(product, year, doy, orbit='*****', frame='*',
+                        version=DEFAULT_VERSION):
     """
     Return a dict of all datasets in the first local EarthCARE HDF5 file
     found for the given date.
 
     Example
     -------
-    >>> vars = variables_available(year=2025, month=3, day=20)
+    >>> vars = variables_available(year=2025, doy=100)
     >>> list(vars)
     ['ScienceData/latitude', 'ScienceData/longitude', ...]
     """
-    if None in (year, month, day):
-        raise ValueError("year, month, and day must all be provided")
-
     files = locator.search(
-        "EARTHCARE", product_type,
-        baseline=baseline,
-        year=year, month=month, day=day,
-        orbit="*****", orbit_id="*",
+        "EarthCARE", product,
+        year=year, doy=doy,
+        version=version,
+        orbit=orbit, frame=frame,
         exit_first=False,
     )
-
-    h5files = [f for f in files if f.endswith(".h5")]
-    if not h5files:
-        raise IOError("No .h5 files found for this date (did you unzip the .ZIP archives?).")
-
-    try:
-        return read_hdf5(h5files[0])
-    except Exception as e:
-        raise IOError(f"Failed to read {h5files[0]}: {e}")
+    return read_hdf5(files[0])
 
 
-def available_orbits(product_type=DEFAULT_PRODUCT_TYPE,
-                     baseline=DEFAULT_BASELINE,
-                     year=None, month=None, day=None):
+def available_orbits(product,
+                     year, doy,
+                     version=DEFAULT_VERSION):
     """
     List the orbit identifiers present on disk for one day.
 
     Example
     -------
-    >>> available_orbits(year=2025, month=3, day=20)
+    >>> available_orbits('ATL_NOM_1B', 2025, 100)
     ['04603H', '04604A', ...]
     """
-    # Require complete date
-    if None in (year, month, day):
-        raise ValueError("year, month, and day must all be provided")
-
     # Look for every matching file (ZIP or H5) on this date
     files = locator.search(
-        "EARTHCARE", product_type,
-        baseline=baseline,
-        year=year, month=month, day=day,
+        "EarthCARE", product,
+        year=year, doy=doy,
+        version=version,
         orbit="*****", orbit_id="*",
         exit_first=False,
     )
@@ -123,29 +101,25 @@ def available_orbits(product_type=DEFAULT_PRODUCT_TYPE,
     return sorted(set(orbits))
 
 # ------------------------------------------------------------------
-def get_orbit_filename(orbit_number=None,
-                       product_type=DEFAULT_PRODUCT_TYPE,
-                       baseline=DEFAULT_BASELINE):
+def get_orbit_filename(product, orbit,
+                       version=DEFAULT_VERSION):
     """
     Return a list of EarthCARE filenames for a given orbit number.
     
     Uses local geometa file if available (or creates it if missing).
     Falls back to remote lookup if needed.
     """
-    if orbit_number is None:
-        raise ValueError("Must specify an orbit_number.")
-
-    orbit_str = f"{int(orbit_number):05d}"
+    orbit_str = f"{int(orbit):05d}"
     
     # Estimate year from orbit number
-    (year, _), _, _ = get_orbit_date_approx(orbit_number)
+    (year, _), _, _ = get_orbit_date_approx(orbit)
 
     # Step 1: Ensure GEOMETA file exists and includes this orbit
     geometa_path = get_or_create_earthcare_geometa(
-        orbit_number=orbit_number,
+        orbit=orbit,
         year=year,
-        product=product_type,
-        baseline=baseline
+        product=product,
+        version=version
     )
 
     # Step 2: Search matching lines in geometa
@@ -156,8 +130,9 @@ def get_orbit_filename(orbit_number=None,
         raise FileNotFoundError(f"No file found for orbit {orbit_number} in geometa: {geometa_path}")
 
     return matches
-# ------------------------------------------------------------------
-def get_orbit_date(orbit_number=None):
+
+
+def get_orbit_date(orbit):
     """
     Return a sorted list of unique (year, DOY) for a given EarthCARE orbit number.
     Uses GEOMETA file, populates it if needed.
@@ -167,13 +142,13 @@ def get_orbit_date(orbit_number=None):
     if orbit_number is None:
         raise ValueError("orbit_number is required")
 
-    (est_year, _), _, _ = get_orbit_date_approx(orbit_number)
-    orbit_str = f"{int(orbit_number):05d}"
+    (est_year, _), _, _ = get_orbit_date_approx(orbit)
+    orbit_str = f"{int(orbit):05d}"
     doy_set = set()
 
     for year in [est_year, est_year + 1]:
         try:
-            path = get_or_create_earthcare_geometa(orbit_number=orbit_number, year=year)
+            path = get_or_create_earthcare_geometa(year=year)
             with open(path) as f:
                 for line in f:
                     if f"_{orbit_str}" in line:
@@ -187,12 +162,9 @@ def get_orbit_date(orbit_number=None):
             continue
 
     if not doy_set:
-        raise FileNotFoundError(f"No entry found for orbit {orbit_number} after updating GEOMETA.")
+        raise FileNotFoundError(f"No entry found for orbit {orbit} after updating GEOMETA.")
 
     return sorted(doy_set)
-
-
-
 
 
 def filename_to_datetime(fname):
@@ -206,45 +178,18 @@ def filename_to_datetime(fname):
     return datetime.strptime(start_str, "%Y%m%dT%H%M%SZ")
 
 
-
-
-
-# def get_orbit_datetimes(orbit_number=None,
-#                         product_type=DEFAULT_PRODUCT_TYPE,
-#                         baseline=DEFAULT_BASELINE):
-#     """
-#     Return a sorted list of unique start datetimes (as datetime objects)
-#     for all EarthCARE files corresponding to the given orbit.
-#     """
-#     if orbit_number is None:
-#         raise ValueError("Must specify an orbit_number.")
-
-#     filenames = get_orbit_filename(
-#         orbit_number=orbit_number,
-#         product_type=product_type,
-#         baseline=baseline
-#     )
-
-#     # Extract and deduplicate start datetimes
-#     datetimes = {filename_to_datetime(f) for f in filenames}
-#     return sorted(datetimes)
-
-
-
-def get_orbit_datetimes(orbit_number,
-                        orbit_id,
-                        product_type=DEFAULT_PRODUCT_TYPE,
-                        baseline=DEFAULT_BASELINE):
+def get_orbit_datetimes(orbit,
+                        frame,
+                        version=DEFAULT_VERSION):
     """
-    Return the start datetime (as a datetime object) for a specific
-    EarthCARE granule identified by orbit number and orbit ID.
+    Return the start datetime (as a datetime object) for a specific orbit/frame combination
     """
-    orbit_str = f"{int(orbit_number):05d}{orbit_id}"
+    orbit_str = f"{int(orbit):05d}{frame}"
 
     filenames = get_orbit_filename(
-        orbit_number=orbit_number,
-        product_type=product_type,
-        baseline=baseline
+        product,
+        orbit=orbit,
+        version=version
     )
 
     matching = [f for f in filenames if f.endswith(f"{orbit_str}.ZIP") or f.endswith(f"{orbit_str}.h5")]
@@ -257,11 +202,10 @@ def get_orbit_datetimes(orbit_number,
 
     return filename_to_datetime(matching[0])
 
-# ------------------------------------------------------------------
 
 def get_orbit_by_time(dtime: datetime,
-                      product_type: str = DEFAULT_PRODUCT_TYPE,
-                      baseline: str     = DEFAULT_BASELINE) -> str:
+                      product: str,
+                      version: str     = DEFAULT_VERSION) -> str:
     """
     Given a datetime, return the EarthCARE orbit ID whose start time
     is closest. E.g.
@@ -276,7 +220,7 @@ def get_orbit_by_time(dtime: datetime,
         geometa_path = get_or_create_earthcare_geometa(
             orbit_number=orbit,
             product=product_type,
-            baseline=baseline
+            version=version
         )
         orbit_str = f"{orbit:05d}"
         with open(geometa_path, "r") as fh:
@@ -303,55 +247,45 @@ def get_orbit_by_time(dtime: datetime,
     orbit_id = best["filename"].rsplit("_", 1)[-1].replace(".ZIP", "")
     return orbit_id
 
+
 # ------------------------------------------------------------------
-def readin_earthcare_curtain(product_type=DEFAULT_PRODUCT_TYPE,
-                              baseline=DEFAULT_BASELINE,
-                              orbit_number=None,
-                              orbit_id=None,
-                              sds=None):
+def readin_earthcare_curtain(product,
+                             orbit,
+                             frame,
+                             version=DEFAULT_VERSION,
+                             sds=None):
     """
     Reads one EarthCARE curtain HDF5 file by orbit number and orbit ID.
     """
-    if orbit_number is None or orbit_id is None:
-        raise ValueError("Both orbit_number and orbit_id must be specified.")
-
-    orbit_str = f"{int(orbit_number):05d}"
-    date_tuples = get_orbit_date(orbit_number)  # Could return 2 days
+    orbit_str = f"{int(orbit):05d}"
+    date_tuples = get_orbit_date(orbit)  # Could return 2 days
 
     found_file = None
     for year, doy in date_tuples:
         _, month, day = doy_to_date(year, doy)
 
         files = locator.search(
-            "EARTHCARE", product_type,
-            baseline=baseline,
-            year=year, month=month, day=day,
-            orbit=orbit_str,
-            orbit_id=orbit_id,
+            "EarthCARE", product,
+            year=year, doy=doy,
+            orbit=orbit,
+            frame=frame,
+            version=version,
             exit_first=False,
         )
 
         h5files = [f for f in files if f.endswith(".h5")]
-        zipfiles = [f for f in files if f.lower().endswith(".zip")]
 
         if h5files:
             found_file = h5files[0]
             break  # we found it, no need to check more
 
-        if zipfiles and not found_file:
-            found_file = f"[ZIP FOUND] {zipfiles[0]}"  # Save ZIP message in case no .h5 is found
-
-
     if found_file is None:
         raise IOError("No .h5 files found for this orbit on any nearby day.")
 
-    if found_file.startswith("[ZIP FOUND]"):
-        raise IOError(f".h5 file not found, but .ZIP archive exists. Please unzip:\n{found_file[11:]}")
-
-    print(f"[INFO] Reading file: {found_file}")
+    #print(f"[INFO] Reading file: {found_file}")
 
     if isinstance(sds, str):
         sds = [sds]
 
-    return read_hdf5(found_file, sds=sds)
+    return csat2.misc.hdf.read_hdf5(found_file, sds=sds)
 

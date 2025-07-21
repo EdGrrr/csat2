@@ -205,3 +205,34 @@ def read_hdf4_metadata(filename, names, vdata=True):
             var_attr[attribute] = attributes.get(attribute)
         output_metadata[name] = var_attr
     return output_metadata
+
+
+def read_hdf5(filename, sds=None):
+    """
+    Read specified datasets from an EarthCARE HDF5 file into a flat dict.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the .h5 file
+    sds : list of str, optional
+        Full dataset paths to include (e.g. 'ScienceData/latitude').
+        If None, loads all datasets.
+
+    Returns
+    -------
+    dict : mapping dataset name -> numpy array
+    """
+    try:
+        data = {}
+        with h5py.File(filename, 'r') as h5:
+            def visitor(name, obj):
+                if isinstance(obj, h5py.Dataset):
+                    if sds is None or name in sds:
+                        data[name] = obj[()]
+            h5.visititems(visitor)
+        if not data:
+            raise IOError(f"No datasets found in {filename}")
+        return data
+    except Exception as e:
+        raise IOError(f"Failed to read HDF5 file {filename}: {e}")

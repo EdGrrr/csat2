@@ -1,47 +1,47 @@
 from datetime import datetime, timedelta
-from .readfiles import(
+from csat2.EarthCARE.readfiles import (
     readin_earthcare_curtain,
     get_orbit_by_time,
     get_orbit_date,
     get_orbit_datetimes
 )
-from .download import download, check
-from .utils import get_orbit_date_approx, get_orbit_number_approx
-from .utils import DEFAULT_BASELINE, DEFAULT_PRODUCT_TYPE
+from csat2.EarthCARE.download import download, check
+from csat2.EarthCARE.utils import get_orbit_date_approx, get_orbit_number_approx, DEFAULT_VERSION
 import os
 import numpy as np
 from csat2 import misc, locator
 
 
-
 class Granule(object):
-    """EarthCARE granules are defined by the orbit number."""
-    def __init__(self, orbit, orbit_id, product_type="CPR_CLD_2A", baseline="AB"):
+    """EarthCARE granules are defined by the orbit and frame numbers"""
+    def __init__(self, orbit, frame, version=DEFAULT_VERSION):
         self.orbit = orbit                  # int
-        self.orbit_id = orbit_id            # str like 'A'
-        self.product_type = product_type
-        self.baseline = baseline
-        self.orbit_with_id = f"{orbit:05d}{orbit_id}"  
-
+        self.frame = frame            # str like 'A'
+        self.version = version
+        # These are created empty and filled as needed. There is probably
+        # a more pythonic way to do this. Note that the orbit/frame pair
+        # defines the the Granule
+        self.year = None
+        self.doy = None
+        self.time = None
 
     def astext(self):
-        return f"EC.{self.orbit:05d}{self.orbit_id}"   #"EC" stands for EarthCARE.
+        return f"EC.{self.orbit:05d}{self.frame}"   #"EC" stands for EarthCARE.
 
     def __repr__(self):
         return self.astext()
 
-
     @classmethod
-    def fromtext(cls, gran_text, product_type=DEFAULT_PRODUCT_TYPE, baseline=DEFAULT_BASELINE):
+    def fromtext(cls, gran_text, version=DEFAULT_VERSION):
         """Create a Granule from a string like 'EC.04606A'."""
         text = gran_text.split(".")[1]
-        orbit_number = int(text[:5])
-        orbit_id = text[5:]
+        orbit = int(text[:5])
+        frame = text[5:]
 
-        if not orbit_id:
+        if not frame:
             raise ValueError("Granule text must include orbit ID, e.g., 'EC.04606A'")
 
-        return cls(orbit_number, orbit_id, product_type=product_type, baseline=baseline)
+        return cls(orbit, frame, version=version)
 
     @classmethod
     def fromfilename(cls, filename):
@@ -50,39 +50,38 @@ class Granule(object):
         parts = basename.split("_")
 
         orbit_with_id = os.path.splitext(parts[-1])[0]  # e.g., 04606A
-        orbit_number = int(orbit_with_id[:5])
-        orbit_id = orbit_with_id[5:]
+        orbit = int(orbit_with_id[:5])
+        frame = orbit_with_id[5:]
 
-        product_type = "_".join(parts[2:5])
-        baseline = parts[1][-2:]
+        version = parts[1][-2:]
 
-        return cls(orbit_number, orbit_id, product_type=product_type, baseline=baseline)
+        return cls(orbit, frame, version=version)
 
-
-
-
-    def datetime(self, product_type=None, baseline=None):
+    def datetime(self):
         """
-        Return the datetime for this granule (specific orbit + orbit ID).
+        Return the datetime for this granule (specific orbit +
+        orbit ID). This should not depend on having the file
+        downloaded, so will come from the GEOMETA files.
         """
-        product_type = product_type or self.product_type
-        baseline = baseline or self.baseline
-
         return get_orbit_datetimes(
             orbit_number=self.orbit,
-            orbit_id=self.orbit_id,
-            product_type=product_type,
-            baseline=baseline
-        )
+            frame=self.frame)
 
+    def download(self, product, version=DEFAULT_VERSION):
+        '''We can download a file based on the orbit number, as we will make a query to the
+        ESA server anyway. However, we are not current setup to check in advance if we
+        need to without the GEOMETA files.'''
+        download(product, orbit=self.orbit, frame=self.frame, version=version)
+        #if not check(product, self.year, self.doy, self.orbit, self.frame, version):
+        #    download(product, orbit=self.orbit, frame=self.frame, version=version)
 
-    def download_product(self, product_type=None, baseline=None):
+    def download_product(self, product=None, version=None):
         """
         Download all EarthCARE granules on the estimated day of this granule.
         Existing files will be skipped automatically.
         """
-        product_type = product_type or self.product_type
-        baseline = baseline or self.baseline
+        product = product or self.product
+        version = version or self.version
 
         candidates = get_orbit_date(self.orbit)
         if not candidates:
@@ -94,69 +93,65 @@ class Granule(object):
             day = date_obj.day
 
             print(f"[INFO] Attempting download for {year}-{month:02d}-{day:02d}")
-            download(product_type, baseline, year=year, month=month, day=day)
+            download(product, version, year=year, month=month, day=day)
             return  # stop after first candidate
 
-
-
-
-
-    def get_variable(self, varnames, product_type=None, baseline=None):
+    def get_variable(self, product, varnames, version=None):
         """
         Retrieve variables from the EarthCARE curtain file.
 
         Args:
             varnames (list of str): Full HDF5 paths like 'ScienceData/longitude'.
-            product_type (str, optional): Override default product type.
-            baseline (str, optional): Override default baseline.
+            product (str, optional): Override default product type.
+            version (str, optional): Override default version.
 
         Returns:
             dict: variable_name -> numpy array
         """
-        if product_type is None:
-            product_type = self.product_type
-        if baseline is None:
-            baseline = self.baseline
+        if product is None:
+            product = self.product
+        if version is None:
+            version = self.version
 
         return readin_earthcare_curtain(
-            product_type=product_type,
-            baseline=baseline,
+            product=product,
+            version=version,
             orbit_number=self.orbit,
-            orbit_id=self.orbit_id,
+            frame=self.frame,
             sds=varnames
         )
 
 
 
-    def get_lonlat(self, product_type=None, baseline=None):
+    def get_lonlat(self, product=None, version=None):
         """Return longitude and latitude arrays for this granule."""
-        if product_type is None:
-            product_type = self.product_type
-        if baseline is None:
-            baseline = self.baseline
+        if product is None:
+            product = self.product
+        if version is None:
+            version = self.version
 
         data = self.get_variable(
             ["ScienceData/longitude", "ScienceData/latitude"],
-            product_type=product_type,
-            baseline=baseline
+            product=product,
+            version=version
         )
         return data["ScienceData/longitude"], data["ScienceData/latitude"]
 
 
 
-    def get_decimal_times(self, product_type=None, baseline=None):
+    def get_decimal_times(self, product=None, version=None):
         """
         Return time as decimal hours since midnight UTC on granule date (CloudSat-style).
         
         EarthCARE stores 'ScienceData/time' as seconds since 2000-01-01 00:00:00.
         This function mimics CloudSat's UTC_start + Profile_time format.
         """
-        if product_type is None:
-            product_type = self.product_type
-        if baseline is None:
-            baseline = self.baseline
+        if product is None:
+            product = self.product
+        if version is None:
+            version = self.version
 
-        data = self.get_variable(["ScienceData/time"], product_type=product_type, baseline=baseline)
+        data = self.get_variable(["ScienceData/time"], product=product, version=version)
         time_seconds = data["ScienceData/time"]
 
         # Reference time: 2000-01-01 00:00:00
@@ -171,39 +166,39 @@ class Granule(object):
         return delta
 
 
-    def get_datetimes(self, product_type=None, baseline=None):
+    def get_datetimes(self, product=None, version=None):
         """
         Return array of Python datetime objects for this granule.
 
         EarthCARE stores time as seconds since 2000-01-01 00:00:00.
         """
-        if product_type is None:
-            product_type = self.product_type
-        if baseline is None:
-            baseline = self.baseline
+        if product is None:
+            product = self.product
+        if version is None:
+            version = self.version
 
-        data = self.get_variable(["ScienceData/time"], product_type=product_type, baseline=baseline)
+        data = self.get_variable(["ScienceData/time"], product=product, version=version)
         time_seconds = data["ScienceData/time"]
 
         base_datetime = datetime(2000, 1, 1)
         return [base_datetime + timedelta(seconds=round(float(s))) for s in time_seconds]
 
 
-    def locate(self, locs, product_type=None, baseline=None):
+    def locate(self, locs, product=None, version=None):
         """
         Locate the nearest profile index in the granule to each (lon, lat) point.
 
         Args:
             locs (list of tuples): List of (longitude, latitude) pairs.
-            product_type, baseline: Optional overrides.
+            product, version: Optional overrides.
 
         Returns:
             np.ndarray of int indices, one per location.
         """
-        product_type = product_type or self.product_type
-        baseline = baseline or self.baseline
+        product = product or self.product
+        version = version or self.version
 
-        lon, lat = self.get_lonlat(product_type, baseline)
+        lon, lat = self.get_lonlat(product, version)
         return np.array([
             np.argmin(misc.geo.haversine(lon0, lat0, lon, lat))
             for lon0, lat0 in locs
@@ -216,27 +211,27 @@ class Granule(object):
     #     Return a new Granule with the orbit number incremented.
     #     Note: Orbit ID is preserved.
     #     """
-    #     return Granule(self.orbit + number, self.orbit_id,
-    #                 product_type=self.product_type,
-    #                 baseline=self.baseline)
+    #     return Granule(self.orbit + number, self.frame,
+    #                 product=self.product,
+    #                 version=self.version)
 
 
 
 #    def increment(self, number=1):
 #        """
-#        Return a new Granule with incremented orbit and/or orbit_id.
-#        EarthCARE orbit_ids go from 'A' to 'H' (8 per orbit).
+#        Return a new Granule with incremented orbit and/or frame.
+#        EarthCARE frames go from 'A' to 'H' (8 per orbit).
 #        """
-#        orbit_ids = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-#        current_index = orbit_ids.index(self.orbit_id)
+#        frames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+#        current_index = frames.index(self.frame)
 #        
 #        total_index = current_index + number
 #        new_orbit = self.orbit + total_index // 8
-#        new_orbit_id = orbit_ids[total_index % 8]
+#        new_frame = frames[total_index % 8]
 #
-#        return Granule(new_orbit, new_orbit_id,
-#                    product_type=self.product_type,
-#                    baseline=self.baseline)
+#        return Granule(new_orbit, new_frame,
+#                    product=self.product,
+#                    version=self.version)
 
 
 
@@ -264,24 +259,24 @@ class Granule(object):
         if number == 0:
             raise ValueError("number must be non-zero")
 
-        orbit_ids = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+        frames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
         direction = 1 if number > 0 else -1
         skip_left = abs(number)
         scanned   = 0
 
         cand_orbit = self.orbit
-        cand_id    = self.orbit_id
+        cand_id    = self.frame
 
         while scanned < max_scan:
             # ── step one granule ───────────────────────────────────────────
-            idx        = orbit_ids.index(cand_id) + direction
+            idx        = frames.index(cand_id) + direction
             cand_orbit = cand_orbit + idx // 8
-            cand_id    = orbit_ids[idx % 8]
+            cand_id    = frames[idx % 8]
 
             candidate = Granule(
                 cand_orbit, cand_id,
-                product_type=self.product_type,
-                baseline=self.baseline
+                product=self.product,
+                version=self.version
             )
 
             # ── which calendar day(s) contain this orbit? ─────────────────
@@ -289,9 +284,9 @@ class Granule(object):
                 for yr, doy in get_orbit_date(cand_orbit):
                     dt = datetime.strptime(f"{yr} {doy}", "%Y %j")
                     exists = check(
-                        candidate.product_type, candidate.baseline,
+                        candidate.product, candidate.version,
                         year=dt.year, month=dt.month, day=dt.day,
-                        orbit=candidate.orbit, orbit_id=candidate.orbit_id
+                        orbit=candidate.orbit, frame=candidate.frame
                     )
 
                     if not exists:
@@ -322,13 +317,13 @@ class Granule(object):
 
 
     @classmethod
-    def from_datetime(cls, dtime, product_type=DEFAULT_PRODUCT_TYPE, baseline=DEFAULT_BASELINE):
+    def from_datetime(cls, dtime, version=DEFAULT_VERSION):
         """
         Create a Granule from a datetime, by finding the closest matching file.
         """
-        orbit_id_full = get_orbit_by_time(dtime, product_type=product_type, baseline=baseline)
+        frame_full = get_orbit_by_time(dtime, product=product, version=version)
 
-        orbit_number = int(orbit_id_full[:5])
-        orbit_id = orbit_id_full[5:]
+        orbit_number = int(frame_full[:5])
+        frame = frame_full[5:]
 
-        return cls(orbit_number, orbit_id, product_type=product_type, baseline=baseline)
+        return cls(orbit_number, frame, product=product, version=version)

@@ -1,16 +1,17 @@
 from pathlib import Path
 from datetime import timedelta
 from csat2 import locator
+import csat2.misc.time
 from csat2.EarthCARE.utils import get_orbit_date_approx
 
 #from csat2.EarthCARE.download import download_file_locations
-from csat2.EarthCARE.utils import get_orbit_date_approx, DEFAULT_BASELINE, DEFAULT_PRODUCT_TYPE, DEFAULT_YEAR
+from csat2.EarthCARE.utils import get_orbit_date_approx, DEFAULT_VERSION
+
 
 def get_or_create_earthcare_geometa(
-    orbit_number=None,
-    year=DEFAULT_YEAR,
-    product=DEFAULT_PRODUCT_TYPE,
-    baseline=DEFAULT_BASELINE
+        year,
+        orbit=None,
+        version=DEFAULT_VERSION
 ):
 
     """
@@ -20,16 +21,16 @@ def get_or_create_earthcare_geometa(
     Defaults:
     - year = 2025
     - product = CPR_CLD_2A
-    - baseline = AB
+    - version = AB
     """
 
     # Step 1: Estimate orbit date (if orbit provided)
     if orbit_number is not None:
-        (_, _), date_est, _ = get_orbit_date_approx(orbit_number)
+        year_est, doy_est, date_est, _ = get_orbit_date_approx(orbit_number)
         year = date_est.year  # override year to match actual orbit
 
     # Step 2: Construct GEOMETA path based on final year
-    path = Path(locator.format_filename("EARTHCARE", "GEOMETA", year=year))
+    path = Path(locator.format_filename("EarthCARE", "GEOMETA", year=year))
 
     # Early exit if file exists and no orbit check is needed
     if path.exists() and orbit_number is None:
@@ -45,10 +46,12 @@ def get_or_create_earthcare_geometa(
 
     # Scan ±1 day around estimated date
     for offset in [-1, 0, 1]:
-        d = date_est + timedelta(days=offset)
+        year_offset, doy_offset = csat2.misc.time.doy_step(
+            year_est, doy_est, offset)
         try:
-            files = download_file_locations(product_type=product, baseline=baseline,
-                                            year=d.year, month=d.month, day=d.day)
+            files = download_file_locations(product=product,
+                                            year=year_offset, doy=doy_offset,
+                                            version=version)
         except Exception as e:
             print(f"[WARNING] Could not list files for {d.date()}: {e}")
             continue
@@ -58,7 +61,8 @@ def get_or_create_earthcare_geometa(
                 entries.append(Path(f).name)
 
     if not entries:
-        raise FileNotFoundError(f"No files found for orbit {orbit_number} near {date_est}")
+        raise FileNotFoundError(
+            f"No files found for orbit {orbit_number} near {year_est}, {doy_est}")
 
     # Write or append to GEOMETA file
     entries = sorted(set(entries))

@@ -3,24 +3,24 @@ EarthCARE download module for the csat2 library.
 
 - Uses `locator.get_folder()` to determine local storage paths
 - Reads credentials from ~/.csat2/earthcare_auth.json
-- Lists and downloads ZIP files via FTPS using lftp
 """
 
 import os
 import json
+import re
 import subprocess
 from pathlib import Path
+import time
+import requests
+import pickle
+import zipfile
 from csat2 import locator
-from .utils import DEFAULT_BASELINE, DEFAULT_PRODUCT_TYPE
+import csat2.misc.time
+from tqdm import tqdm
+import logging
+from csat2.EarthCARE.utils import DEFAULT_VERSION, get_product_level
 
-
-
-
-# Load credentials
-#CREDS_PATH = os.path.expandvars("${HOME}/.csat2/earthcare_auth.json")
-#with open(CREDS_PATH) as cf:
-#    earthcare_auth = json.load(cf)
-
+log = logging.getLogger(__name__)
 
 def load_earthcare_auth():
     """
@@ -34,137 +34,238 @@ def load_earthcare_auth():
         return json.load(f)
 
 
-
-# Path to the lftp binary; can be overridden via the LFTP_BIN environment variable
-LFTP_BIN = os.environ.get("LFTP_BIN", "lftp")
-
-# EarthCARE FTPS endpoint for ESA data downloads
-EARTHCARE_SERVER = "ftps://ec-pdgs-dissemination2.eo.esa.int:990"
-
-
-
-def download_file_locations(product_type=DEFAULT_PRODUCT_TYPE,
-                            baseline=DEFAULT_BASELINE,
-                            year=None, month=None, day=None):
+def download_file_locations(product,
+                            year=None, doy=None,
+                            orbit=None, frame=None,
+                            version=DEFAULT_VERSION):
     """
     List available ZIP filenames for an EarthCARE Level-2 product on a given date.
     """
-    
-    if year is None or month is None or day is None:
-        raise ValueError(
-            "Missing required date inputs: year, month, and day must all be specified.\n"
-            "Example usage:\n"
-            "  download_file_locations(product_type='CPR_CLD_2A', baseline='AB', year=2025, month=3, day=20)"
-        )
-    
-    
-    # Format date strings
-    y, m, d = f"{year:04d}", f"{month:02d}", f"{day:02d}"
-    remote_dir = f"/EarthCARE/EarthCAREL2Validated/{product_type}/{baseline}/{y}/{m}/{d}"
+    product_level = get_product_level(product)
+    url = (f'https://eocat.esa.int/eo-catalogue/collections/EarthCAREL{product_level}Validated/items?'+
+           f'&limit=2000&productType={product}')
 
-    # Build lftp commands to list files
-    cmd = f"""
-        set ssl:verify-certificate no;
-        set ftp:ssl-force true;
-        set ftp:ssl-protect-data true;
-        cd {remote_dir};
-        cls -1 *.ZIP;
-        bye
+    dataflag = False
+    if year and doy:
+        # Format date strings
+        year, month, day = csat2.misc.time.doy_to_date(year, doy)
+        tstr = f'{year}-{month:0>2}-{day:0>2}'
+        url += f'&datetime={tstr}/{tstr}'
+        dataflag = True
+    if orbit:
+        url += f'&orbitNumber={orbit}'
+        dataflag = True
+    if frame:
+        url += f'&frame={frame}'
+        dataflag = True
+    if version:
+        url += f'&productVersion={version}'
+        dataflag = True
+        
+    if dataflag == False:
+        raise ValueError('You need to select fewer files, try a year/doy or orbit')
+    
+    # This request doesn't accept authorisation
+    response = requests.Session().get(url, stream=True)
+    file_dict = json.loads(response.text)
+
+    if file_dict['numberMatched'] == 0:
+        raise ValueError('No EarthCare files for the given parameters')
+
+    output_names = []
+    for feature in file_dict['features']:
+        if feature['collection'] == f'EarthCAREL{product_level}Validated':
+            output_names.append(feature['id'])
+
+    return sorted(output_names)
+
+
+def get_auth_cookies(oads_hostname,
+                     expiry_limit=3600):
+    '''Getting new authentication cookies each time we make a request is slow.
+    This allows them to persist on disk until the need to be renewed.'''
+
+    cookie_file = os.path.expanduser(f"~/.csat2/{oads_hostname}.cjar")
+    try:
+        with open(cookie_file, 'rb') as f:
+            auth_cookies = pickle.load(f)
+            log.debug('Auth cookie found and loaded')
+    except FileNotFoundError:
+        log.debug('No auth cookie file')
+        auth_cookies = refresh_auth_cookies(oads_hostname)
+
+    expires = None
+    for cookie in auth_cookies:
+        if cookie.name == '_saml_idp':
+            if (cookie.expires - time.time()) < expiry_limit:
+                log.debug('Auth cookie expiring')
+                auth_cookies = refresh_auth_cookies(oads_hostname)
+            break
+    else:
+        log.debug('No valid auth cookie')
+        auth_cookies = refresh_auth_cookies(oads_hostname)
+
+    with open(cookie_file, 'wb') as f:
+        pickle.dump(auth_cookies, f)
+    log.debug('Stored new auth cookie')
+    os.chmod(cookie_file, 0o600)
+    log.debug('Fixed auth cookie file permissions')
+    
+    return auth_cookies
+
+
+def refresh_auth_cookies(oads_hostname):
+    # SAML logins require three requests
+    # https://stackoverflow.com/questions/52618451/python-requests-saml-login-redirect
+    # See also https://github.com/koenigleon/oads-download/ for EarthCARE specific details/servers
+    
+    # Request 1: The 'target' - in this case the login page, but it could be anything
+    response1 = requests.get(f"https://{oads_hostname}/oads/access/login")
+
+    response1_cookies = response1.cookies
+    for r in response1.history:
+        response1_cookies = requests.cookies.merge_cookies(response1_cookies, r.cookies)
+    sessionDataKey = re.search(
+        r"sessionDataKey=([\:\/\w-]*)",
+        response1.content.decode('ascii')).groups(0)[0]
+    log.info('SessionKey Identified')
+
+    # Request 2: We were redirected to the login platform, so make a new request here
+    # using the user data and the session key that we got from the first request
+    earthcare_auth = load_earthcare_auth()
+    request2_data = {
+        "username": earthcare_auth['username'],
+        "password": earthcare_auth['password'],
+        "sessionDataKey": sessionDataKey,
+        "tocommonauth": "true" # Apparently required for EarthCARE
+    }
+    
+    response2 = requests.post("https://eoiam-idp.eo.esa.int/samlsso",
+                              data=request2_data,
+                              cookies=response1_cookies,
+                              )
+
+    # Extract the necessary form info (hidden parameters here)
+    # Note that this regex form is fragile, consider upgrading in the future
+    relayState = re.search(
+        r"RelayState.*?value=\'([\w\:\/\.-]*?)\'",
+        response2.content.decode('ascii')).groups(0)[0]
+    SAMLResponse = re.search(
+        r"SAMLResponse.*?value=\'([\w\+=]*)",
+        response2.content.decode('ascii')).groups(0)[0]
+    saml_redirect_url = re.search(
+        r"samlsso-response-form.*action=\"([\w\.\"\:\/-]*)\"",
+        response2.content.decode('ascii')).groups(0)[0]
+    log.info('SAML authentication successful')
+        
+
+    # Request 3: Send the SAML response from the authentication platform
+    # to the service - in this case the data server. Once this is validated,
+    # we get a cookie we can use for downloading files.
+    request3_data = {
+        "RelayState": relayState,
+        "SAMLResponse": SAMLResponse,
+    }
+
+    response3 = requests.post(saml_redirect_url,
+                              data=request3_data
+                              )
+
+    # Lovely tasty authentication cookies for downloading data
+    response3_cookies = response3.cookies
+    for r in response3.history:
+        response3_cookies = requests.cookies.merge_cookies(response3_cookies, r.cookies)
+    log.info('SAML authentication validated by data server')
+
+    return response3_cookies
+
+
+def download(product, year=None, doy=None, orbit=None, frame=None,
+             version=DEFAULT_VERSION, force_redownload=False, quiet=False):
     """
-    auth = load_earthcare_auth()
-    proc = subprocess.run(
-        [LFTP_BIN, "-u", f"{auth['username']},{auth['password']}",
-         EARTHCARE_SERVER, "-e", cmd],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, check=True
-    )
-    return sorted(proc.stdout.splitlines())
+    Downloads EarthCARE files for a specified product and date/orbit/frame.
 
-def download(product_type=DEFAULT_PRODUCT_TYPE, baseline=DEFAULT_BASELINE,
-             year=None, month=None, day=None, max_files=None):
-    """
-    Downloads EarthCARE ZIP files for a specified product and date.
-
-    Files are downloaded via FTPS into a local folder defined by csat2's locator system.
+    Files are downloaded via HTTPS into a local folder defined by csat2's locator system.
 
     Args:
         product_type (str): EarthCARE product name (e.g. "CPR_CLD_2A").
-        baseline (str): Baseline code (e.g. "AB").
+        version (str): Version code (e.g. "AB").
         year (int): Year of data (e.g. 2025).
-        month (int): Month of data (1–12).
-        day (int): Day of data (1–31).
-        max_files (int, optional): Maximum number of missing files to download.
+        doy (int): Day of year in NASA format (1st Jan is DOY1)
 
     Returns:
         list[str]: List of successfully downloaded filenames.
     """
-    if year is None or month is None or day is None:
-        raise ValueError(
-            "Missing required date inputs: year, month, and day must all be specified.\n"
-            "Example: download(product_type='CPR_CLD_2A', baseline='AB', year=2025, month=3, day=20, max_files=2)"
+    file_locations = download_file_locations(product, year, doy, orbit, frame, version)
+
+    session = requests.Session()
+    session.headers["user-agent"] = 'csat2'
+    auth_cookies = get_auth_cookies('ec-pdgs-dissemination1.eo.esa.int')
+    
+    product_level = get_product_level(product)
+    
+    for file_location in file_locations:
+        url = (f'https://ec-pdgs-dissemination1.eo.esa.int/oads/data/'+
+               f'EarthCAREL{product_level}Validated/{file_location}.ZIP')
+
+        # We could be downloading an orbit where the frames go into a different day
+        # We need to check the folder for each new file
+        timestr = file_location.split('_')[5]
+        year = int(timestr[:4])
+        _, doy = csat2.misc.time.date_to_doy(
+            year, int(timestr[4:6]), int(timestr[6:8]))
+
+        local_folder = locator.get_folder(
+            "EarthCARE", product=product,
+            year=year, doy=doy,
+            version=version,
         )
+        os.makedirs(local_folder, exist_ok=True)
 
+        newfile = f"{local_folder}/{file_location}.ZIP"
+        if (not os.path.exists(newfile.replace('.ZIP', '.h5'))) or force_redownload:
+            if force_redownload:
+                os.remove(newfile)
+       
+            response = session.get(
+                url,
+                stream=True,
+                cookies=auth_cookies)
 
-    zips = download_file_locations(product_type, baseline, year, month, day)
-    if not zips:
-        raise ValueError(f"No remote .ZIP files for {product_type} {baseline} on {year}-{month:02d}-{day:02d}")
+            if response.status_code != 200:
+                raise ValueError(f"Download failed status:{response.status_code}")
+            total = int(response.headers.get("content-length", 0))
+            log.debug("Got response")
 
-    local_root = locator.get_folder(
-        "EARTHCARE", product=product_type,
-        baseline=baseline,
-        year=year, month=month, day=day
-    )
-    os.makedirs(local_root, exist_ok=True)
+            with open(newfile, 'w+b') as out:
+                with tqdm(
+                        desc=os.path.basename(url),
+                        total=total,
+                        unit="iB",
+                        unit_scale=True,
+                        unit_divisor=1024,
+                        disable=quiet,
+                    ) as bar:
+                        blocksize = max(4096, total // 100)
+                        for data in response.iter_content(chunk_size=blocksize):
+                            size = out.write(data)
+                            bar.update(size)
+            with zipfile.ZipFile(newfile, 'r') as zip_ref:
+                zip_ref.extractall(local_folder)
+            os.remove(newfile)
+        else:
+            log.info("Skipping {}".format(os.path.basename(url)))
 
-    missing = [f for f in zips if not os.path.exists(os.path.join(local_root, f))]
-    to_fetch = missing if max_files is None else missing[:max_files]
-    fetched = []
-
-    auth = load_earthcare_auth()
-    for fname in to_fetch:
-        zip_path = os.path.join(local_root, fname)
-        h5_path = zip_path.replace(".ZIP", ".h5")
-
-        # Skip if either .ZIP or .h5 exists
-        if os.path.exists(zip_path) or os.path.exists(h5_path):
-           print(f" Skipping {fname} (ZIP or H5 already exists)")
-           continue
-
-        # Download with lftp
-        cmd = f"""
-            set ssl:verify-certificate no;
-            set ftp:ssl-force true;
-            set ftp:ssl-protect-data true;
-            cd /EarthCARE/EarthCAREL2Validated/{product_type}/{baseline}/{year}/{month:02d}/{day:02d};
-            lcd {local_root};
-            get {fname};
-            bye
-        """
-
-        subprocess.run(
-            [LFTP_BIN, "-u", f"{auth['username']},{auth['password']}",
-             EARTHCARE_SERVER, "-e", cmd], check=True
-        )
-        print(f" Downloaded {fname}")
-        fetched.append(fname)
-
-    for f in set(zips) - set(fetched):
-        print(f"Skipped {f} (already exists)")
-
-    return fetched
-
-
-
-def check(product_type=DEFAULT_PRODUCT_TYPE,
-          baseline=DEFAULT_BASELINE,
-          year=None, month=None, day=None,
-          orbit=None, orbit_id=None):
+def check(product,
+          year, doy,
+          orbit=None, frame=None,
+          version=DEFAULT_VERSION):
     """
     Check if a specific EarthCARE file exists locally.
 
     Args:
         product_type (str): EarthCARE product name (e.g., "CPR_CLD_2A").
-        baseline (str): Baseline code (e.g., "AB").
+        version (str): Version code (e.g., "AB").
         year (int): Year of data.
         month (int): Month of data.
         day (int): Day of data.
@@ -178,71 +279,45 @@ def check(product_type=DEFAULT_PRODUCT_TYPE,
         ECA_EXAB_CPR_CLD_2A_20250320T195315Z_20250320T223619Z_04603H.ZIP
 
     Example usage:
-        check(product_type='CPR_CLD_2A', baseline='AB',
+        check(product_type='CPR_CLD_2A', version='AB',
               year=2025, month=3, day=20, orbit=4603, orbit_id='H')
     """
-    if None in (year, month, day, orbit, orbit_id):
-        raise ValueError("Missing required inputs: year, month, day, orbit, and orbit_id.")
-
-    matches = locator.search("EARTHCARE", product_type,
-        baseline=baseline,
-        year=year, month=month, day=day,
-        orbit=orbit, orbit_id=orbit_id,
-    )
-
-    if matches:
-        print(f"Found file: {os.path.basename(matches[0])}")
+    filename = locator.search("EarthCARE", product,
+                              version=version,
+                              year=year, doy=doy,
+                              orbit=orbit, frame=frame,
+                              )
+    if len(filename) == 1:
         return True
     else:
-        print("No matching file found.")
         return False
 
 
-def list_local_files_for_day(product_type=DEFAULT_PRODUCT_TYPE,
-                             baseline=DEFAULT_BASELINE,
-                             year=None, month=None, day=None):
+def list_local_files_for_day(product,
+                             year, doy,
+                             version=DEFAULT_VERSION):
     """
     List all EarthCARE files available locally for the given date.
 
     Returns:
         list[Path]: Paths to matching local files.
     """
-    if None in (year, month, day):
-        raise ValueError("Missing required inputs: year, month, and day must be specified.")
-
-    try:
-        folder = locator.get_folder(
-            "EARTHCARE", product=product_type,
-            baseline=baseline,
-            year=year, month=month, day=day
-        )
-    except Exception as e:
-        print(f"[ERROR] Could not determine folder path: {e}")
-        return []
-
-    if not os.path.exists(folder):
-        print(f"Folder not found: {folder}")
-        return []
-
-    files = sorted(Path(folder).glob("*"))
-
-    if not files:
-        print(f"(No files found in {folder})")
-        return []
-
-    print(f"\nFound {len(files)} files in {folder}:\n")
-    for f in files:
-        print(" -", f.name)
-
-    return files
+    filenames = locator.search("EarthCARE", product,
+                               year=year, doy=doy,
+                               version=version,
+                               orbit='*****', #Note that orbit wil not expand by default
+                               frame='*',
+                               )
+    return sorted(filenames)
 
 
 def test_connection():
     """
-    Verifies EarthCARE FTPS connectivity and credentials.
+    Verifies EarthCARE connectivity and credentials by ensuring a valid SAML
+    authentication response.
     """
     try:
-        _ = download_file_locations("CPR_CLD_2A", "AB", 2025, 4, 17)
+        _ = refresh_auth_cookies('ec-pdgs-dissemination1.eo.esa.int')
         print("EarthCARE connection test succeeded.")
     except Exception as e:
         print(f"EarthCARE connection test failed: {e}")
