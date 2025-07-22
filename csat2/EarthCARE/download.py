@@ -38,13 +38,14 @@ def download_file_locations(product,
                             year=None, doy=None, hour=None, minute=None,
                             dtime=None,
                             orbit=None, frame=None,
-                            version=DEFAULT_VERSION):
+                            version=DEFAULT_VERSION,
+                            limit=2000):
     """
     List available ZIP filenames for an EarthCARE Level-2 product on a given date.
     """
     product_level = get_product_level(product)
     url = (f'https://eocat.esa.int/eo-catalogue/collections/EarthCAREL{product_level}Validated/items?'+
-           f'&limit=2000&productType={product}')
+           f'&limit={limit}&productType={product}')
 
     dataflag = False
     if year and doy:

@@ -1,11 +1,35 @@
 from pathlib import Path
-from datetime import timedelta
+from datetime import datetime, timedelta
 from csat2 import locator
 import csat2.misc.time
 from csat2.EarthCARE.utils import get_orbit_date_approx
-
-#from csat2.EarthCARE.download import download_file_locations
+from csat2.EarthCARE.download import download_file_locations
 from csat2.EarthCARE.utils import get_orbit_date_approx, DEFAULT_VERSION
+import numpy as np
+
+
+def create_geometa(year):
+    # Geometa files currently have four columns
+    # Orbit Year DOY Hour(decimal time)
+    files = download_file_locations('ATL_NOM_1B', year=year, frame='A', limit=6000)
+    orbdata = [(
+        f.split('_')[-1][:5],
+        csat2.misc.time.datetime_to_ydh(
+            datetime.strptime(f.split('_')[5], '%Y%m%dT%H%M%SZ'))
+    ) for f in files]
+    
+    path = Path(locator.format_filename("EarthCARE", "GEOMETA", year=year))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, 'w') as f:
+        f.write('# Orbit Year DOY Hour\n')
+        for data in orbdata:
+            f.write(f'{data[0]} {data[1][0]} {data[1][1]} {data[1][2]:.2f}\n')
+    return
+
+
+def read_geometa(year):
+    filename = locator.format_filename("EarthCARE", "GEOMETA", year=year)
+    return np.genfromtxt(filename, names=True, dtype=['i', 'i', 'i', 'f'])
 
 
 def get_or_create_earthcare_geometa(
