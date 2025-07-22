@@ -29,13 +29,14 @@ def load_earthcare_auth():
     """
     path = os.path.expanduser("~/.csat2/earthcare_auth.json")
     if not os.path.exists(path):
-        raise FileNotFoundError(f"[ERROR] Credentials file not found: {path}")
+        raise FileNotFoundError(f"To download data, place your ESA/EarthCARE credentials in: {path}")
     with open(path) as f:
         return json.load(f)
 
 
 def download_file_locations(product,
-                            year=None, doy=None,
+                            year=None, doy=None, hour=None, minute=None,
+                            dtime=None,
                             orbit=None, frame=None,
                             version=DEFAULT_VERSION):
     """
@@ -47,10 +48,19 @@ def download_file_locations(product,
 
     dataflag = False
     if year and doy:
+        if dtime:
+            raise ValueError('Use either year/doy or datetime')
         # Format date strings
         year, month, day = csat2.misc.time.doy_to_date(year, doy)
         tstr = f'{year}-{month:0>2}-{day:0>2}'
-        url += f'&datetime={tstr}/{tstr}'
+        if hour:
+            if minute is None:
+                raise ValueError('Minute must be specified if hour is')
+            tstr = f'{year}-{month:0>2}-{day:0>2}T{hour:0>2}:{minute:0>2}:00.00Z'
+        url += f'&datetime={tstr}'
+        dataflag = True
+    if dtime:
+        url += f'&datetime={dtime.replace(microsecond=0).isoformat()}Z'
         dataflag = True
     if orbit:
         url += f'&orbitNumber={orbit}'

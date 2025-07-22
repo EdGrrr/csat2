@@ -10,9 +10,11 @@ REFERENCE_DATE    = datetime(2025, 3, 11, 0, 52, 6)     # orbit 4451 timestamp
 ORBIT_DAY_PORTION = 0.0642650462962963                 # days per orbit ≈ 1/14.57
 
 
+frame_names = ['A', 'B', 'C', 'D',
+               'E', 'F', 'G', 'H']
+
 def get_product_level(product):
     return product.split('_')[-1][0]
-
 
 def get_orbit_date_approx(orbit_number=None):
     """

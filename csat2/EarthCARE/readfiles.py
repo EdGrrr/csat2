@@ -21,11 +21,9 @@ import h5py
 from csat2 import locator
 import csat2.misc.hdf
 from csat2.misc.time import doy_to_date
-from csat2.EarthCARE.utils import DEFAULT_VERSION
+from csat2.EarthCARE.utils import DEFAULT_VERSION, get_orbit_date_approx, get_orbit_number_approx
 from csat2.EarthCARE.geometa import get_or_create_earthcare_geometa
-from csat2.EarthCARE.utils import get_orbit_date_approx, get_orbit_number_approx
-from csat2.EarthCARE.geometa import get_or_create_earthcare_geometa
-
+from csat2.EarthCARE.download import download_file_locations
 
 
 def files_available(product,
