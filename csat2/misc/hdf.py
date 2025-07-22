@@ -8,6 +8,7 @@ import copy
 import logging
 import subprocess
 import netCDF4
+import h5py
 
 log = logging.getLogger(__name__)
 
@@ -223,16 +224,8 @@ def read_hdf5(filename, sds=None):
     -------
     dict : mapping dataset name -> numpy array
     """
-    try:
-        data = {}
-        with h5py.File(filename, 'r') as h5:
-            def visitor(name, obj):
-                if isinstance(obj, h5py.Dataset):
-                    if sds is None or name in sds:
-                        data[name] = obj[()]
-            h5.visititems(visitor)
-        if not data:
-            raise IOError(f"No datasets found in {filename}")
-        return data
-    except Exception as e:
-        raise IOError(f"Failed to read HDF5 file {filename}: {e}")
+    data = {}
+    with netCDF4.Dataset(filename) as ncdf:
+        for varname in sds:
+            data[varname] = ncdf[varname][:]
+    return data

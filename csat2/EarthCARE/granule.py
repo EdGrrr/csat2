@@ -1,9 +1,7 @@
 from datetime import datetime, timedelta
-from csat2.EarthCARE.readfiles import (
-    readin_earthcare_curtain,
-)
+from csat2.EarthCARE.readfiles import readin_earthcare_curtain_filename
 from csat2.EarthCARE.download import download, download_file_locations, check
-from csat2.EarthCARE.utils import DEFAULT_VERSION, frame_names
+from csat2.EarthCARE.utils import DEFAULT_VERSION, frame_names, lonlat_vars
 import os
 import numpy as np
 from csat2 import misc, locator
@@ -21,9 +19,7 @@ class Granule(object):
         # These are created empty and filled as needed. There is probably
         # a more pythonic way to do this. Note that the orbit/frame pair
         # defines the the Granule
-        self.year = None
-        self.doy = None
-        self.time = None
+        self.dtime = None
         # LonLat data
         self.lonlat = None
 
@@ -78,9 +74,11 @@ class Granule(object):
 
         Currently queries ESA server, so slow and requires network access.
         """
-        valid_filenames = download_file_locations('ATL_NOM_1B', orbit=self.orbit, frame=self.frame)
-        return datetime.strptime(valid_filenames[0].split('_')[5],
-                                 '%Y%m%dT%H%M%SZ')
+        if self.dtime is None:
+            valid_filenames = download_file_locations('ATL_NOM_1B', orbit=self.orbit, frame=self.frame)
+            self.dtime = datetime.strptime(valid_filenames[0].split('_')[5],
+                                           '%Y%m%dT%H%M%SZ')
+        return self.dtime
 
     def download(self, product, version=DEFAULT_VERSION, force_redownload=False):
         '''We can download a file based on the orbit number, as we will make a query to the
@@ -89,7 +87,7 @@ class Granule(object):
         download(product, orbit=self.orbit, frame=self.frame,
                  version=version, force_redownload=force_redownload)
 
-    def get_variable(self, product, varnames, version=None):
+    def get_variable(self, product, sds, version=None):
         """
         Retrieve variables from the EarthCARE curtain file.
 
@@ -104,26 +102,43 @@ class Granule(object):
         if version is None:
             version = self.version
 
-        return readin_earthcare_curtain(
-            product=product,
-            version=version,
-            orbit_number=self.orbit,
-            frame=self.frame,
-            sds=varnames
+        return readin_earthcare_curtain_filename(
+            self.get_filename(product=product, version=version),
+            sds=sds
         )
 
+    def get_filename(self, product, version=None):
+        if version is None:
+            version = self.version
+
+        dtime = self.datetime()
+        files = locator.search(
+            "EarthCARE", product,
+            year=dtime.year,
+            doy=misc.time.datetime_to_ydh(dtime)[1],
+            orbit=self.orbit,
+            frame=self.frame,
+            version=version,
+        )
+        if len(files) == 0:
+            raise FileNotFoundError(f'No file for {self} - {product}')
+        return files[0]
+
+    
     def get_lonlat(self, product, version=None):
         """Return longitude and latitude arrays for this granule."""
         if version is None:
             version = self.version
 
-        if self.lonlat is None:
+        if (self.lonlat is None) or (product != self.lonlat_product):
             data = self.get_variable(
-                ["ScienceData/longitude", "ScienceData/latitude"],
                 product=product,
+                sds=lonlat_vars[product],
                 version=version
             )
-            self.lonlat = data["ScienceData/longitude"], data["ScienceData/latitude"]
+            self.lonlat = (data[lonlat_vars[product][0]],
+                           data[lonlat_vars[product][1]])
+            self.lonlat_product = product
         return self.lonlat
 
     def get_decimal_times(self, product, version=None):
@@ -193,11 +208,14 @@ class Granule(object):
         return  lon[indicies], lat[indicies]
 
     def increment(self, number=1):
-        current_index = frames_names.index(self.frame)
+        current_index = frame_names.index(self.frame)
         
         total_index = current_index + number
         new_orbit = self.orbit + total_index // 8
-        new_frame = frames_names[total_index % 8]
+        new_frame = frame_names[total_index % 8]
         
         return Granule(new_orbit, new_frame,
                        version=self.version)
+
+    def next(self, number=1):
+        return self.increment(number)

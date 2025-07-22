@@ -13,6 +13,14 @@ ORBIT_DAY_PORTION = 0.0642650462962963                 # days per orbit ≈ 1/14
 frame_names = ['A', 'B', 'C', 'D',
                'E', 'F', 'G', 'H']
 
+# Names for the longitude/latitude variables in each file
+lonlat_vars = {'ATL_NOM_1B': ["ScienceData/ellipsoid_longitude",
+                              "ScienceData/ellipsoid_latitude"],
+               'CPR_NOM_1B': ["ScienceData/longitude", "ScienceData/latitude"],
+               'MSI_RGR_1C': ["ScienceData/longitude", "ScienceData/latitude"]}
+
+
+
 def get_product_level(product):
     return product.split('_')[-1][0]
 

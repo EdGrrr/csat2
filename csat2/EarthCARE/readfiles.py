@@ -287,3 +287,13 @@ def readin_earthcare_curtain(product,
 
     return csat2.misc.hdf.read_hdf5(found_file, sds=sds)
 
+
+def readin_earthcare_curtain_filename(filename,
+                                      sds=None):
+    """
+    Reads one EarthCARE curtain HDF5 file by filename
+    """
+    if isinstance(sds, str):
+        sds = [sds]
+
+    return csat2.misc.hdf.read_hdf5(filename, sds=sds)
