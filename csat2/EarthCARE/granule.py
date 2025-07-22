@@ -195,7 +195,7 @@ class Granule(object):
 
         lon, lat = self.get_lonlat(product, version)
         return np.array([
-            np.argmin(misc.geo.haversine(lon0, lat0, lon, lat))
+            np.argmin(misc.geo.haversine(lon0, lat0, lon.values, lat.values))
             for lon0, lat0 in locs
         ])
 
@@ -205,7 +205,7 @@ class Granule(object):
         """
         version = version or self.version
         lon, lat = self.get_lonlat(product, version)
-        return  lon[indicies], lat[indicies]
+        return  lon.values[indicies], lat.values[indicies]
 
     def increment(self, number=1):
         current_index = frame_names.index(self.frame)

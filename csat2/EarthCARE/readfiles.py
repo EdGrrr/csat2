@@ -18,12 +18,18 @@ import os
 from pathlib import Path
 from datetime import datetime, timedelta
 import h5py
+import netCDF4
+import logging
+import xarray as xr
+import numpy as np
 from csat2 import locator
 import csat2.misc.hdf
 from csat2.misc.time import doy_to_date
 from csat2.EarthCARE.utils import DEFAULT_VERSION, get_orbit_date_approx, get_orbit_number_approx
 from csat2.EarthCARE.geometa import get_or_create_earthcare_geometa
 from csat2.EarthCARE.download import download_file_locations
+
+log = logging.getLogger(__name__)
 
 
 def files_available(product,
@@ -45,7 +51,7 @@ def files_available(product,
 
     return sorted(filenames)
 
-# ------------------------------------------------------------------
+
 def variables_available(product, year, doy, orbit='*****', frame='*',
                         version=DEFAULT_VERSION):
     """
@@ -98,7 +104,7 @@ def available_orbits(product,
     ]
     return sorted(set(orbits))
 
-# ------------------------------------------------------------------
+
 def get_orbit_filename(product, orbit,
                        version=DEFAULT_VERSION):
     """
@@ -246,7 +252,6 @@ def get_orbit_by_time(dtime: datetime,
     return orbit_id
 
 
-# ------------------------------------------------------------------
 def readin_earthcare_curtain(product,
                              orbit,
                              frame,
@@ -280,8 +285,6 @@ def readin_earthcare_curtain(product,
     if found_file is None:
         raise IOError("No .h5 files found for this orbit on any nearby day.")
 
-    #print(f"[INFO] Reading file: {found_file}")
-
     if isinstance(sds, str):
         sds = [sds]
 
@@ -296,4 +299,29 @@ def readin_earthcare_curtain_filename(filename,
     if isinstance(sds, str):
         sds = [sds]
 
-    return csat2.misc.hdf.read_hdf5(filename, sds=sds)
+    log.debug(filename)
+    with netCDF4.Dataset(filename) as ncdf:
+        ds = xr.Dataset()
+        tdims = []
+        for name in sds:
+            var = ncdf['ScienceData/'+name]
+            var.set_auto_mask(False)
+            dims = var.dimensions
+            indata = var[:]
+            try:
+                indata = np.where(indata == var._Fillvalue, np.nan, indata)
+            except AttributeError:  # No fill value
+                pass
+            ds[name] = xr.DataArray(indata, dims=dims)
+            try:
+                ds[name].attrs["units"] = var.units
+            except AttributeError:
+                pass
+            tdims.extend(dims)
+        tdims = set(tdims)
+        for tdim in tdims:
+            try:
+                ds[tdim] = xr.DataArray(ncdf['ScienceData/'+tdim][:], dims=(tdim,))
+            except (KeyError, IndexError):
+                pass
+        return ds

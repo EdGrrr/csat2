@@ -67,7 +67,7 @@ class TestEarthCAREGranule(unittest.TestCase):
     def test_readin_filename(self):
         data = self.gran.get_variable(
             'ATL_NOM_1B',
-            'ScienceData/mie_attenuated_backscatter')['ScienceData/mie_attenuated_backscatter']
+            'mie_attenuated_backscatter')['mie_attenuated_backscatter']
         assert data.shape[0] > 10000 # In theory we don't know how large this should be
         assert data.shape[1] == 254
         assert data.max() > 0  # Should always be the case for IR channel
