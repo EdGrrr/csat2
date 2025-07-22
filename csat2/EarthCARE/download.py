@@ -90,40 +90,6 @@ def download_file_locations(product,
     return sorted(output_names)
 
 
-def get_auth_cookies(oads_hostname,
-                     expiry_limit=3600):
-    '''Getting new authentication cookies each time we make a request is slow.
-    This allows them to persist on disk until the need to be renewed.'''
-
-    cookie_file = os.path.expanduser(f"~/.csat2/{oads_hostname}.cjar")
-    try:
-        with open(cookie_file, 'rb') as f:
-            auth_cookies = pickle.load(f)
-            log.debug('Auth cookie found and loaded')
-    except FileNotFoundError:
-        log.debug('No auth cookie file')
-        auth_cookies = refresh_auth_cookies(oads_hostname)
-
-    expires = None
-    for cookie in auth_cookies:
-        if cookie.name == '_saml_idp':
-            if (cookie.expires - time.time()) < expiry_limit:
-                log.debug('Auth cookie expiring')
-                auth_cookies = refresh_auth_cookies(oads_hostname)
-            break
-    else:
-        log.debug('No valid auth cookie')
-        auth_cookies = refresh_auth_cookies(oads_hostname)
-
-    with open(cookie_file, 'wb') as f:
-        pickle.dump(auth_cookies, f)
-    log.debug('Stored new auth cookie')
-    os.chmod(cookie_file, 0o600)
-    log.debug('Fixed auth cookie file permissions')
-    
-    return auth_cookies
-
-
 def refresh_auth_cookies(oads_hostname):
     # SAML logins require three requests
     # https://stackoverflow.com/questions/52618451/python-requests-saml-login-redirect
@@ -190,6 +156,26 @@ def refresh_auth_cookies(oads_hostname):
     return response3_cookies
 
 
+class ESACookie():
+    def __init__(self, expiry_time=3600):
+        self.auth_cookies = {}
+        self.expiry_time = expiry_time
+
+    def get_auth_cookies(self, oads_hostname):
+        if (self.auth_cookies.get(oads_hostname, None) is None):
+            log.info('No cookie from this session')
+            self.auth_cookies[oads_hostname] = (
+                refresh_auth_cookies(oads_hostname), time.time())
+        elif ((time.time()-self.auth_cookies[oads_hostname][1]) >= self.expiry_time):
+            log.info('Cookie is too old')
+            self.auth_cookies[oads_hostname] = (
+                refresh_auth_cookies(oads_hostname), time.time())
+        return self.auth_cookies[oads_hostname][0]
+
+
+esa_cookie = ESACookie()
+
+
 def download(product, year=None, doy=None, orbit=None, frame=None,
              version=DEFAULT_VERSION, force_redownload=False, quiet=False):
     """
@@ -206,11 +192,12 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
     Returns:
         list[str]: List of successfully downloaded filenames.
     """
-    file_locations = download_file_locations(product, year, doy, orbit, frame, version)
+    file_locations = download_file_locations(
+        product, year=year, doy=doy, orbit=orbit, frame=frame, version=version)
 
     session = requests.Session()
     session.headers["user-agent"] = 'csat2'
-    auth_cookies = get_auth_cookies('ec-pdgs-dissemination1.eo.esa.int')
+    auth_cookies = esa_cookie.get_auth_cookies('ec-pdgs-dissemination1.eo.esa.int')
     
     product_level = get_product_level(product)
     
@@ -234,8 +221,10 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
 
         newfile = f"{local_folder}/{file_location}.ZIP"
         if (not os.path.exists(newfile.replace('.ZIP', '.h5'))) or force_redownload:
-            if force_redownload:
+            try:
                 os.remove(newfile)
+            except FileNotFoundError:
+                pass
        
             response = session.get(
                 url,
