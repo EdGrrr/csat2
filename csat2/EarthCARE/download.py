@@ -257,20 +257,16 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
             log.info("Skipping {}".format(os.path.basename(url)))
 
 def check(product,
-          year, doy,
           orbit=None, frame=None,
           version=DEFAULT_VERSION):
     """
     Check if a specific EarthCARE file exists locally.
 
     Args:
-        product_type (str): EarthCARE product name (e.g., "CPR_CLD_2A").
+        product (str): EarthCARE product name (e.g., "CPR_CLD_2A").
         version (str): Version code (e.g., "AB").
-        year (int): Year of data.
-        month (int): Month of data.
-        day (int): Day of data.
         orbit (int): Orbit number.
-        orbit_id (str): Orbit ID suffix (e.g., "H").
+        frame (str): Frame (e.g., "H").
 
     Returns:
         bool: True if file is found locally, False otherwise.
@@ -279,18 +275,20 @@ def check(product,
         ECA_EXAB_CPR_CLD_2A_20250320T195315Z_20250320T223619Z_04603H.ZIP
 
     Example usage:
-        check(product_type='CPR_CLD_2A', version='AB',
-              year=2025, month=3, day=20, orbit=4603, orbit_id='H')
+        check(product='ATL_NOM_1B', version='AE',
+              orbit=4603, frame='A')
     """
-    filename = locator.search("EarthCARE", product,
-                              version=version,
-                              year=year, doy=doy,
-                              orbit=orbit, frame=frame,
-                              )
-    if len(filename) == 1:
-        return True
-    else:
-        return False
+    raise NotImplementedError('Requires work with geometa')
+    
+    # filename = locator.search("EarthCARE", product,
+    #                           version=version,
+    #                           year=year, doy=doy,
+    #                           orbit=orbit, frame=frame,
+    #                           )
+    # if len(filename) == 1:
+    #     return True
+    # else:
+    #     return False
 
 
 def list_local_files_for_day(product,

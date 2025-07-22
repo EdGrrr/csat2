@@ -263,12 +263,6 @@ Prerequisites
 
 Before using the EarthCARE module, ensure the following:
 
-- The `lftp` command‑line tool must be installed. You can install it via:
-  
-  - **conda**: `conda install -c conda-forge lftp`
-  - **apt (Debian/Ubuntu)**: `sudo apt install lftp`
-  - **brew (macOS)**: `brew install lftp`
-
 - You must register for an account at the **ESA EarthCARE Data Access Portal**:  
   https://ec-pdgs-dissemination1.eo.esa.int/oads/access/
 
@@ -285,15 +279,7 @@ Before using the EarthCARE module, ensure the following:
           "password": "your_esa_password"
       }
 
-- In your ``~/.csat2/config.cfg``, make sure your machine is listed under
-  ``machines`` and points to a `.txt` file that holds the path mappings. Example:
-
-  .. code-block:: yaml
-
-      machines:
-          "your-machine-name": hardin.txt
-
-- In that referenced file (e.g. ``hardin.txt``), **ensure an ``[EARTHCARE]`` section is included**,
+- In your machine file (e.g. ``hardin.txt``), **ensure an ``[EARTHCARE]`` section is included**,
   for example:
 
   .. code-block:: ini
@@ -307,7 +293,7 @@ Before using the EarthCARE module, ensure the following:
 Testing Connection
 ..................
 
-To verify that your credentials and network access to the EarthCARE FTPS server are working, run:
+To verify that your credentials and network access to the EarthCARE server are working, run:
 
 .. code-block:: bash
 
@@ -327,46 +313,38 @@ Basic Usage Examples
     from csat2.EarthCARE.download import download_file_locations
 
     files = download_file_locations(
-        product_type="CPR_CLD_2A",
-        baseline="AB",
+        product="ATL_NOM_1B",
+        version="AE",
         year=2025, month=3, day=20
     )
     print(files)
 
 **Download files**
 
-Most arguments have sensible defaults, so you can be as explicit—or as minimal—as you like:
-
 .. code-block:: python
 
     from csat2.EarthCARE.download import download
 
-    # Download only two missing files
+    # Download only missing files
     downloaded = download(
-        product_type="CPR_CLD_2A",
-        baseline="AB",
+        product="ATL_NOM_1B",
+        version="AE",
         year=2025, month=3, day=20,
-        max_files=2        # optional
+        force_redownload=True # Set to download all files
     )
-    print("Files downloaded:", downloaded)
 
-    # Same date, but download *all* missing files (uses defaults)
-    download(year=2025, month=3, day=20)
+**Download a particular file**
 
-If `max_files` is omitted, **all** missing ZIPs for that date are downloaded.
-
-**Check if a particular file is already present**
+This is easiest to do by defining a granule - it follows the csat2 conventions to
+determine where to save it. Note that all files are unzipped (as zipping doesn't
+save much space)
 
 .. code-block:: python
 
-    from csat2.EarthCARE.download import check
+    import csat2.EarthCARE
 
-    exists = check(
-        product_type="CPR_CLD_2A",
-        baseline="AB",
-        year=2025, month=3, day=20,
-        orbit=4603,
-        orbit_id="H"
-    )
-    print("File present:", exists)
+    gran = csat2.EarthCARE.Granule(orbit=5234, frame='A')
+    gran.download('ATL_NOM_1B', version='AE')
+
+    
 
