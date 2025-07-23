@@ -248,3 +248,103 @@ Downloading CALIPSO data
 ........................
 
 CALIPSO data is downloaded with the NASA Langley ASDC.
+
+
+
+EarthCARE
+---------
+
+This module adds support for downloading and managing EarthCARE Level-2 data products
+within the `csat2` library.
+
+
+Prerequisites
+.............
+
+Before using the EarthCARE module, ensure the following:
+
+- You must register for an account at the **ESA EarthCARE Data Access Portal**:  
+  https://ec-pdgs-dissemination1.eo.esa.int/oads/access/
+
+- After registering, create a credentials file at:
+
+  ``~/.csat2/earthcare_auth.json``
+
+  with the following content:
+
+  .. code-block:: json
+
+      {
+          "username": "your_esa_username",
+          "password": "your_esa_password"
+      }
+
+- In your machine file (e.g. ``hardin.txt``), **ensure an ``[EARTHCARE]`` section is included**,
+  for example:
+
+  .. code-block:: ini
+
+      [EARTHCARE]
+      -[ATL_NOM_1B|CPR_NOM_1B|MSI_RGR_1C|CPR_CLD_2A|MSI_COP_2A]
+       {csat_folder}/EarthCARE/{product}/{baseline}/{year}/{month}/{day}/*_{orbit:0>5}{frame}.h5
+
+
+
+Testing Connection
+..................
+
+To verify that your credentials and network access to the EarthCARE server are working, run:
+
+.. code-block:: bash
+
+    cd /path/to/csat2
+    python -m csat2.EarthCARE.download
+
+This will perform a simple connection test and report success or failure.
+
+
+Basic Usage Examples
+....................
+
+**List the files available for a specific day**
+
+.. code-block:: python
+
+    from csat2.EarthCARE.download import download_file_locations
+
+    files = download_file_locations(
+        product="ATL_NOM_1B",
+        baseline="AE",
+        year=2025, month=3, day=20
+    )
+    print(files)
+
+**Download files**
+
+.. code-block:: python
+
+    from csat2.EarthCARE.download import download
+
+    # Download only missing files
+    downloaded = download(
+        product="ATL_NOM_1B",
+        baseline="AE",
+        year=2025, month=3, day=20,
+        force_redownload=True # Set to download all files
+    )
+
+**Download a particular file**
+
+This is easiest to do by defining a granule - it follows the csat2 conventions to
+determine where to save it. Note that all files are unzipped (as zipping doesn't
+save much space)
+
+.. code-block:: python
+
+    import csat2.EarthCARE
+
+    gran = csat2.EarthCARE.Granule(orbit=5234, frame='A')
+    gran.download('ATL_NOM_1B', baseline='AE')
+
+    
+

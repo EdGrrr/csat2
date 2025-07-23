@@ -23,6 +23,12 @@
 M csat_folder=/disk1/Data/
 M seldon_folder=/net/seldon/disk1/Data/
 
+[EarthCARE]
+-[ATL_NOM_1B|CPR_NOM_1B|MSI_RGR_1C|CPR_CLD_2A|MSI_COP_2A]
+  {csat_folder}/EarthCARE/{product}/{baseline}/{year}/{mon:0>2}/{day:0>2}/*_{orbit:0>5}{frame}.h5
+-[GEOMETA]
+  {csat_folder}/EarthCARE/GEOMETA/earthcare_geometa_{year}.txt
+
 [ECMWF]
 -[ERAInterim|ERA40|ERA5]
   {csat_folder}/ECMWF/{product}/{variable}_{level}_{resolution}_{time}/{year}/{variable}_{level}_{doy:0>3}.nc
