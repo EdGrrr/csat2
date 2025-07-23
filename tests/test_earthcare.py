@@ -32,7 +32,7 @@ class TestEarthCAREBasic(unittest.TestCase):
 @pytest.mark.network
 class TestEarthCAREDownload(unittest.TestCase):
     def test_GOES_download(self):
-        gran = EarthCARE.Granule.fromtext("EC.05234A", version='AE')
+        gran = EarthCARE.Granule.fromtext("EC.05234A", baseline='AE')
         try:
             filename = gran.get_filename('ATL_NOM_1B')
             os.remove(filename)
@@ -53,7 +53,7 @@ class TestEarthCAREGranule(unittest.TestCase):
             doy=120,
             orbit=5234,
             frame='A',
-            version='AE'
+            baseline='AE'
         )
         if len(newfiles) != 1:
             pytest.skip(
