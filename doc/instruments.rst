@@ -286,7 +286,7 @@ Before using the EarthCARE module, ensure the following:
 
       [EARTHCARE]
       -[ATL_NOM_1B|CPR_NOM_1B|MSI_RGR_1C|CPR_CLD_2A|MSI_COP_2A]
-       {csat_folder/EarthCARE/{product}/{baseline}/{year}/{month}/{day}/*_{orbit:0>5}{orbit_id}.h5
+       {csat_folder}/EarthCARE/{product}/{baseline}/{year}/{month}/{day}/*_{orbit:0>5}{frame}.h5
 
 
 
@@ -314,7 +314,7 @@ Basic Usage Examples
 
     files = download_file_locations(
         product="ATL_NOM_1B",
-        version="AE",
+        baseline="AE",
         year=2025, month=3, day=20
     )
     print(files)
@@ -328,7 +328,7 @@ Basic Usage Examples
     # Download only missing files
     downloaded = download(
         product="ATL_NOM_1B",
-        version="AE",
+        baseline="AE",
         year=2025, month=3, day=20,
         force_redownload=True # Set to download all files
     )
@@ -344,7 +344,7 @@ save much space)
     import csat2.EarthCARE
 
     gran = csat2.EarthCARE.Granule(orbit=5234, frame='A')
-    gran.download('ATL_NOM_1B', version='AE')
+    gran.download('ATL_NOM_1B', baseline='AE')
 
     
 
