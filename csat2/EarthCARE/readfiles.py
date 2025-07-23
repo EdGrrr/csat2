@@ -25,7 +25,7 @@ import numpy as np
 from csat2 import locator
 import csat2.misc.hdf
 from csat2.misc.time import doy_to_date
-from csat2.EarthCARE.utils import DEFAULT_VERSION, get_orbit_date_approx, get_orbit_number_approx
+from csat2.EarthCARE.utils import DEFAULT_BASELINE, get_orbit_date_approx, get_orbit_number_approx
 from csat2.EarthCARE.geometa import get_or_create_earthcare_geometa
 from csat2.EarthCARE.download import download_file_locations
 
@@ -34,14 +34,14 @@ log = logging.getLogger(__name__)
 
 def files_available(product,
                     year, doy,
-                    version=DEFAULT_VERSION):
+                    baseline=DEFAULT_BASELINE):
     """
     Return a sorted list of local EarthCARE filenames for one day.
     """
     filenames = locator.search(
         "EarthCARE", product,
         year=year, doy=doy,
-        version=version,
+        baseline=baseline,
         orbit="*****", frame="*",
         exit_first=False,
     )
@@ -53,7 +53,7 @@ def files_available(product,
 
 
 def variables_available(product, year, doy, orbit='*****', frame='*',
-                        version=DEFAULT_VERSION):
+                        baseline=DEFAULT_BASELINE):
     """
     Return a dict of all datasets in the first local EarthCARE HDF5 file
     found for the given date.
@@ -67,7 +67,7 @@ def variables_available(product, year, doy, orbit='*****', frame='*',
     files = locator.search(
         "EarthCARE", product,
         year=year, doy=doy,
-        version=version,
+        baseline=baseline,
         orbit=orbit, frame=frame,
         exit_first=False,
     )
@@ -76,7 +76,7 @@ def variables_available(product, year, doy, orbit='*****', frame='*',
 
 def available_orbits(product,
                      year, doy,
-                     version=DEFAULT_VERSION):
+                     baseline=DEFAULT_BASELINE):
     """
     List the orbit identifiers present on disk for one day.
 
@@ -89,7 +89,7 @@ def available_orbits(product,
     files = locator.search(
         "EarthCARE", product,
         year=year, doy=doy,
-        version=version,
+        baseline=baseline,
         orbit="*****", orbit_id="*",
         exit_first=False,
     )
@@ -106,7 +106,7 @@ def available_orbits(product,
 
 
 def get_orbit_filename(product, orbit,
-                       version=DEFAULT_VERSION):
+                       baseline=DEFAULT_BASELINE):
     """
     Return a list of EarthCARE filenames for a given orbit number.
     
@@ -123,7 +123,7 @@ def get_orbit_filename(product, orbit,
         orbit=orbit,
         year=year,
         product=product,
-        version=version
+        baseline=baseline
     )
 
     # Step 2: Search matching lines in geometa
@@ -184,7 +184,7 @@ def filename_to_datetime(fname):
 
 def get_orbit_datetimes(orbit,
                         frame,
-                        version=DEFAULT_VERSION):
+                        baseline=DEFAULT_BASELINE):
     """
     Return the start datetime (as a datetime object) for a specific orbit/frame combination
     """
@@ -193,7 +193,7 @@ def get_orbit_datetimes(orbit,
     filenames = get_orbit_filename(
         product,
         orbit=orbit,
-        version=version
+        baseline=baseline
     )
 
     matching = [f for f in filenames if f.endswith(f"{orbit_str}.ZIP") or f.endswith(f"{orbit_str}.h5")]
@@ -209,7 +209,7 @@ def get_orbit_datetimes(orbit,
 
 def get_orbit_by_time(dtime: datetime,
                       product: str,
-                      version: str     = DEFAULT_VERSION) -> str:
+                      baseline: str     = DEFAULT_BASELINE) -> str:
     """
     Given a datetime, return the EarthCARE orbit ID whose start time
     is closest. E.g.
@@ -224,7 +224,7 @@ def get_orbit_by_time(dtime: datetime,
         geometa_path = get_or_create_earthcare_geometa(
             orbit_number=orbit,
             product=product_type,
-            version=version
+            baseline=baseline
         )
         orbit_str = f"{orbit:05d}"
         with open(geometa_path, "r") as fh:
@@ -255,7 +255,7 @@ def get_orbit_by_time(dtime: datetime,
 def readin_earthcare_curtain(product,
                              orbit,
                              frame,
-                             version=DEFAULT_VERSION,
+                             baseline=DEFAULT_BASELINE,
                              sds=None):
     """
     Reads one EarthCARE curtain HDF5 file by orbit number and orbit ID.
@@ -272,7 +272,7 @@ def readin_earthcare_curtain(product,
             year=year, doy=doy,
             orbit=orbit,
             frame=frame,
-            version=version,
+            baseline=baseline,
             exit_first=False,
         )
 

@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 
-# Default EarthCare product version. This is much less consistent than MODIS,
+# Default EarthCare product baseline. This is much less consistent than MODIS,
 # so we might remove this and force users to specify it.
-DEFAULT_VERSION = "AE"
+DEFAULT_BASELINE = "AE"
 
 # same constants as before
 REFERENCE_ORBIT   = 4451

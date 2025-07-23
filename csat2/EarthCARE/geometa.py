@@ -4,7 +4,7 @@ from csat2 import locator
 import csat2.misc.time
 from csat2.EarthCARE.utils import get_orbit_date_approx
 from csat2.EarthCARE.download import download_file_locations
-from csat2.EarthCARE.utils import get_orbit_date_approx, DEFAULT_VERSION
+from csat2.EarthCARE.utils import get_orbit_date_approx, DEFAULT_BASELINE
 import numpy as np
 
 
@@ -35,7 +35,7 @@ def read_geometa(year):
 def get_or_create_earthcare_geometa(
         year,
         orbit=None,
-        version=DEFAULT_VERSION
+        baseline=DEFAULT_BASELINE
 ):
 
     """
@@ -45,7 +45,7 @@ def get_or_create_earthcare_geometa(
     Defaults:
     - year = 2025
     - product = CPR_CLD_2A
-    - version = AB
+    - baseline = AB
     """
 
     # Step 1: Estimate orbit date (if orbit provided)
@@ -75,7 +75,7 @@ def get_or_create_earthcare_geometa(
         try:
             files = download_file_locations(product=product,
                                             year=year_offset, doy=doy_offset,
-                                            version=version)
+                                            baseline=baseline)
         except Exception as e:
             print(f"[WARNING] Could not list files for {d.date()}: {e}")
             continue

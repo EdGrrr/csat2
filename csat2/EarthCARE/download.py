@@ -18,7 +18,7 @@ from csat2 import locator
 import csat2.misc.time
 from tqdm import tqdm
 import logging
-from csat2.EarthCARE.utils import DEFAULT_VERSION, get_product_level
+from csat2.EarthCARE.utils import DEFAULT_BASELINE, get_product_level
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ def download_file_locations(product,
                             year=None, doy=None, hour=None, minute=None,
                             dtime=None,
                             orbit=None, frame=None,
-                            version=DEFAULT_VERSION,
+                            baseline=DEFAULT_BASELINE,
                             limit=2000):
     """
     List available ZIP filenames for an EarthCARE Level-2 product on a given date.
@@ -69,8 +69,8 @@ def download_file_locations(product,
     if frame:
         url += f'&frame={frame}'
         dataflag = True
-    if version:
-        url += f'&productVersion={version}'
+    if baseline:
+        url += f'&productVersion={baseline}'
         dataflag = True
         
     if dataflag == False:
@@ -178,7 +178,7 @@ esa_cookie = ESACookie()
 
 
 def download(product, year=None, doy=None, orbit=None, frame=None,
-             version=DEFAULT_VERSION, force_redownload=False, quiet=False):
+             baseline=DEFAULT_BASELINE, force_redownload=False, quiet=False):
     """
     Downloads EarthCARE files for a specified product and date/orbit/frame.
 
@@ -186,7 +186,7 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
 
     Args:
         product_type (str): EarthCARE product name (e.g. "CPR_CLD_2A").
-        version (str): Version code (e.g. "AB").
+        baseline (str): Baseline code (e.g. "AB").
         year (int): Year of data (e.g. 2025).
         doy (int): Day of year in NASA format (1st Jan is DOY1)
 
@@ -194,7 +194,7 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
         list[str]: List of successfully downloaded filenames.
     """
     file_locations = download_file_locations(
-        product, year=year, doy=doy, orbit=orbit, frame=frame, version=version)
+        product, year=year, doy=doy, orbit=orbit, frame=frame, baseline=baseline)
 
     session = requests.Session()
     session.headers["user-agent"] = 'csat2'
@@ -216,7 +216,7 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
         local_folder = locator.get_folder(
             "EarthCARE", product=product,
             year=year, doy=doy,
-            version=version,
+            baseline=baseline,
         )
         os.makedirs(local_folder, exist_ok=True)
 
@@ -258,13 +258,13 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
 
 def check(product,
           orbit=None, frame=None,
-          version=DEFAULT_VERSION):
+          baseline=DEFAULT_BASELINE):
     """
     Check if a specific EarthCARE file exists locally.
 
     Args:
         product (str): EarthCARE product name (e.g., "CPR_CLD_2A").
-        version (str): Version code (e.g., "AB").
+        baseline (str): Baseline code (e.g., "AB").
         orbit (int): Orbit number.
         frame (str): Frame (e.g., "H").
 
@@ -275,13 +275,13 @@ def check(product,
         ECA_EXAB_CPR_CLD_2A_20250320T195315Z_20250320T223619Z_04603H.ZIP
 
     Example usage:
-        check(product='ATL_NOM_1B', version='AE',
+        check(product='ATL_NOM_1B', baseline='AE',
               orbit=4603, frame='A')
     """
     raise NotImplementedError('Requires work with geometa')
     
     # filename = locator.search("EarthCARE", product,
-    #                           version=version,
+    #                           baseline=baseline,
     #                           year=year, doy=doy,
     #                           orbit=orbit, frame=frame,
     #                           )
@@ -293,7 +293,7 @@ def check(product,
 
 def list_local_files_for_day(product,
                              year, doy,
-                             version=DEFAULT_VERSION):
+                             baseline=DEFAULT_BASELINE):
     """
     List all EarthCARE files available locally for the given date.
 
@@ -302,7 +302,7 @@ def list_local_files_for_day(product,
     """
     filenames = locator.search("EarthCARE", product,
                                year=year, doy=doy,
-                               version=version,
+                               baseline=baseline,
                                orbit='*****', #Note that orbit wil not expand by default
                                frame='*',
                                )
