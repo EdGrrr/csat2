@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from csat2 import locator
+from csat2 import misc
 import xarray as xr
 from csat2.ISCCP.download import download_files
 import calendar
@@ -19,7 +20,10 @@ class Granule:
         The granule object is independant of hte product and type'''
 
         check_valid_gran_args(year, doy, time)
+        month = misc.time.doy_to_date(year, doy)[1]  # Get month from day of year
+
         self.year = year
+        self.month = month ## month is an integer from 1 to 12
         self.doy = doy
         self.time = time
         self.lonlat = None # this is okay to cache since the grid is not changing
@@ -37,10 +41,16 @@ class Granule:
         collection_uppercase = {'isccp-basic': 'ISCCP-Basic', 'isccp': 'ISCCP'} 
         
         time_str = f"{self.time:02d}" + '00'
+        if product == 'hgg':
+            fileloc = locator.format_filename(collection_uppercase[collection], product_uppercase, year=self.year, doy=self.doy, time=time_str)
+        elif product == 'hgh':
+            fileloc = locator.format_filename(collection_uppercase[collection], product_uppercase, year=self.year, month=self.month, time=time_str)
+        elif product == 'hgm':
+            fileloc = locator.format_filename(collection_uppercase[collection], product_uppercase, year=self.year, month = self.month)
 
-        fileloc = locator.format_filename(collection_uppercase[collection], product_uppercase, year=self.year, doy=self.doy, time=time_str)
 
         return fileloc
+
     
 
     def check(self, product,collection):

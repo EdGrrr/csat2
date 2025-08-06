@@ -47,17 +47,28 @@ def download_files(year:int ,doy:int,times:int,collection: str = 'isccp-basic',p
     base_url = f"https://www.ncei.noaa.gov/data/international-satellite-cloud-climate-project-isccp-h-series-data/access"
 
     collection_uppercase = {'isccp-basic': 'ISCCP-Basic', 'isccp': 'ISCCP'} ## converts the product name as it appears in two different ways, uppercase version in the remote filename and the local file naming convention
-
-
-    product_uppercase = product.upper()  # Convert version to uppercase as it appears uppercase in the remote filename
-    local_dir = locator.get_folder(collection_uppercase[collection],product_uppercase,year=year,doy = doy)
-
     year, month,dom = csat2.misc.time.doy_to_date(year, doy) # returns a tuple of integer values for year, month and day of month
     doy_str = f"{doy:03d}"  # Format day of year as a three-digit string
     time_str = f"{times:02d}" +'00'   # Format time as a four digit string (HHMM), e.g. 0000, 0300, 0600, etc.
     year_str = str(year)  # Convert year to string
     month_str = f"{month:02d}"  # Format month as a two-digit string
     dom_str = f"{dom:02d}"  # Format day of month as a two-digit string
+
+    product_uppercase = product.upper()  # Convert version to uppercase as it appears uppercase in the remote filename
+    if product == 'hgg': ## hgg is specified by a year, doy and time
+        local_dir = locator.get_folder(collection_uppercase[collection],product_uppercase,year=year,doy = doy)
+        local_filename = locator.format_filename(collection_uppercase[collection],product_uppercase,year=year,doy = doy,time = time_str) ## This is the expected local filename format for ISCCP data,
+        remote_filename = f'{collection_uppercase[collection]}.{product_uppercase}.v01r00.GLOBAL.{year}.{month_str}.{dom_str}.{time_str}.GPC.10KM.CS00.EA1.00.nc'  # Construct the remote filename
+    elif product == 'hgh': ## hgg is specified by a month and a time of day (it is montly mean for a given time of day)
+        local_dir = locator.get_folder(collection_uppercase[collection],product_uppercase,year=year,month=csat2.misc.time.doy_to_date(year, doy)[1],time = time_str)
+        local_filename = locator.format_filename(collection_uppercase[collection],product_uppercase,year=year,month=csat2.misc.time.doy_to_date(year, doy)[1],time = time_str)
+        remote_filename = f'{collection_uppercase[collection]}.{product_uppercase}.v01r00.GLOBAL.{year}.{month_str}.99.{time_str}.GPC.10KM.CS00.EA1.00.nc'  # Construct the remote filename
+    elif product == 'hgm': ## hgm is specified by a year and month (it is monthly mean for a given month)
+        local_dir = locator.get_folder(collection_uppercase[collection],product_uppercase,year=year,month=csat2.misc.time.doy_to_date(year, doy)[1])
+        local_filename = locator.format_filename(collection_uppercase[collection],product_uppercase,year=year,month=csat2.misc.time.doy_to_date(year, doy)[1])
+        remote_filename = f'{collection_uppercase[collection]}.{product_uppercase}.v01r00.GLOBAL.{year}.{month_str}.99.9999.GPC.10KM.CS00.EA1.00.nc'  # Construct the remote filename
+
+
 
     ## the data is stored in a directory structure like this:
     # https://www.ncei.noaa.gov/data/international-satellite-cloud-climate-project-isccp-h-series-data/access/isscp-basic/hgg/YEARMM/files
@@ -66,12 +77,12 @@ def download_files(year:int ,doy:int,times:int,collection: str = 'isccp-basic',p
     os.makedirs(local_dir, exist_ok=True)  # Create the local directory if it doesn't exist
 
 
-    local_filename =  locator.format_filename(collection_uppercase[collection],product_uppercase,year=year,doy = doy,time = time_str) ## This is the expected local filename format for ISCCP data,
+    
     local_path = os.path.join(local_dir, local_filename)
 
     
     remote_dir = f"{base_url}/{collection}/{product}/{year_str}{month_str}/"
-    remote_filename = f'{collection_uppercase[collection]}.{product_uppercase}.v01r00.GLOBAL.{year}.{month_str}.{dom_str}.{time_str}.GPC.10KM.CS00.EA1.00.nc'  # Construct the remote filename
+    
 
 
     if (not os.path.exists(local_path)) or force_redownload:
