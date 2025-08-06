@@ -6,7 +6,7 @@ import os
 import os.path
 import logging
 import requests
-from .utils import check_valid_args
+from .utils import check_valid_gran_args, check_valid_collection_product
 
 
 
@@ -28,7 +28,7 @@ def get_file_from_url(url, local_path):
 
 
 
-def download_files(year:int ,doy:int,times:int,product: str = 'isccp-basic',version: str = 'hgg',force_redownload = False):
+def download_files(year:int ,doy:int,times:int,collection: str = 'isccp-basic',product: str = 'hgg',force_redownload = False):
     '''Download file locations for ISCCP data.
     Args: 
         product (str): either 'isccp' or 'isccp-basic', basic is just a subset of the full isccp data and generally contains all the data you need, basic is the default
@@ -40,17 +40,17 @@ def download_files(year:int ,doy:int,times:int,product: str = 'isccp-basic',vers
     Returns:
         downloads the ISCCP data files to the local filesystem in a structured way.
     '''
-    check_valid_args(year, doy, times, product, version)  # Validate the input arguments
-    logging.info(f"Downloading ISCCP data for {year}-{doy:03d} at {times:02d}00 UTC, product: {product}, version: {version}")
-    
+    check_valid_gran_args(year, doy, times)  # Validate the input arguments
+    check_valid_collection_product(collection,product)  # Validate the product and version
+    logging.info(f"Downloading ISCCP data for {year}-{doy:03d} at {times:02d}00 UTC, collection: {collection}, product: {product}")
 
     base_url = f"https://www.ncei.noaa.gov/data/international-satellite-cloud-climate-project-isccp-h-series-data/access"
 
-    product_uppercase = {'isccp-basic': 'ISCCP-Basic', 'isccp': 'ISCCP'} ## converts the product name as it appears in two different ways, uppercase version in the remote filename and the local file naming convention
+    collection_uppercase = {'isccp-basic': 'ISCCP-Basic', 'isccp': 'ISCCP'} ## converts the product name as it appears in two different ways, uppercase version in the remote filename and the local file naming convention
 
 
-    version_uppercase = version.upper()  # Convert version to uppercase as it appears uppercase in the remote filename
-    local_dir = locator.get_folder(product_uppercase[product],version_uppercase,year=year,doy = doy)
+    product_uppercase = product.upper()  # Convert version to uppercase as it appears uppercase in the remote filename
+    local_dir = locator.get_folder(collection_uppercase[collection],product_uppercase,year=year,doy = doy)
 
     year, month,dom = csat2.misc.time.doy_to_date(year, doy) # returns a tuple of integer values for year, month and day of month
     doy_str = f"{doy:03d}"  # Format day of year as a three-digit string
@@ -66,12 +66,12 @@ def download_files(year:int ,doy:int,times:int,product: str = 'isccp-basic',vers
     os.makedirs(local_dir, exist_ok=True)  # Create the local directory if it doesn't exist
 
 
-    local_filename =  locator.format_filename(product_uppercase[product],version_uppercase,year=year,doy = doy,time = time_str) ## This is the expected local filename format for ISCCP data,
+    local_filename =  locator.format_filename(collection_uppercase[collection],product_uppercase,year=year,doy = doy,time = time_str) ## This is the expected local filename format for ISCCP data,
     local_path = os.path.join(local_dir, local_filename)
 
     
-    remote_dir = f"{base_url}/{product}/{version}/{year_str}{month_str}/"
-    remote_filename = f'{product_uppercase[product]}.{version_uppercase}.v01r00.GLOBAL.{year}.{month_str}.{dom_str}.{time_str}.GPC.10KM.CS00.EA1.00.nc'  # Construct the remote filename
+    remote_dir = f"{base_url}/{collection}/{product}/{year_str}{month_str}/"
+    remote_filename = f'{collection_uppercase[collection]}.{product_uppercase}.v01r00.GLOBAL.{year}.{month_str}.{dom_str}.{time_str}.GPC.10KM.CS00.EA1.00.nc'  # Construct the remote filename
 
 
     if (not os.path.exists(local_path)) or force_redownload:
