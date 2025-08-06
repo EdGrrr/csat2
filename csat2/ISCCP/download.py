@@ -80,10 +80,10 @@ def download_files(year:int ,doy:int,times:int,collection: str = 'isccp-basic',p
     
     local_path = os.path.join(local_dir, local_filename)
 
-    
-    remote_dir = f"{base_url}/{collection}/{product}/{year_str}{month_str}/"
-    
-
+    if product == 'hgm': ## slightly different file structure for this
+        remote_dir = f"{base_url}/{collection}/{product}/"
+    else:
+        remote_dir = f"{base_url}/{collection}/{product}/{year_str}{month_str}/"
 
     if (not os.path.exists(local_path)) or force_redownload:
         remote_url = f"{remote_dir}{remote_filename}"
