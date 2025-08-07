@@ -53,7 +53,7 @@ class Granule:
 
     
 
-    def check(self, product,collection):
+    def check(self,collection,product):
         '''Check if a specific product/ collection for the granule exists locally, returns True if the file exists'''
 
 
@@ -88,7 +88,7 @@ class Granule:
         '''
         self.check(collection,product) ## check if the file exists and download it if not
 
-        with netCDF4.Dataset(self.local_path, mode='r') as nc:
+        with netCDF4.Dataset(self.get_fileloc(collection,product), mode='r') as nc:
             if varname not in nc.variables:
                 raise ValueError(f"Variable '{varname}' not found in dataset.")
             
