@@ -32,7 +32,7 @@ class TestMODISBasic(unittest.TestCase):
 @pytest.mark.network
 class TestMODISDownload(unittest.TestCase):
     def test_MODIS_download(self):
-        gran = MODIS.Granule.fromtext("2015001.2150A")
+        gran = MODIS.Granule.fromtext("2015001.1220A")
         # Remove exisiting file
         try:
             fname = gran.get_filename("021KM")
@@ -48,7 +48,7 @@ class TestMODISDownload(unittest.TestCase):
         assert isinstance(gran.get_filename("021KM"), str)
 
     def test_MODIS_download_geometa(self):
-        gran = MODIS.Granule.fromtext("2015001.2150A")
+        gran = MODIS.Granule.fromtext("2015001.1220A")
         # Remove exisiting file
         try:
             fname = gran.get_filename("GEOMETA")
@@ -76,12 +76,12 @@ class TestMODISGranule(unittest.TestCase):
     def setUp(self):
         # Requires that the download tests have passed
         # Some data is required!
-        self.gran = MODIS.Granule.fromtext("2015001.2150A")
+        self.gran = MODIS.Granule.fromtext("2015001.1220A")
         try:
             self.gran.get_filename("021KM")
         except IndexError:
             pytest.skip(
-                "Test requires 2015001.2150A (MYD021KM)- run with --runnetwork to download automatically"
+                "Test requires 2015001.1220A (MYD021KM)- run with --runnetwork to download automatically"
             )
 
     def test_getfilename(self):
@@ -124,7 +124,7 @@ class TestMODISLocator(unittest.TestCase):
     def setUp(self):
         # Requires that the download tests have passed
         # Some data is required!
-        self.gran = MODIS.Granule.fromtext("2015001.2150A")
+        self.gran = MODIS.Granule.fromtext("2015001.1220A")
 
         self.locs = [
             ["Isla Angel de la Guarda", (-113.1140, 28.9846), (380, 1681)],
