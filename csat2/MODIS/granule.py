@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import csat2.misc
 import csat2.misc.time
 from .. import locator
 from .readfiles import (
@@ -149,7 +150,10 @@ class Granule(object):
             ]
         return csat2.MODIS.util.point_intersection_granule(locs, self._gring)
 
-    def locate(self, locs, rectified=False, product=None, col=None, factor=2, **kwargs):
+    def locate(self, locs,
+               rectified=False, product=None, col=None,
+               locator_type='BallTree', factor=2,
+               **kwargs):
         """Returns the locations in the granule of lon,lat pairs,
         is an instance of MODISlocator"""
         if rectified:
@@ -157,19 +161,23 @@ class Granule(object):
             if not self.rect_locator:
                 # print('Rectified create')
                 self.rect_locator = _MODISlocator(
-                    self, rectified=rectified, product=product, col=col, factor=factor
+                    self, rectified=rectified, product=product, col=col,
+                    locator_type=locator_type, factor=factor
                 )
             return self.rect_locator.locate(locs, **kwargs)
         else:
             if not self.locator:
                 self.locator = _MODISlocator(
-                    self, product=product, col=col, factor=factor
+                    self, product=product, col=col,
+                    locator_type=locator_type, factor=factor
                 )
             return self.locator.locate(locs, **kwargs)
 
-    def points_in_radius(self, loc, dist=20):
+    def points_in_radius(self, loc, dist=20,
+                         locator_type='BallTree', factor=2):
         if not self.locator:
-            self.locator = _MODISlocator(self, col=self.col)
+            self.locator = _MODISlocator(self, col=self.col,
+                                         locator_type=locator_type, factor=factor)
         return self.locator.points_in_radius(loc, dist)
 
     def _read_lonlat(self, product=None, col=None, dateline=False):
@@ -207,11 +215,12 @@ class Granule(object):
         """The the lon/lat positions for a given set of MODIS coordinates"""
         if not self.lonlat:
             self._read_lonlat()
-        mlocslon = np.array(mlocs)[:, 0].clip(0, self.lonlat[0].shape[0] - 1)
-        mlocslat = np.array(mlocs)[:, 1].clip(0, self.lonlat[0].shape[1] - 1)
-        return list(
-            zip(self.lonlat[0][mlocslon, mlocslat], self.lonlat[1][mlocslon, mlocslat])
-        )
+        mlocslon = np.array(mlocs)[..., 0].clip(0, self.lonlat[0].shape[0] - 1)
+        mlocslat = np.array(mlocs)[..., 1].clip(0, self.lonlat[0].shape[1] - 1)
+        return np.moveaxis(
+            np.array([self.lonlat[0][mlocslon, mlocslat],
+                      self.lonlat[1][mlocslon, mlocslat]]),
+            0, -1)
 
     def geolocate(self, mlocs):
         return self.mloc_to_lonlat(mlocs)
@@ -560,18 +569,24 @@ class Granule(object):
         ntime = int("{:0>2}{:0>2}".format(dt.hour, dt.minute))
         return Granule(dt.year, doy, ntime, self.sat, col=self.col)
 
+    def next(self, number=1):
+        return self.increment(number)
+    
 
 class _MODISlocator:
-    """Converts lat-lon to MODIS grid locations for a specified accuracy (factor)"""
-
-    def __init__(
-        self, granule, factor=2, rectified=False, col=None, product=None, dateline=False
-    ):
+    def __init__(self, granule,
+                 rectified=False,
+                 col=None,
+                 product=None,
+                 dateline=False,
+                 locator_type='BallTree',
+                 *args,
+                 **kwargs
+                 ):
         if not col:
             col = granule.col
         if not product:
             product = "021KM"
-        self.factor = factor
 
         # Store the granule this locator references
         self.granule_name = granule.astext()
@@ -602,7 +617,37 @@ class _MODISlocator:
         else:
             self.rectified = False
 
+        self.locator_type = locator_type
+        self.locator_class = {
+            'BallTree': _MODISlocatorBallTree,
+            'SphereRemap': _MODISlocatorSphereRemap,
+            'FullSearch': _MODISlocatorFullSearch}[self.locator_type](
+                                  lon, lat, *args, **kwargs)
+            
+    def locate(self, locs, filter_outside=10, remove_outside=False):
+        # Return nans if passed nans
+        if not np.all(np.isfinite(locs)):
+            return [(np.nan, np.nan)] * len(locs)
+        output = self.locator_class.locate(locs, filter_outside, remove_outside)
+        if self.rectified:
+            # Only remap valid points (not nan or -1)
+            valid = np.where(
+                np.isfinite(output.sum(axis=1)) &
+                ((output >= 0).sum(axis=1) == 2)
+            )
+            output[valid, 1] = self.rect_conv[output[valid, 1]]
+        return output
+
+    def points_in_radius(self, loc, dist):
+        return self.locator_class(loc, dist)
+
+    
+class _MODISlocatorBallTree:
+    """Converts lat-lon to MODIS grid locations for a specified accuracy (factor)"""
+
+    def __init__(self, lon, lat, factor=2):
         # FUTURE: Transform coordinates then use cKDTree for speed
+        self.factor = factor
         self.locator_tree = BallTree(
             np.array(
                 list(
@@ -616,7 +661,7 @@ class _MODISlocator:
         )
         self.shape = lat[::factor, ::factor].shape
 
-    def unraveler(self, loc_ind):
+    def _unraveler(self, loc_ind):
         return [
             (
                 self.factor * (ind[0] // self.shape[1]),
@@ -630,18 +675,14 @@ class _MODISlocator:
         filter_outside km from the nearest pixel return np.nan
 
         Currently returns nans if passed nan"""
-        if not np.all(np.isfinite(locs)):
-            return [(np.nan, np.nan)] * len(locs)
         loc_ind = self.locator_tree.query(np.deg2rad(np.array(locs)[:, ::-1]))
         if np.min(loc_ind[0] * 6378) > filter_outside:
             return [(np.nan, np.nan)]
-        output = np.array(self.unraveler(loc_ind[1]))
+        output = np.array(self._unraveler(loc_ind[1]))
         if remove_outside:
             os_points = np.where(loc_ind[0] * 6378 > filter_outside)
             # Cannot use nan here as index array
-            output[os_points[0], :] = -1
-        if self.rectified:
-            output[:, 1] = self.rect_conv[output[:, 1]]
+            output[os_points[0]] = -1
         return output
 
     def points_in_radius(self, loc, dist):
@@ -649,8 +690,32 @@ class _MODISlocator:
         loc_ind = self.locator_tree.query_radius(
             np.deg2rad(np.array(loc)[:, ::-1]), r=dist / 6378
         )
-        return np.array(self.unraveler(loc_ind[0].reshape(-1, 1)))
+        return np.array(self._unraveler(loc_ind[0].reshape(-1, 1)))
 
+
+class _MODISlocatorFullSearch:
+    def __init__(self, lon, lat, *args, **kwargs):
+        self.lon = lon
+        self.lat = lat
+
+    def locate(self, locs, filter_outside=10, remove_outside=False):
+        output = []
+        for loc in locs:
+            dists = csat2.misc.haversine(*loc, self.lon, self.lat)
+            mindist = dists.min()
+            if mindist > 10:
+                output.append([-1, -1])
+            else:
+                output.append(np.where(dists == dists.min()))
+        return output
+
+    def points_in_radius(self, loc, dist):
+        dists = csat2.misc.haversine(*loc, self.lon, self.lat)
+        return np.array(np.where(dists<dist))
+
+
+class _MODISlocatorSphereRemap:
+    
     def coordinate_shift(
         self, lon, lat, centre_lon, centre_lat, travel_lon, travel_lat
     ):
