@@ -119,7 +119,6 @@ class TestMODISGranule(unittest.TestCase):
             assert data.min() >= 0
 
 
-@pytest.mark.skip
 class TestMODISLocator(unittest.TestCase):
     def setUp(self):
         # Requires that the download tests have passed
@@ -127,108 +126,41 @@ class TestMODISLocator(unittest.TestCase):
         self.gran = MODIS.Granule.fromtext("2015001.1220A")
 
         self.locs = [
-            ["Isla Angel de la Guarda", (-113.1140, 28.9846), (380, 1681)],
-            ["Verrazzano Narrows", (-74.0431, 40.6054), (3696, 643)],
+            ["Pointe de Grave", (-1.0611, 45.5734), (1774, 1244)],
+            ["Punta del Marchese", (10.0795, 42.6187), (1227, 719)],
+            ["Corfu", (19.9210, 39.6243), (782, 144)],
         ]
 
-    def test_locator_geometry(self):
-        mlocator = MODIS.granule.GOESLocator(self.gran.get_filename(channel=13))
-        lon = -84.690932
-        lat = 33.846162
-        lonr = np.deg2rad(lon)
-        latr = np.deg2rad(lat)
-        saty = 0.095340
-        satx = -0.024052
-        assert np.all(np.isclose(glocator._geodetic_to_sat(lonr, latr), (satx, saty)))
-        assert np.all(
-            np.isclose(
-                glocator._geodetic_to_sat(
-                    np.array([lonr, lonr]), np.array([latr, latr])
-                ),
-                (np.array([satx, satx]), np.array([saty, saty])),
-            )
-        )
+        # These are locations specifically outside the test granule
+        self.fail_locs = [
+            ["Isla Angel de la Guarda", (-113.1140, 28.9846)],
+            ["Verrazzano Narrows", (-74.0431, 40.6054)],
+        ]
 
-        assert np.all(np.isclose(glocator._sat_to_geodetic(satx, saty), (lonr, latr)))
-        assert np.all(
-            np.isclose(
-                glocator._sat_to_geodetic(
-                    np.array([satx, satx]), np.array([saty, saty])
-                ),
-                (np.array([lonr, lonr]), np.array([latr, latr])),
-            )
-        )
-        # Check points off Earth fail
-        assert np.all(np.isnan(glocator._sat_to_geodetic(-0.2, 0.1)))
-
-    def test_locator_gridding(self):
-        # Some identified locations in GOES images
-        # Examples in the GOES document appear to be wrong...
-
+    def test_locator_valid(self):
         for loc in self.locs:
             ilon, ilat = loc[1]
             # Check 1km locator
-            glocator = GOES.granule.GOESLocator(self.gran.get_filename(channel=1))
-            slon1km, slat1km = loc[2]
-            geoloc = glocator.geolocate(np.array([[slon1km, slat1km]]))[0]
-            assert misc.geo.haversine(*geoloc, ilon, ilat) < 1
-            sloc = glocator.locate(np.array([[ilon, ilat]]))[0]
-            assert np.sqrt((slon1km - sloc[0]) ** 2 + (slat1km - sloc[1]) ** 2) < 2
-
-            # Check 2km locator
-            glocator = GOES.granule.GOESLocator(self.gran.get_filename(channel=13))
-            slon2km, slat2km = slon1km // 2, slat1km // 2
-            geoloc = glocator.geolocate(np.array([[slon2km, slat2km]]))[0]
-            assert misc.geo.haversine(*geoloc, ilon, ilat) < 2
-            sloc = glocator.locate(np.array([[ilon, ilat]]))[0]
-            assert np.sqrt((slon2km - sloc[0]) ** 2 + (slat2km - sloc[1]) ** 2) < 2
-
-    def test_locator_gridding_interpolate(self):
-        # Some identified locations in GOES images
-        # Examples in the GOES document appear to be wrong...
-
+            mlon_1km, mlat_1km = self.gran.locate([[ilon, ilat]])[0]
+            assert np.sqrt((mlon_1km - loc[2][0]) ** 2 + (mlat_1km - loc[2][1]) ** 2) < 2
+            nlon, nlat = self.gran.geolocate([[mlon_1km, mlat_1km]])[0]
+            # Allow a 1-pixel mis-registration
+            assert misc.geo.haversine(nlon, nlat, ilon, ilat) < 1.41
+        
+    @pytest.mark.xfail
+    def test_locator_valid_1km(self):
         for loc in self.locs:
             ilon, ilat = loc[1]
             # Check 1km locator
-            glocator = GOES.granule.GOESLocator(self.gran.get_filename(channel=1))
-            slon1km, slat1km = loc[2]
-            geoloc = glocator.geolocate(np.array([[slon1km, slat1km]]), interp=True)[0]
-            # Must be within 1km
-            assert misc.geo.haversine(*geoloc, ilon, ilat) < 1
-            sloc = glocator.locate(np.array([[ilon, ilat]]), interp=True)[0]
-            assert np.sqrt(
-                (slon1km - sloc[0]) ** 2 + (slat1km - sloc[1]) ** 2
-            ) <= np.sqrt(2)
+            mlon_1km, mlat_1km = self.gran.locate([[ilon, ilat]])[0]
+            assert np.sqrt((mlon_1km - loc[2][0]) ** 2 + (mlat_1km - loc[2][1]) ** 2) < 2
+            nlon, nlat = self.gran.geolocate([[mlon_1km, mlat_1km]])[0]
+            assert misc.geo.haversine(nlon, nlat, ilon, ilat) < 0.71
 
-            # Check 2km locator
-            glocator = GOES.granule.GOESLocator(self.gran.get_filename(channel=13))
-            slon2km, slat2km = slon1km // 2, slat1km // 2
-            geoloc = glocator.geolocate(np.array([[slon2km, slat2km]]), interp=True)[0]
-            # Must be within 2km
-            assert misc.geo.haversine(*geoloc, ilon, ilat) < 2
-            sloc = glocator.locate(np.array([[ilon, ilat]]), interp=True)[0]
-            assert np.sqrt(
-                (slon2km - sloc[0]) ** 2 + (slat2km - sloc[1]) ** 2
-            ) <= np.sqrt(2)
-
-    def test_locator_gridding_failures(self):
-        """Check for the correct returns when the input point is outside
-        the domain."""
-        glocator = GOES.granule.GOESLocator(self.gran.get_filename(channel=13))
-        data = self.gran.get_band_bt(13)
-        fail_locs = [[0, 0], [0, -90], [0, 90], [-170, 0]]
-        for fl in fail_locs:
-            sloc = glocator.locate(np.array([fl]))[0]
-            assert np.all(sloc == -999999)
-            with pytest.raises(Exception):
-                data[sloc[1], sloc[0]]
-
-    def test_locator_gridding_interpolate_failures(self):
-        glocator = GOES.granule.GOESLocator(self.gran.get_filename(channel=13))
-        data = self.gran.get_band_bt(13)
-        fail_locs = [[0, 0], [0, -90], [0, 90], [-170, 0]]
-        for fl in fail_locs:
-            sloc = glocator.locate(np.array([fl]), interp=True)[0]
-            assert np.all(np.isnan(sloc))
-            with pytest.raises(Exception):
-                data[sloc[1], sloc[0]]
+    def test_locator_invalid(self):
+        for loc in self.fail_locs:
+            ilon, ilat = loc[1]
+            # Check 1km locator
+            mlon_1km, mlat_1km = self.gran.locate([[ilon, ilat]])[0]
+            assert np.isnan(mlon_1km)
+            assert np.isnan(mlat_1km)

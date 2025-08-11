@@ -213,6 +213,9 @@ class Granule(object):
             zip(self.lonlat[0][mlocslon, mlocslat], self.lonlat[1][mlocslon, mlocslat])
         )
 
+    def geolocate(self, mlocs):
+        return self.mloc_to_lonlat(mlocs)
+    
     def get_angles(self, mst=False, product=None, col=None, dateline=False):
         """Get the solar and scattering angles for a MODIS/VIIRS image
         Returns solar zenith, azimuth, satellite zenith, azimuth
