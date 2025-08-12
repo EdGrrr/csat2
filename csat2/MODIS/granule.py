@@ -681,7 +681,7 @@ class _MODISlocatorBallTree:
         output = np.array(self._unraveler(loc_ind[1]))
         if remove_outside:
             os_points = np.where(loc_ind[0] * 6378 > filter_outside)
-            # Cannot use nan here as index array
+            # Cannot use nan here as int array
             output[os_points[0]] = -1
         return output
 
@@ -706,8 +706,8 @@ class _MODISlocatorFullSearch:
             if mindist > 10:
                 output.append([-1, -1])
             else:
-                output.append(np.where(dists == dists.min()))
-        return output
+                output.append(np.array(np.where(dists == dists.min())).squeeze())
+        return np.array(output)
 
     def points_in_radius(self, loc, dist):
         dists = csat2.misc.haversine(*loc, self.lon, self.lat)

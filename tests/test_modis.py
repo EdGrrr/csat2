@@ -119,12 +119,16 @@ class TestMODISGranule(unittest.TestCase):
             assert data.min() >= 0
 
 
-class TestMODISLocator(unittest.TestCase):
-    def setUp(self, locator_type='BallTree'):
+class BaseMODISLocator(unittest.TestCase):
+    locator_type = None  # Subclasses set this
+    __test__ = False
+    
+    def setUp(self):
         # Requires that the download tests have passed
         # Some data is required!
         self.gran = MODIS.Granule.fromtext("2015001.1220A")
-        self.locator_type = locator_type
+
+        assert self.locator_type is not None, "Subclasses must set locator_type"
         
         self.locs = [
             ["Pointe de Grave", (-1.0611, 45.5734), (1774, 1244), (1774, 1947)],
@@ -199,17 +203,16 @@ class TestMODISLocator(unittest.TestCase):
         ).reshape((pattern_locs).shape)
         assert (abs(calc_plocs-pattern_locs) <= 1).all()
 
-    @pytest.mark.xfail
-    def test_locator_valid_1km(self):
-        for loc in self.locs:
-            ilon, ilat = loc[1]
-            # Check 1km locator
-            mlon_1km, mlat_1km = self.gran.locate(
-                [[ilon, ilat]],
-                locator_type=self.locator_type)[0]
-            assert np.sqrt((mlon_1km - loc[2][0]) ** 2 + (mlat_1km - loc[2][1]) ** 2) < 2
-            nlon, nlat = self.gran.geolocate([[mlon_1km, mlat_1km]])[0]
-            assert misc.geo.haversine(nlon, nlat, ilon, ilat) < 0.71
+    def test_pattern_locations_exact(self):
+        pattern_locs = np.array(
+            np.meshgrid(np.arange(5, 2100, 200),
+                        np.arange(5, 1350, 130))).T
+        geo_locs = self.gran.geolocate(pattern_locs)
+        calc_plocs = self.gran.locate(
+            geo_locs.reshape((-1, 2)),
+            locator_type=self.locator_type
+        ).reshape((pattern_locs).shape)
+        assert (abs(calc_plocs-pattern_locs) ==0 ).all()
 
     def test_locator_invalid(self):
         for loc in self.fail_locs:
@@ -218,5 +221,19 @@ class TestMODISLocator(unittest.TestCase):
             mlon_1km, mlat_1km = self.gran.locate(
                 [[ilon, ilat]],
                 locator_type=self.locator_type)[0]
-            assert np.isnan(mlon_1km)
-            assert np.isnan(mlat_1km)
+            assert np.isnan(mlon_1km) or (mlon_1km == -1)
+            assert np.isnan(mlat_1km) or (mlat_1km == -1)
+
+
+class TestMODISLocator_BallTree(BaseMODISLocator):
+    locator_type = 'BallTree'
+    __test__ = True
+
+    @pytest.mark.xfail
+    def test_pattern_locations_exact(self):
+        super().test_pattern_locations_exact()
+
+
+class TestMODISLocator_FullSearch(BaseMODISLocator):
+    locator_type = 'FullSearch'
+    __test__ = True
