@@ -144,6 +144,15 @@ Note that this requires `CDO <https://code.mpimet.mpg.de/projects/cdo/>`_ to be 
 The variable names here are the local names, which mostly (but not always) match the Copernicus names. Windspeed and SST are the main exceptions.
 
 
+Constant Data
+.............
+
+You may want to have an ERA5Data-like object that just returns constant data (for testing etc.). This can be created with the ``ConstantData`` class. It takes (lon, lat) arguments to determine the shape to be returned is ``get_data_time`` is called. This could be extended to return a more advanced function (not just a constant) if needed.
+
+.. code-block:: python
+
+   >>> temp_data = ECMWF.ERA5Data('Tenperature', level='1000hPa', res='1grid')
+   >>> humidity_data = ECMWF.ConstantData(value=83, lon=temp_data.lon, lat=temp_data.lat)
 
 
 GOES
