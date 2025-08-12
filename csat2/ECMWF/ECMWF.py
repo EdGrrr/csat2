@@ -709,6 +709,33 @@ class ERA5Data3D:
         return output
 
 
+class ConstantData(ERA5Data):
+    def __init__(self, value, lon, lat):
+        self.value = value
+        self.lon = lon
+        self.lat = lat
+        self.shape = (len(self.lat), len(self.lon))
+
+    def get_data_time(self, time):
+        return xr.DataArray(
+            np.full(self.shape, self.value),
+            dims=["lat", "lon"],
+            coords={"lon": self.lon, "lat": self.lat}
+        )
+
+    def get_data(self, lon, lat, time, simple=False):
+        assert len(lon) == len(lat)
+        return np.full_like(lon, self.value)
+
+
+class ConstantData3D(ConstantData):
+    def get_data_time(self, time, level):
+        return super().get_data_time(time)
+
+    def get_data(self, lon, lat, level, time, simple=False):
+        return super().get_data(lon, lat, time)
+
+
 class ERA5WindData:
     def __init__(
         self, level="850hPa", res="0.25grid", wind_scaling=(1, 1), *args, **kwargs

@@ -17,7 +17,8 @@ dependencies = [
     "xarray",
     "cdsapi",
     "eumdac",
-    "satpy"
+    "satpy",
+    "h5py"
 ]
 requires-python = ">=3.9"
 readme = "readme.rst"
@@ -37,4 +38,4 @@ distribution = false
 csat2 = "csat2"
 
 [tool.pdm.build]
-includes = ["*.py", "CALIPSO", "CloudSat", "config", "data", "download", "ECMWF", "FCI", "GOES", "misc", "MODIS", "VIIRS"]
+includes = ["*.py", "CALIPSO", "CloudSat", "config", "data", "download", "EarthCARE", "ECMWF", "FCI", "GOES", "misc", "MODIS", "VIIRS"]
