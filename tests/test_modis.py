@@ -237,3 +237,8 @@ class TestMODISLocator_BallTree(BaseMODISLocator):
 class TestMODISLocator_FullSearch(BaseMODISLocator):
     locator_type = 'FullSearch'
     __test__ = True
+
+
+class TestMODISLocator_SphereRemap(BaseMODISLocator):
+    locator_type = 'SphereRemap'
+    __test__ = True

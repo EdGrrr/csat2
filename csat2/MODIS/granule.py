@@ -13,6 +13,7 @@ from .util import band_centres, bowtie_correct
 from .download import download, download_geometa, check
 import numpy as np
 from sklearn.neighbors import BallTree
+from scipy.spatial import KDTree
 import scipy.constants
 from netCDF4 import Dataset
 import pkg_resources
@@ -644,7 +645,6 @@ class _MODISlocator:
     
 class _MODISlocatorBallTree:
     """Converts lat-lon to MODIS grid locations for a specified accuracy (factor)"""
-
     def __init__(self, lon, lat, factor=2):
         # FUTURE: Transform coordinates then use cKDTree for speed
         self.factor = factor
@@ -694,6 +694,12 @@ class _MODISlocatorBallTree:
 
 
 class _MODISlocatorFullSearch:
+    '''This locator just does a brute force search of all the MODIS
+    pixels. It is therefore certain to find the correct answer and can
+    be faster than the tree-based methods if you only need to check a
+    few pixels
+
+    '''
     def __init__(self, lon, lat, *args, **kwargs):
         self.lon = lon
         self.lat = lat
@@ -715,8 +721,61 @@ class _MODISlocatorFullSearch:
 
 
 class _MODISlocatorSphereRemap:
-    
-    def coordinate_shift(
+    '''This locator uses the KDTree from scipy (which is faster than
+    the BallTree. To ensure left/right are defined, it remaps all the
+    points to a region around Null island. This ensures that left and
+    right are defined - necessary for the KDTree to work.
+
+    It is exact for MODIS, in that it doesn't use a scale factor (like
+    the BallTree).
+
+    '''
+    def __init__(self, lon, lat, *args, **kwargs):
+        self.centre = np.array(lon.shape)//2
+        self.centre_lon = lon[*self.centre]
+        self.centre_lat = lat[*self.centre]
+        self.shape = lon.shape
+
+        rot_coords = self._coordinate_rotate(lon, lat, self.centre_lon, self.centre_lat)
+        self.locator_tree = KDTree(
+            np.array(
+                list(
+                    zip(
+                        rot_coords[0].ravel(),
+                        rot_coords[1].ravel(),
+                    )
+                )
+            )
+        )
+
+    def locate(self, locs, filter_outside=10, remove_outside=False):
+        locs = np.array(locs)
+        rlocs = self._coordinate_rotate(locs[..., 0], locs[..., 1], self.centre_lon, self.centre_lat)
+        loc_ind = self.locator_tree.query(np.array(rlocs).T)
+        # This is approximately correct as we are fairly close (10-15 degrees) to the equator
+        if np.min(np.deg2rad(loc_ind[0]) * 6378) > filter_outside:
+            return [(np.nan, np.nan)]
+        output = np.array(self._unraveler(loc_ind[1]))
+        if remove_outside:
+            os_points = np.where(np.deg2rad(loc_ind[0]) * 6378 > filter_outside)
+            # Cannot use nan here as int array
+            output[os_points[0]] = -1
+        return output
+
+    def points_in_radius(self, loc, dist):
+        dists = csat2.misc.haversine(*loc, self.lon, self.lat)
+        return np.array(np.where(dists<dist))
+
+    def _unraveler(self, loc_ind):
+        return [
+            (
+                (ind // self.shape[1]),
+                (ind % self.shape[1]),
+            )
+            for ind in loc_ind
+        ]
+
+    def _coordinate_shift(
         self, lon, lat, centre_lon, centre_lat, travel_lon, travel_lat
     ):
         """Shift a set of coordinates such that the equator passes through the middle of the
@@ -734,7 +793,7 @@ class _MODISlocatorSphereRemap:
             rlon * np.sin(f_angle) + rlat * np.cos(f_angle),
         )
 
-    def coordinate_rotate(self, lon, lat, centre_lon, centre_lat):
+    def _coordinate_rotate(self, lon, lat, centre_lon, centre_lat):
         """Rotates a set of spherical coordinates so that the centre location
         is on the equator"""
         icentre_lon = np.deg2rad(centre_lon)
