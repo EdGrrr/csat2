@@ -180,8 +180,11 @@ def configloader(user_location=None, default_fallback=True):
     log.debug("Hostname: {}".format(_hostname))
 
     if user_location:
-        config = yaml.safe_load(open(user_location))
-
+        try:
+            config = yaml.safe_load(open(user_location))
+        except FileNotFoundError:
+            print('User config not valid, trying default config')
+            
     if (not user_location) or default_fallback:
         log.info("Appending default config")
         data = pkgutil.get_data(__name__, "config/config.cfg")
@@ -193,7 +196,7 @@ def configloader(user_location=None, default_fallback=True):
                 config["machines"][name] = newconfig["machines"][name]
 
     if (not user_location) and (not default_fallback):
-        raise ValueError("Must supply user_location or set default feedback as true")
+        raise ValueError("Must supply user_location or set default_fallback=True")
 
     log.debug("machine_config{}".format(config))
 
@@ -214,7 +217,7 @@ def configloader(user_location=None, default_fallback=True):
                     "ascii"
                 )
                 mdata = mdata.split("\n")
-                print(mdata)
+                log.info(mdata)
                 try:
                     locator = FileLocator(data=mdata)
                 except:

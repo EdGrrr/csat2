@@ -6,6 +6,8 @@ from pyhdf.error import HDF4Error
 import numpy as np
 import logging
 from datetime import datetime, timedelta
+import pkg_resources
+import gzip
 
 log = logging.getLogger(__name__)
 
@@ -61,12 +63,14 @@ def get_orbit_date_approx(orbit):
 def get_orbit_filename(orbit):
     year, _ = get_orbit_date_approx(orbit)
     try:
-        geometa_file = locator.search("CLOUDSAT", "GEOMETA", year=year)[0]
-        with open(geometa_file, "r") as f:
+        geometa_file = pkg_resources.resource_filename(
+            "csat2", f"data/cloudsat_geometa/clousat_{year}.txt.gz")
+        with gzip.open(geometa_file, "rt") as f:
             fname = next(obj for obj in f if int(obj[14:19]) == int(orbit))
     except StopIteration:
-        geometa_file = locator.search("CLOUDSAT", "GEOMETA", year=year + 1)[0]
-        with open(geometa_file, "r") as f:
+        geometa_file = pkg_resources.resource_filename(
+            "csat2", f"data/cloudsat_geometa/clousat_{year+1}.txt.gz")
+        with gzip.open(geometa_file, "rt") as f:
             fname = next(obj for obj in f if int(obj[14:19]) == int(orbit))
     return fname.strip()
 
@@ -82,14 +86,16 @@ def filename_to_datetime(fname):
 def get_orbit_date(orbit):
     year, _ = get_orbit_date_approx(orbit)
     try:
-        geometa_file = locator.search("CLOUDSAT", "GEOMETA", year=year)[0]
-        with open(geometa_file, "r") as f:
+        geometa_file = pkg_resources.resource_filename(
+            "csat2", f"data/cloudsat_geometa/clousat_{year}.txt.gz")
+        with gzip.open(geometa_file, "rt") as f:
             orbtime = next(obj for obj in f if int(obj[14:19]) == int(orbit)).split(
                 "_"
             )[0]
     except StopIteration:
-        geometa_file = locator.search("CLOUDSAT", "GEOMETA", year=year + 1)[0]
-        with open(geometa_file, "r") as f:
+        geometa_file = pkg_resources.resource_filename(
+            "csat2", f"data/cloudsat_geometa/clousat_{year+1}.txt.gz")
+        with gzip.open(geometa_file, "rt") as f:
             orbtime = next(obj for obj in f if int(obj[14:19]) == int(orbit)).split(
                 "_"
             )[0]
@@ -97,9 +103,10 @@ def get_orbit_date(orbit):
 
 
 def get_orbit_by_time(dtime):
-    geometa_file = locator.search("CLOUDSAT", "GEOMETA", year=dtime.year)[0]
+    geometa_file = pkg_resources.resource_filename(
+            "csat2", f"data/cloudsat_geometa/clousat_{dtime.year}.txt.gz")
     timestr = dtime.strftime("%Y%j%H%M%S")
-    with open(geometa_file, "r") as f:
+    with gzip.open(geometa_file, "rt") as f:
         # Gets the id of the first orbit after the time string
         orb = int(next(obj for obj in f if obj[:13] > timestr).split("_")[1])
     # Subtract 1 to get the orbit containing the timestamp

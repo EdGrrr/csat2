@@ -1,0 +1,84 @@
+# Search paths for the above computer.  If you add more data, you should add
+# its location to the search paths below
+
+# Syntax
+# M - Include a macro (only at the start of the file)
+# Macros are declared before they are used.  They are replaced as the paths
+# are read in (only once).  Note that 'product' is automatically a macro
+# M macro_name=path_to_folder
+
+# [source] (e.g. MODIS, CERES, DARDAR)
+# - [product1|product2] (products following a specific pattern, e.g. MASK, CLOUD,
+#    split multiple with pipes - the actual product is automatically replaced where {product} is used)
+
+# Path syntax is the same as the python string formatting syntax (what a coincidence...)
+# Use {variable} to make a substitution - can be a macro or a variable from the readin function
+# {doy:0>3} left pads the variable doy with 0s to a width of three characters
+# * can be used as a wildcard (e.g. for MODIS files that include the processing date
+#     The first file is often the one that is returned (depending on how locator.search is called)
+# Note that * can also be passed as an argument to locator.search, e.g. if you want to return all the
+#  MODIS granules for a specific day
+
+#Macros
+M csat_folder=/disk1/Data/
+M seldon_folder=/net/seldon/disk1/Data/
+
+[EarthCARE]
+-[ATL_NOM_1B|CPR_NOM_1B|MSI_RGR_1C|CPR_CLD_2A|MSI_COP_2A]
+  {csat_folder}/EarthCARE/{product}/{baseline}/{year}/{mon:0>2}/{day:0>2}/*_{orbit:0>5}{frame}.h5
+-[GEOMETA]
+  {csat_folder}/EarthCARE/GEOMETA/earthcare_geometa_{year}.txt
+
+[ECMWF]
+-[ERAInterim|ERA40|ERA5]
+  {csat_folder}/ECMWF/{product}/{variable}_{level}_{resolution}_{time}/{year}/{variable}_{level}_{doy:0>3}.nc
+  {seldon_folder}/ECMWF/{product}/{variable}_{level}_{resolution}_{time}/{year}/{variable}_{level}_{doy:0>3}.nc
+-[MACC-anth]
+  {csat_folder}/MACC/anth/regrid/{year}/anth.{year}.{doy:0>3}.regrid.nc
+-[MACC-surf]
+  {csat_folder}/MACC/surface{time}/macc.aod550.{year}.{doy:0>3}.nc
+
+[FCI]
+-[L1c]
+  {csat_folder}/FCI/{sat}/{resolution}/{area}/{year}/{doy:0>3}/{hour:0>2}/W_XX-EUMETSAT-Darmstadt*FCI-1C-RRAD-{resolution}-{area}*{year}{mon:0>2}{day:0>2}{hour:0>2}{minute:0>2}*
+
+[GOES]
+-[L1b]
+#Sat is {G16, G17}, area is {RadC, RadF, RadM1, RadM2} for CONUS, Full disc and mesoscale  respectively
+  {csat_folder}/GOES/{sat}/{product}/{area}/{year}/{doy:0>3}/{hour:0>2}/OR_ABI-{product}-{area}-M{mode}C{channel:0>2}_{sat}_s{year}{doy:0>3}{hour:0>2}{minute:0>2}*.nc
+  {seldon_folder}/GOES/{sat}/{product}/{area}/{year}/{doy:0>3}/{hour:0>2}/OR_ABI-{product}-{area}-M{mode}C{channel:0>2}_{sat}_s{year}{doy:0>3}{hour:0>2}{minute:0>2}*.nc
+-[advection]
+  {csat_folder}/GOES/{sat}/advection/ABI_adv.{area}.{res}km.nc
+  {seldon_folder}/GOES/{sat}/advection/ABI_adv.{area}.{res}km.nc
+-[L2-COD|L2-CPS|L2-ACTP|L2-AOD]
+  {csat_folder}/GOES/{sat}/{product}/{area}/{year}/{doy:0>3}/{hour:0>2}/OR_ABI-{product}{areas}-M{mode}_{sat}_s{year}{doy:0>3}{hour:0>2}{minute:0>2}*.nc
+-[L2-DMW]
+  {csat_folder}/GOES/{sat}/{product}/{area}/{year}/{doy:0>3}/{hour:0>2}/OR_ABI-{product}{areas}-M{mode}C{channel:0>2}_{sat}_s{year}{doy:0>3}{hour:0>2}{minute:0>2}*.nc
+
+[MODIS]
+-[subset]
+  {seldon_folder}/MODIS/subset/{year}/{sat}.{doy:0>3}.c{collection}.nc
+-[cdnc_best]
+  {seldon_folder}/MODIS/cdnc_best/MODIS_nd/{year}{res}/modis_nd.{year}.{doy:0>3}.{sat}.v{version}.nc
+-[MODATML2|MOD04_L2|MOD06_L2|MOD35_L2|MOD021KM|MOD02HKM|MOD02QKM|MOD03]
+  {seldon_folder}/MODIS/{product}/{collection:0>3}/{year}/{doy:0>3}/*.{time}.*.hdf
+-[MYDATML2|MYD04_L2|MYD06_L2|MYD35_L2|MYD021KM|MYD02HKM|MYD02QKM|MYD03]
+  {seldon_folder}/MODIS/{product}/{collection:0>3}/{year}/{doy:0>3}/*.{time}.*.hdf
+-[MODATML2_NRT|MOD04_L2_NRT|MOD06_L2_NRT|MOD35_L2_NRT|MOD021KM_NRT|MOD02HKM_NRT|MOD02QKM_NRT|MOD03_NRT]
+  {seldon_folder}/MODIS/{product}/{collection:0>3}/{year}/{doy:0>3}/*.{time}.*.hdf
+-[MYDATML2_NRT|MYD04_L2_NRT|MYD06_L2_NRT|MYD35_L2_NRT|MYD021KM_NRT|MYD02HKM_NRT|MYD02QKM_NRT|MYD03_NRT]
+  {seldon_folder}/MODIS/{product}/{collection:0>3}/{year}/{doy:0>3}/*.{time}.*.hdf
+-[MOD08_D3|MYD08_D3]
+  {seldon_folder}/MODIS/{product}/{collection:0>3}/{year}/*.A{year}{doy:0>3}*
+-[GEOMETA]
+  {seldon_folder}/MODIS/GEOMETA/{year}/{sat}_{year}-{mon:0>2}-{day:0>2}.txt
+
+[VIIRS]
+-[VNP02IMG|VNP02MOD|VNP02DNB|VNP03IMG|VNP03MOD|VNP03DNB|CLDPROP_L2_VIIRS_SNPP|VJ102IMG|VJ102MOD|VJ102DNB|VJ103IMG|VJ103MOD|VJ103DNB]
+  {seldon_folder}/VIIRS/{product}/{collection:0>4}/{year}/{doy:0>3}/*.{time}.*.nc
+-[VNP02IMG_NRT|VNP02MOD_NRT|VNP02DNB_NRT|VNP03IMG_NRT|VNP03MOD_NRT|VNP03DNB_NRT]
+  {seldon_folder}/VIIRS/{product}/{collection:0>4}/{year}/{doy:0>3}/*.{time}.*.nc
+-[VJ102IMG_NRT|VJ102MOD_NRT|VJ102DNB_NRT|VJ103IMG_NRT|VJ103MOD_NRT|VJ103DNB_NRT]
+  {seldon_folder}/VIIRS/{product}/{collection:0>4}/{year}/{doy:0>3}/*.{time}.*.nc
+-[GEOMETA]
+  {seldon_folder}/VIIRS/GEOMETA/{year}/{sat}_{year}-{mon:0>2}-{day:0>2}.txt

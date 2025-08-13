@@ -1,0 +1,45 @@
+# Search paths for the above computer.  If you add more data, you should add
+# it's location to the search paths below
+
+# Syntax
+# Include a macro (only at the start of the file)
+# Macros are declared before they are used.  They are replaced as the paths
+# are read in (only once).  Note that 'product' is automatically a macro
+# M macro_name=path_to_folder
+
+# [source] (e.g. MODIS, CERES, DARDAR)
+# - [product1|product2] (products following a specific pattern, e.g. MASK, CLOUD,
+#    split multiple with pipes - the actual product is automatically replaced where {product} is used)
+
+# Path syntax is the same as the python string formatting syntax (what a coincidence...)
+# Use {variable} to make a substitution - can be a macro or a variable from the readin function
+# {doy:0>3} left pads the variable doy with 0s to a width of three characters
+# * can be used as a wildcard (e.g. for MODIS files that include the processing date
+#     The first file is often the one that is returned (depending on how locator.search is called)
+# Note that * can also be passed as an argument to locator.search, e.g. if you want to return all the
+#  MODIS granules for a specific day
+
+#Macros
+M tasic_folder=/rds/general/project/gryspeerdt-tasic/live/Data
+
+[MODIS]
+-[subset]
+  {tasic_folder}/MODIS/subset/{year}/{sat}.{doy:0>3}.c{collection}.nc
+-[cdnc_best]
+  {tasic_folder}/MODIS/cdnc_best/{year}/cdnc_best.{year}.{doy:0>3}.v{version}.nc
+-[MODATML2|MYDATML2|MOD04_L2|MYD04_L2|MOD06_L2|MYD06_L2|MYD021KM|MOD021KM|MOD02HKM|MYD03|MOD03]
+  {tasic_folder}/MODIS/{product}/{collection:0>3}/{year}/{doy:0>3}/*.{time}.*.hdf
+-[MOD08_D3|MYD08_D3]
+  {tasic_folder}/MODIS/{product}/{collection:0>3}/{year}/*.A{year}{doy:0>3}*
+-[GEOMETA]
+  {tasic_folder}/MODIS/GEOMETA/{year}/{sat}_{year}-{mon:0>2}-{day:0>2}.txt
+-[bowtie]
+  {tasic_folder}/MODIS/bowtie_correction_{res}_{length}.nc
+-[ctrect]
+  {tasic_folder}/MODIS/crosstrack_rectify_{res}.nc
+
+
+[GOES]
+-[L1b]
+#Sat is {G16, G17}, area is {RadC, RadF, RadM} for CONUS, Full disc and mesoscale  respectively
+  {tasic_folder}/GOES/{sat}/{product}/{area}/{year}/{doy:0>3}/{hour:0>2}/OR_ABI-{product}-{area}-M{mode}C{channel:0>2}_{sat}_s{year}{doy:0>3}{hour:0>2}{minute:0>2}*.nc

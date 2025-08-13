@@ -1,0 +1,66 @@
+M data_folder=/home/edward/LocalData
+
+[CALIPSO]
+-[LID_L1|LID_L2_VFM]
+  {data_folder}/CALIPSO/{product}/{col}/{year}/{doy:0>3}/CAL_{product}-Standard-{col}.{year}-{mon:0>2}-{day:0>2}T{hour:0>2}-{minute:0>2}-*.hdf
+
+[CLOUDSAT]
+-[1B-CPR|2B-GEOPROF|2B-GEOPROF-LIDAR|2B-CWC-RVOD|2C-PRECIP-COLUMN|ECMWF-AUX|MODIS-AUX|2B-FLXHR-LIDAR|2B-TAU|2C-ICE]
+  {data_folder}/CloudSat/{product}/{col}/{year}/{doy:0>3}/*_{orbit:0>5}_*.hdf
+
+[EarthCARE]
+-[ATL_NOM_1B|CPR_NOM_1B|MSI_RGR_1C|CPR_CLD_2A|MSI_COP_2A]
+  {data_folder}/EarthCARE/{product}/{baseline}/{year}/{mon:0>2}/{day:0>2}/*_{orbit:0>5}{frame}.h5
+-[GEOMETA]
+  {data_folder}/EarthCARE/GEOMETA/earthcare_geometa_{year}.txt
+
+[ECMWF]
+-[ERAInterim|ERA40|ERA5]
+  {data_folder}/ECMWF/{product}/{variable}_{level}_{resolution}_{time}/{year}/{variable}_{level}_{doy:0>3}.nc
+-[MACC-anth]
+  {data_folder}/MACC/anth/regrid/{year}/anth.{year}.{doy:0>3}.regrid.nc
+-[MACC-surf]
+  {data_folder}/MACC/surface{time}/macc.aod550.{year}.{doy:0>3}.nc
+
+[FCI]
+-[L1c]
+  {data_folder}/FCI/{sat}/{resolution}/{area}/{year}/{doy:0>3}/{hour:0>2}/W_XX-EUMETSAT-Darmstadt*FCI-1C-RRAD-{resolution}-{area}*{year}{mon:0>2}{day:0>2}{hour:0>2}{minute:0>2}*
+
+[GOES]
+-[L1b]
+#Sat is {G16, G17}, area is {RadC, RadF, RadM1, RadM2} for CONUS, Full disc and mesoscale  respectively
+  {data_folder}/GOES/{sat}/{product}/{area}/{year}/{doy:0>3}/{hour:0>2}/OR_ABI-{product}-{area}-M{mode}C{channel:0>2}_{sat}_s{year}{doy:0>3}{hour:0>2}{minute:0>2}*.nc
+-[advection]
+  {data_folder}/GOES/{sat}/advection/ABI_adv.{area}.{res}km.nc
+-[L2-COD|L2-CPS|L2-ACTP|L2-AOD]
+  {data_folder}/GOES/{sat}/{product}/{area}/{year}/{doy:0>3}/{hour:0>2}/OR_ABI-{product}{areas}-M{mode}_{sat}_s{year}{doy:0>3}{hour:0>2}{minute:0>2}*.nc
+-[L2-DMW]
+  {data_folder}/GOES/{sat}/{product}/{area}/{year}/{doy:0>3}/{hour:0>2}/OR_ABI-{product}{areas}-M{mode}C{channel:0>2}_{sat}_s{year}{doy:0>3}{hour:0>2}{minute:0>2}*.nc
+
+[MODIS]
+-[subset]
+  {data_folder}/MODIS/subset/{year}/{sat}.{doy:0>3}.c{collection}.nc
+-[cdnc_best]
+  {data_folder}/MODIS/cdnc_best/MODIS_nd/{year}{res}/modis_nd.{year}.{doy:0>3}.{sat}.v{version}.nc
+-[MODATML2|MOD04_L2|MOD06_L2|MOD35_L2|MOD021KM|MOD02HKM|MOD02QKM|MOD03]
+  {data_folder}/MODIS/{product}/{collection:0>3}/{year}/{doy:0>3}/*.{time}.*.hdf
+-[MYDATML2|MYD04_L2|MYD06_L2|MYD35_L2|MYD021KM|MYD02HKM|MYD02QKM|MYD03]
+  {data_folder}/MODIS/{product}/{collection:0>3}/{year}/{doy:0>3}/*.{time}.*.hdf
+-[MODATML2_NRT|MOD04_L2_NRT|MOD06_L2_NRT|MOD35_L2_NRT|MOD021KM_NRT|MOD02HKM_NRT|MOD02QKM_NRT|MOD03_NRT]
+  {data_folder}/MODIS/{product}/{collection:0>3}/{year}/{doy:0>3}/*.{time}.*.hdf
+-[MYDATML2_NRT|MYD04_L2_NRT|MYD06_L2_NRT|MYD35_L2_NRT|MYD021KM_NRT|MYD02HKM_NRT|MYD02QKM_NRT|MYD03_NRT]
+  {data_folder}/MODIS/{product}/{collection:0>3}/{year}/{doy:0>3}/*.{time}.*.hdf
+-[MOD08_D3|MYD08_D3]
+  {data_folder}/MODIS/{product}/{collection:0>3}/{year}/*.A{year}{doy:0>3}*
+-[GEOMETA]
+  {data_folder}/MODIS/GEOMETA/{year}/{sat}_{year}-{mon:0>2}-{day:0>2}.txt
+
+[VIIRS]
+-[VNP02IMG|VNP02MOD|VNP02DNB|VNP03IMG|VNP03MOD|VNP03DNB|CLDPROP_L2_VIIRS_SNPP|VJ102IMG|VJ102MOD|VJ102DNB|VJ103IMG|VJ103MOD|VJ103DNB]
+  {data_folder}/VIIRS/{product}/{collection:0>4}/{year}/{doy:0>3}/*.{time}.*.nc
+-[VNP02IMG_NRT|VNP02MOD_NRT|VNP02DNB_NRT|VNP03IMG_NRT|VNP03MOD_NRT|VNP03DNB_NRT]
+  {data_folder}/VIIRS/{product}/{collection:0>4}/{year}/{doy:0>3}/*.{time}.*.nc
+-[VJ102IMG_NRT|VJ102MOD_NRT|VJ102DNB_NRT|VJ103IMG_NRT|VJ103MOD_NRT|VJ103DNB_NRT]
+  {data_folder}/VIIRS/{product}/{collection:0>4}/{year}/{doy:0>3}/*.{time}.*.nc
+-[GEOMETA]
+  {data_folder}/VIIRS/GEOMETA/{year}/{sat}_{year}-{mon:0>2}-{day:0>2}.txt
