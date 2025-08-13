@@ -69,7 +69,7 @@ class Granule:
     def download(self,collection,product,force_redownload = False):
         '''method for downloading a granule for a given product and collection'''
 
-        if (not self.check(product,collection)) or force_redownload: # if the file does not already exist, or if force redownload is True, continue to download the file
+        if (not self.check(collection,product)) or force_redownload: # if the file does not already exist, or if force redownload is True, continue to download the file
 
             self.local_path = download_files(
                 self.year, self.doy, self.time,
@@ -172,6 +172,9 @@ class Granule:
         }
         ds.close()
         return metadata
+    
+    def geolocate(self):
+        ''''''
     
         
     def next(self):
