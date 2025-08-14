@@ -365,16 +365,18 @@ ISCCP files
 -----------
 
 The ISCCP (International Satellite Cloud Climatology Project) module provides access to cloud climatology data from 1983-2017. The main interface for reading ISCCP data is through the `Granule` class, which handles different products and collections with location-independent access to ISCCP files.
+Much of this code is written with the hgg product in mind, however it can deal with the other products, but more care should be taken
 
 .. code-block:: python
-   import csat2.ISCCP
-   from csat2.ISCCP import Granule
 
-   # Create a granule for a specific date and time
-   gran = Granule(year=2010, doy=100, time=12)
+    import csat2.ISCCP
+    from csat2.ISCCP import Granule
 
-   # Get cloud fraction data
-   cloud_fraction = gran.get_variable('isccp-basic', 'hgg', 'cldamt')
+    # Create a granule for a specific date and time
+    gran = Granule(year=2010, doy=100, time=12)
+
+    # Get cloud fraction data
+    cloud_fraction = gran.get_variable('isccp-basic', 'hgg', 'cldamt')
 
 
 ISCCP Granule interface
@@ -385,8 +387,10 @@ An ISCCP Granule represents a 3-hourly global dataset of cloud properties. The `
 A `Granule` object contains information about the specific time period, provides methods to access data variables, and can step through time sequences. Granules are constructed using year, day-of-year, and 3-hourly time intervals.
 
 .. code-block:: python
-   from csat2.ISCCP import Granule
-   gran = Granule(year=2010, doy=100, time=12)  # April 10, 2010 at 12:00 UTC
+
+    from csat2.ISCCP import Granule
+    gran = Granule(year=2010, doy=100, time=12)  # April 10, 2010 at 12:00 UTC
+
 
 The granule supports various temporal products:
 
@@ -406,18 +410,18 @@ Data Access
 The granule object provides several methods for accessing data:
 
 .. code-block:: python
-   # Check if a file exists locally
-   gran.check('isccp-basic', 'hgg')
 
-   # Download data if not available locally
-   gran.download('isccp-basic', 'hgg')
+    # Check if a file exists locally
+    gran.check('isccp-basic', 'hgg')  # returns True or False
 
-   # Get a specific variable as an xarray DataArray
-   cloud_amount = gran.get_variable('isccp-basic', 'hgg', 'cldamt')
+    # Download data if not available locally
+    gran.download('isccp-basic', 'hgg')
 
-   # Get coordinate information
-   lon, lat = gran.get_lonlat('isccp-basic', 'hgg')
+    # Get a specific variable as an xarray DataArray
+    cloud_amount = gran.get_variable('isccp-basic', 'hgg', 'cldamt')
 
+    # Get coordinate information
+    lon, lat = gran.get_lonlat('isccp-basic', 'hgg')
 
 
 Geolocation
@@ -426,16 +430,17 @@ Geolocation
 The granule object can extract data at specific geographic locations using the `geolocate` method:
 
 .. code-block:: python
-   # Extract data at specific lon/lat points
-   target_lons = [-75.0, 0.0, 120.0]  # longitude in [0, 360] format
-   target_lats = [40.0, 0.0, -30.0]   # latitude in [-90, 90] format
 
-   # Get nearest neighbor values
-   colocated_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt',
+    # Define target locations
+    target_lons = [-75.0, 0.0, 120.0]  # longitude in [0, 360]
+    target_lats = [40.0, 0.0, -30.0]   # latitude in [-90, 90]
+
+    # Get nearest neighbor values
+    colocated_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt',
                                     target_lons, target_lats, method='nearest')
 
-   # Get linearly interpolated values
-   interp_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt',
+    # Get linearly interpolated values
+    interp_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt',
                                  target_lons, target_lats, method='linear')
 
 
@@ -449,8 +454,7 @@ Access granule and dataset metadata:
 
 .. code-block:: python
 
-   metadata = gran.get_metadata('isccp-basic', 'hgg')
-
+    metadata = gran.get_metadata('isccp-basic', 'hgg')
 
 Time Navigation
 ---------------
@@ -458,9 +462,9 @@ Time Navigation
 Navigate through time sequences using the granule interface:
 
 .. code-block:: python
-   # Move to next 3-hour interval
+   # Move to next 3-hour interval, note this is currently specific to the hgg product
    next_gran = gran.next()
-   print(f"Next granule: {next_gran.year}-{next_gran.doy:03d}T{next_gran.time:02d}:00")
+
 
 
 
@@ -470,11 +474,12 @@ File Management
 The granule object handles file locations and downloads automatically:
 
 .. code-block:: python
-   # Get file location (whether it exists or not)
-   file_path = gran.get_fileloc('isccp-basic', 'hgg')
 
-   # Force re-download of existing file
-   gran.download('isccp-basic', 'hgg', force_redownload=True)
+    # Get file location (whether it exists or not)
+    file_path = gran.get_fileloc('isccp-basic', 'hgg')
+
+    # Force re-download of existing file
+    gran.download('isccp-basic', 'hgg', force_redownload=True)
 
 
 Valid Data Range
@@ -494,24 +499,23 @@ Here's a complete example of working with ISCCP data:
 
 .. code-block:: python
 
-   
-   from csat2.ISCCP import Granule
-   import numpy as np
-   import matplotlib.pyplot as plt
+    from csat2.ISCCP import Granule
+    import numpy as np
+    import matplotlib.pyplot as plt
 
-   # Create granule for a specific time
-   gran = Granule(year=2010, doy=100, time=12)
+    # Create granule for a specific time
+    gran = Granule(year=2010, doy=100, time=12)
 
-   # Retrieve cloud amount
-   cloud_amount = gran.get_variable('isccp-basic', 'hgg', 'cldamt')
-   lon, lat = gran.get_lonlat('isccp-basic', 'hgg')
+    # Retrieve cloud amount
+    cloud_amount = gran.get_variable('isccp-basic', 'hgg', 'cldamt')
+    lon, lat = gran.get_lonlat('isccp-basic', 'hgg')
 
-   # Plot cloud fraction
-   plt.figure(figsize=(10,5))
-   plt.contourf(lon, lat, cloud_amount, levels=20, cmap='viridis')
-   plt.title('ISCCP Cloud Amount')
-   plt.xlabel('Longitude')
-   plt.ylabel('Latitude')
-   plt.colorbar(label='Cloud fraction')
-   plt.show()
+    # Plot cloud fraction
+    plt.figure(figsize=(10,5))
+    plt.contourf(lon, lat, cloud_amount, levels=20, cmap='viridis')
+    plt.title('ISCCP Cloud Amount')
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.colorbar(label='Cloud fraction')
+    plt.show()
 
