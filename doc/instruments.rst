@@ -384,23 +384,20 @@ An ISCCP Granule represents a 3-hourly global dataset of cloud properties. The `
 
 A `Granule` object contains information about the specific time period, provides methods to access data variables, and can step through time sequences. Granules are constructed using year, day-of-year, and 3-hourly time intervals.
 
-```python
->>> from csat2.ISCCP import Granule
->>> gran = Granule(year=2010, doy=100, time=12)  # April 10, 2010 at 12:00 UTC
->>> print(f"Granule: {gran.year}-{gran.doy:03d}T{gran.time:02d}:00")
-Granule: 2010-100T12:00
-```
+.. code-block:: python
+   from csat2.ISCCP import Granule
+   gran = Granule(year=2010, doy=100, time=12)  # April 10, 2010 at 12:00 UTC
 
 The granule supports various temporal products:
 
-- **hgg**: 3-hourly gridded global data (equal-area grid)
-- **hgh**: 3-hourly gridded global data (equal-angle grid) 
+- **hgg**: 3-hourly gridded global data
+- **hgh**: 3-hourly gridded monthly mean data 
 - **hgm**: monthly mean data
 - **hgx**: additional extended variables (full ISCCP collection only)
 
 And two collections:
 
-- **isccp-basic**: Essential cloud variables subset
+- **isccp-basic**: Cloud variables subset
 - **isccp**: Full collection with all available variables
 
 Data Access
@@ -408,23 +405,23 @@ Data Access
 
 The granule object provides several methods for accessing data:
 
-```python
-# Check if a file exists locally
->>> gran.check('isccp-basic', 'hgg')
-True
+.. code-block:: python
+   # Check if a file exists locally
+   gran.check('isccp-basic', 'hgg')
+   True
 
-# Download data if not available locally
->>> gran.download('isccp-basic', 'hgg')
-'file already exists at: /path/to/file'
+   # Download data if not available locally
+   gran.download('isccp-basic', 'hgg')
 
-# Get a specific variable as an xarray DataArray
->>> cloud_amount = gran.get_variable('isccp-basic', 'hgg', 'cldamt')
->>> print(cloud_amount.dims)
-('lat', 'lon')
 
-# Get coordinate information
->>> lon, lat = gran.get_lonlat('isccp-basic', 'hgg')
->>> print(f"Grid: {len(lon)} x {len(lat)} points")
+   # Get a specific variable as an xarray DataArray
+   cloud_amount = gran.get_variable('isccp-basic', 'hgg', 'cldamt')
+
+
+
+   # Get coordinate information
+   lon, lat = gran.get_lonlat('isccp-basic', 'hgg')
+
 ```
 
 Geolocation
@@ -432,18 +429,18 @@ Geolocation
 
 The granule object can extract data at specific geographic locations using the `geolocate` method:
 
-```python
-# Extract data at specific lon/lat points
->>> target_lons = [-75.0, 0.0, 120.0]  # longitude in [0, 360] format
->>> target_lats = [40.0, 0.0, -30.0]   # latitude in [-90, 90] format
->>> 
->>> # Get nearest neighbor values
->>> colocated_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt', 
-...                                target_lons, target_lats, method='nearest')
->>> 
->>> # Get linearly interpolated values
->>> interp_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt',
-...                             target_lons, target_lats, method='linear')
+.. code-block:: python
+   # Extract data at specific lon/lat points
+   target_lons = [-75.0, 0.0, 120.0]  # longitude in [0, 360] format
+   target_lats = [40.0, 0.0, -30.0]   # latitude in [-90, 90] format
+
+   # Get nearest neighbor values
+   colocated_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt',
+                                    target_lons, target_lats, method='nearest')
+
+   # Get linearly interpolated values
+   interp_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt',
+                                 target_lons, target_lats, method='linear')
 ```
 
 Note that ISCCP uses a longitude convention of [0, 360] degrees and latitude of [-90, 90] degrees.
@@ -453,30 +450,21 @@ Metadata Access
 
 Access granule and dataset metadata:
 
-```python
-# Get subset of important metadata
->>> metadata = gran.get_metadata('isccp-basic', 'hgg')
->>> print(metadata['attributes']['summary'])
->>> print(f"Contributing satellites: {metadata['attributes']['isccp_number_of_satellites_contributing']}")
->>> print(f"Coordinates available: {metadata['coordinates']}")
-```
+.. code-block:: python
+   # Get subset of important metadata
+   metadata = gran.get_metadata('isccp-basic', 'hgg')
+
 
 Time Navigation
 ---------------
 
 Navigate through time sequences using the granule interface:
 
-```python
-# Move to next 3-hour interval
->>> next_gran = gran.next()
->>> print(f"Next granule: {next_gran.year}-{next_gran.doy:03d}T{next_gran.time:02d}:00")
+.. code-block:: python
+   # Move to next 3-hour interval
+   next_gran = gran.next()
+   print(f"Next granule: {next_gran.year}-{next_gran.doy:03d}T{next_gran.time:02d}:00")
 
-# Process a time series
->>> granules = []
->>> current_gran = Granule(2010, 100, 0)  # Start at 00:00 UTC
->>> for i in range(8):  # Get full day (8 x 3-hour intervals)
-...     granules.append(current_gran)
-...     current_gran = current_gran.next()
 ```
 
 File Management
@@ -484,13 +472,12 @@ File Management
 
 The granule object handles file locations and downloads automatically:
 
-```python
-# Get file location (whether it exists or not)
->>> file_path = gran.get_fileloc('isccp-basic', 'hgg')
->>> print(f"File location: {file_path}")
+.. code-block:: python
+   # Get file location (whether it exists or not)
+   file_path = gran.get_fileloc('isccp-basic', 'hgg')
 
-# Force re-download of existing file
->>> gran.download('isccp-basic', 'hgg', force_redownload=True)
+   # Force re-download of existing file
+   gran.download('isccp-basic', 'hgg', force_redownload=True)
 ```
 
 Valid Data Range
@@ -508,34 +495,10 @@ Example Workflow
 
 Here's a complete example of working with ISCCP data:
 
-```python
-from csat2.ISCCP import Granule
-import numpy as np
+.. code-block:: python
+   from csat2.ISCCP import Granule
+   import numpy as np
 
-# Create granule for a specific time
-gran = Granule(year=2010, doy=100, time=12)
+   # Create granule for a specific time
+   gran = Granule(year=2010, doy=100, time=12)
 
-# Download and load cloud amount data
-gran.download('isccp-basic', 'hgg')
-cloud_amount = gran.get_variable('isccp-basic', 'hgg', 'cldamt')
-
-# Get coordinates
-lon, lat = gran.get_lonlat('isccp-basic', 'hgg')
-
-# Extract data at specific locations (e.g., major cities)
-cities_lon = [0.0, 139.7, 243.7]  # London, Tokyo, New York (in 0-360 format)
-cities_lat = [51.5, 35.7, 40.7]
-city_clouds = gran.geolocate('isccp-basic', 'hgg', 'cldamt',
-                            cities_lon, cities_lat, method='nearest')
-
-# Calculate global mean cloud fraction
-global_mean = cloud_amount.mean()
-print(f"Global mean cloud fraction: {global_mean.values:.2f}")
-
-# Move to next time step and compare
-next_gran = gran.next()
-next_clouds = next_gran.get_variable('isccp-basic', 'hgg', 'cldamt')
-cloud_change = next_clouds - cloud_amount
-
-print(f"Maximum cloud change in 3 hours: {cloud_change.max().values:.2f}")
-```
