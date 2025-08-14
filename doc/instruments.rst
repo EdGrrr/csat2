@@ -367,6 +367,7 @@ ISCCP files
 The ISCCP (International Satellite Cloud Climatology Project) module provides access to cloud climatology data from 1983-2017. The main interface for reading ISCCP data is through the `Granule` class, which handles different products and collections with location-independent access to ISCCP files.
 The granule is an instance of observation in time, note that it is not completely independant of the product since different products have different temporal resolutions (i.e. some are monthly means). Much of this code is written with the hgg product in mind, however it can deal with the other products, but more care should be taken
 Operations involving specific instances of a product or collection of have general pattern gran.operation(collection,product,**other_args)
+
 .. code-block:: python
 
     import csat2.ISCCP
