@@ -462,9 +462,9 @@ Time Navigation
 Navigate through time sequences using the granule interface:
 
 .. code-block:: python
-   # Move to next 3-hour interval, note this is currently specific to the hgg product
-   next_gran = gran.next()
 
+    # Move to next 3-hour interval
+    next_gran = gran.next()
 
 
 
