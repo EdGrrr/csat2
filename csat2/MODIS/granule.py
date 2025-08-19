@@ -153,7 +153,7 @@ class Granule(object):
 
     def locate(self, locs,
                rectified=False, product=None, col=None,
-               locator_type='BallTree', factor=2,
+               locator_type='BallTree',
                **kwargs):
         """Returns the locations in the granule of lon,lat pairs,
         is an instance of MODISlocator"""
@@ -163,22 +163,22 @@ class Granule(object):
                 # print('Rectified create')
                 self.rect_locator = _MODISlocator(
                     self, rectified=rectified, product=product, col=col,
-                    locator_type=locator_type, factor=factor
+                    locator_type=locator_type, **kwargs
                 )
             return self.rect_locator.locate(locs, **kwargs)
         else:
             if not self.locator:
                 self.locator = _MODISlocator(
                     self, product=product, col=col,
-                    locator_type=locator_type, factor=factor
+                    locator_type=locator_type, **kwargs
                 )
             return self.locator.locate(locs, **kwargs)
 
     def points_in_radius(self, loc, dist=20,
-                         locator_type='BallTree', factor=2):
+                         locator_type='BallTree', **kwargs):
         if not self.locator:
             self.locator = _MODISlocator(self, col=self.col,
-                                         locator_type=locator_type, factor=factor)
+                                         locator_type=locator_type, **kwargs)
         return self.locator.points_in_radius(loc, dist)
 
     def _read_lonlat(self, product=None, col=None, dateline=False):
@@ -619,10 +619,7 @@ class _MODISlocator:
             self.rectified = False
 
         self.locator_type = locator_type
-        self.locator_class = {
-            'BallTree': _MODISlocatorBallTree,
-            'SphereRemap': _MODISlocatorSphereRemap,
-            'FullSearch': _MODISlocatorFullSearch}[self.locator_type](
+        self.locator_class = locator_dict[self.locator_type](
                                   lon, lat, *args, **kwargs)
             
     def locate(self, locs, filter_outside=10, remove_outside=False):
@@ -645,7 +642,7 @@ class _MODISlocator:
     
 class _MODISlocatorBallTree:
     """Converts lat-lon to MODIS grid locations for a specified accuracy (factor)"""
-    def __init__(self, lon, lat, factor=2):
+    def __init__(self, lon, lat, factor=2, *args, **kwargs):
         # FUTURE: Transform coordinates then use cKDTree for speed
         self.factor = factor
         self.locator_tree = BallTree(
@@ -693,6 +690,11 @@ class _MODISlocatorBallTree:
         return np.array(self._unraveler(loc_ind[0].reshape(-1, 1)))
 
 
+class _MODISlocatorBallTree1km(_MODISlocatorBallTree):
+    def __init__(self, lon, lat, factor=1, *args, **kwargs):
+        super().__init__(lon, lat, factor=1, *args, **kwargs)
+
+
 class _MODISlocatorFullSearch:
     '''This locator just does a brute force search of all the MODIS
     pixels. It is therefore certain to find the correct answer and can
@@ -730,13 +732,16 @@ class _MODISlocatorSphereRemap:
     the BallTree).
 
     '''
-    def __init__(self, lon, lat, *args, **kwargs):
+    def __init__(self, lon, lat, factor=1, *args, **kwargs):
+        self.factor = factor
         self.centre = np.array(lon.shape)//2
         self.centre_lon = lon[*self.centre]
         self.centre_lat = lat[*self.centre]
-        self.shape = lon.shape
+        self.shape = lon[::factor, ::factor].shape
 
-        rot_coords = self._coordinate_rotate(lon, lat, self.centre_lon, self.centre_lat)
+        rot_coords = self._coordinate_rotate(
+            lon[::factor, ::factor],
+            lat[::factor, ::factor], self.centre_lon, self.centre_lat)
         self.locator_tree = KDTree(
             np.array(
                 list(
@@ -769,8 +774,8 @@ class _MODISlocatorSphereRemap:
     def _unraveler(self, loc_ind):
         return [
             (
-                (ind // self.shape[1]),
-                (ind % self.shape[1]),
+                self.factor * (ind // self.shape[1]),
+                self.factor * (ind % self.shape[1]),
             )
             for ind in loc_ind
         ]
@@ -810,3 +815,16 @@ class _MODISlocatorSphereRemap:
         x3p = -np.sin(icentre_lat) * x1 + np.cos(icentre_lat) * x3
 
         return np.rad2deg(np.arctan2(x2p, x1p)), np.rad2deg(np.arcsin(x3p))
+
+
+class _MODISlocatorSphereRemap2km(_MODISlocatorSphereRemap):
+    def __init__(self, lon, lat, factor=2, *args, **kwargs):
+        super().__init__(lon, lat, factor=2, *args, **kwargs)
+
+
+locator_dict = {
+    'BallTree': _MODISlocatorBallTree,
+    'BallTree1km': _MODISlocatorBallTree1km,
+    'SphereRemap': _MODISlocatorSphereRemap,
+    'SphereRemap2km': _MODISlocatorSphereRemap2km,
+    'FullSearch': _MODISlocatorFullSearch}

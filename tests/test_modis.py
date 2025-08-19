@@ -234,6 +234,11 @@ class TestMODISLocator_BallTree(BaseMODISLocator):
         super().test_pattern_locations_exact()
 
 
+class TestMODISLocator_BallTree1km(BaseMODISLocator):
+    locator_type = 'BallTree1km'
+    __test__ = True
+        
+
 class TestMODISLocator_FullSearch(BaseMODISLocator):
     locator_type = 'FullSearch'
     __test__ = True
@@ -242,3 +247,12 @@ class TestMODISLocator_FullSearch(BaseMODISLocator):
 class TestMODISLocator_SphereRemap(BaseMODISLocator):
     locator_type = 'SphereRemap'
     __test__ = True
+
+
+class TestMODISLocator_SphereRemap2km(BaseMODISLocator):
+    locator_type = 'SphereRemap2km'
+    __test__ = True
+
+    @pytest.mark.xfail
+    def test_pattern_locations_exact(self):
+        super().test_pattern_locations_exact()
