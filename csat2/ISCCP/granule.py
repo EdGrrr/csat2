@@ -293,6 +293,7 @@ class Granule:
                         'lat': ('points', lat_coords)
                     }
                 elif len(original_shape) == 2:
+                    # this saves the dimensions separate to the coordinates such that it could deal with a curvilinear coordinate system
                     dims = ['y', 'x']
                     coords = {
                         'lon': (['y', 'x'], lon_coords),

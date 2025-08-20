@@ -429,6 +429,8 @@ Geolocation
 -----------
 
 The granule object can extract data at specific geographic locations using the `geolocate` method:
+This returns an xarray object with the extracted values as the data and the 'target lon and lat' as coordinates.
+Note that is assumes that the ISCCP data is on a regular 1 x 1 lon lat grid and will fail if this isn't the case (currently not aware of any products that aren't on this grid but that doesnt mean they don't exist)
 
 .. code-block:: python
 
@@ -438,7 +440,7 @@ The granule object can extract data at specific geographic locations using the `
 
     # Get nearest neighbor values
     colocated_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt',
-                                    target_lons, target_lats, method='nearest')
+                                    target_lons, target_lats)
 
     # Get linearly interpolated values
     interp_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt',
