@@ -71,7 +71,7 @@ class Granule:
 
         if (not self.check(collection,product)) or force_redownload: # if the file does not already exist, or if force redownload is True, continue to download the file
 
-            self.local_path = download_files(
+            download_files(
                 self.year, self.doy, self.time,
                 collection=collection,
                 product=product,
@@ -131,7 +131,7 @@ class Granule:
 
         # Load lon/lat from file
         self.check(collection,product)
-        with xr.open_dataset(self.local_path) as ds:
+        with xr.open_dataset(self.get_fileloc(collection,product)) as ds:
             if 'lon' not in ds or 'lat' not in ds:
                 raise ValueError("Longitude and latitude coordinates not found in dataset.")
 
@@ -163,7 +163,7 @@ class Granule:
         ]
 
         self.check(collection,product)
-        ds = xr.open_dataset(self.local_path)
+        ds = xr.open_dataset(self.get_fileloc(collection,product))
 
         # Filter attributes to only include target_metadata
         metadata = {
@@ -172,13 +172,157 @@ class Granule:
         }
         ds.close()
         return metadata
-    
-    def geolocate(self):
-        ''''''
-    
         
+    def geolocate(self, lon, lat, collection, product, varname: str, method='gridded'):
+        '''For a specific granule and set of lon and lats, returns the corresponding ISCCP data as an xarray object
+        Note, that is only accepts longitudes in the range [0, 360] and assumes that the ISCCP data is on a regular 1 x 1 degree grid.
+        i.e. lons [0.5, 1.5, ..., 359.5] and lats [-89.5, -88.5, ..., 89.5]
+
+        Parameters:
+        -----------
+        lon : scalar, array-like
+            Longitude values in [0, 360]
+        lat : scalar, array-like  
+            Latitude values in [-90, 90]
+        collection : str
+            Collection name
+        product : str
+            Product name
+        varname : str
+            Variable name to extract
+        method : str
+            Method for geolocation ('gridded' is currently the only option)
+        
+        Returns:
+        --------
+        data : scalar or numpy array
+            ISCCP data at the specified locations, maintaining input array shape
+        '''
+        
+        if method == 'gridded':
+            # Check that ISCCP data has expected grid otherwise the lon/ lat to index conversion will be invalid
+            ISCCP_lon, ISCCP_lat = self.get_lonlat(collection, product)
+            
+            expected_lon = np.linspace(0.5, 359.5, 360)
+            expected_lat = np.linspace(-89.5, 89.5, 180)
+            
+            if not (np.allclose(ISCCP_lon, expected_lon) and np.allclose(ISCCP_lat, expected_lat)):
+                raise ValueError("ISCCP longitude/latitude grids are not in the expected format.")
+            
+            # Convert inputs to numpy arrays
+            lon = np.asarray(lon)
+            lat = np.asarray(lat)
+            
+            # Check that lon and lat have the same shape
+            if lon.shape != lat.shape:
+                raise ValueError("Longitude and latitude arrays must have the same shape.")
+            
+            # Store original shape for output
+            original_shape = lon.shape
+            
+            # Flatten arrays for processing
+            lon_flat = lon.flatten()
+            lat_flat = lat.flatten()
+
+            ## ensure that the lons are in the [0,360) range, if not wrap them around such that they are
+
+            lon_flat = lon_flat % 360 ## modulo operator
+            
+            # Validate bounds, this is slighly superfluous for lons, but is nessecary for the lats
+            if np.any((lon_flat < 0) | (lon_flat > 360)):
+                raise ValueError("Longitude must be in [0, 360].")
+            if np.any((lat_flat < -90) | (lat_flat > 90)):
+                raise ValueError("Latitude must be in [-90, 90].")
+            
+            
+            # Calculate indices
+            lon_indices = np.floor(lon_flat).astype(int) ## any lon between [0,360) will map to [0,359] index
+            lat_indices = np.floor(lat_flat + 90).astype(int) 
+            
+            # Clamp indices to valid range, no indices should fall outside of this range however
+            lon_indices = np.clip(lon_indices, 0, 359)
+            lat_indices = np.clip(lat_indices, 0, 179)
+            
+            # Get the variable data (shape: [time, lat, lon])
+            var_data = self.get_variable(collection, product, varname)
+            
+            # Remove singleton dimensions (like time=1) to simplify indexing
+            var_data_squeezed = var_data.squeeze()
+            
+            # Extract data at specified locations using TRUE pairwise indexing with zip
+            # Convert to numpy array to ensure we can do advanced indexing
+            if hasattr(var_data_squeezed, 'values'):
+                data_array = var_data_squeezed.values
+            else:
+                data_array = np.array(var_data_squeezed)
+            
+            # Use zip for explicit pairwise extraction - most readable approach
+            data_list = []
+            for lat_idx, lon_idx in zip(lat_indices, lon_indices):
+                data_list.append(data_array[lat_idx, lon_idx])
+            data_flat = np.array(data_list)
+            
+            # Reshape to original input shape and create xarray DataArray with coordinates
+            if original_shape == ():
+                # Handle scalar case - convert to Python scalar
+                data_values = data_flat.values.item() if hasattr(data_flat, 'values') else data_flat.item()
+                
+                # Create scalar DataArray with coordinates
+                data = xr.DataArray(
+                    data_values,
+                    coords={'lon': lon.item(), 'lat': lat.item()},
+                    attrs=data_flat.attrs if hasattr(data_flat, 'attrs') else {},
+                    name=varname
+                )
+            else:
+                # Use numpy reshape on the underlying data
+                if hasattr(data_flat, 'values'): ## an xarray data format is expected
+                    data_values = data_flat.values.reshape(original_shape)
+                else:
+                    data_values = np.array(data_flat).reshape(original_shape)
+                
+                # Create coordinate arrays in the same shape as the output
+                lon_coords = np.broadcast_to(lon, original_shape)
+                lat_coords = np.broadcast_to(lat, original_shape)
+                
+                # Determine dimension names based on array shape
+                if len(original_shape) == 1:
+                    dims = ['points']
+                    coords = {
+                        'lon': ('points', lon_coords),
+                        'lat': ('points', lat_coords)
+                    }
+                elif len(original_shape) == 2:
+                    dims = ['y', 'x']
+                    coords = {
+                        'lon': (['y', 'x'], lon_coords),
+                        'lat': (['y', 'x'], lat_coords)
+                    }
+                else:
+                    # For higher dimensions, create generic dimension names
+                    dims = [f'dim_{i}' for i in range(len(original_shape))]
+                    coords = {
+                        'lon': (dims, lon_coords),
+                        'lat': (dims, lat_coords)
+                    }
+                
+                # Create DataArray with proper coordinates and metadata
+                data = xr.DataArray(
+                    data_values,
+                    dims=dims,
+                    coords=coords,
+                    attrs=data_flat.attrs if hasattr(data_flat, 'attrs') else {},
+                    name=varname
+                )
+                
+        else:
+            raise NotImplementedError(f"Method '{method}' is not implemented.")
+        
+        return data
+    
+
     def next(self):
-        '''Return a new Granule object for the next 3-hour interval.'''
+        '''Return a new Granule object for the next 3-hour interval, note that this is specific to hgg data at the minute.'''
         next_time = self.time + 3
         next_doy = self.doy
         next_year = self.year
@@ -191,7 +335,7 @@ class Granule:
                 next_year += 1
 
         return Granule(next_year, next_doy, next_time)
-    
+        
 
 
     
