@@ -448,7 +448,7 @@ Note that is assumes that the ISCCP data is on a regular 1 x 1 lon lat grid and 
 
 
 
-Note that ISCCP uses a longitude convention of [0, 360] degrees and latitude of [-90, 90] degrees.
+Note that ISCCP uses a longitude convention of [0, 360] degrees and latitude of [-90, 90] degrees, but this method can handle lons in the range [-180, 180] degrees by converting them internally.
 
 Metadata Access
 ---------------
