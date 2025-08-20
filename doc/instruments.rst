@@ -398,7 +398,9 @@ The granule supports various temporal products:
 - **hgg**: 3-hourly gridded global data
 - **hgh**: 3-hourly gridded monthly mean data 
 - **hgm**: monthly mean data
-- **hgx**: additional extended variables (full ISCCP collection only)
+- **hgs**: this is similar to the hgg product but broken down by satellite, and has not been implemented yet
+- **hxg**: additional extended variables (full ISCCP collection only), this is on an 0.1 degree equal angle grid and has not been implemented yet
+
 
 And two collections:
 
@@ -415,10 +417,10 @@ The granule object provides several methods for accessing data:
     # Check if a file exists locally
     gran.check('isccp-basic', 'hgg')  # returns True or False
 
-    # Download data if not available locally
+    # Download data if not available locally, there is optional argument force_redownload that is set to False
     gran.download('isccp-basic', 'hgg')
 
-    # Get a specific variable as an xarray DataArray
+    # Get a specific variable as an xarray DataArray, you need to know the name of the variable that you are after
     cloud_amount = gran.get_variable('isccp-basic', 'hgg', 'cldamt')
 
     # Get coordinate information
