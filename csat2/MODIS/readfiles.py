@@ -23,6 +23,33 @@ def setCollection(col):
     log.info("MODIS default is collection {}".format(DEFAULT_COLLECTION))
 
 
+####################
+# Helper functions #
+####################
+
+def _modis_scale_variable(vdata, var):
+    try:
+        add_offset = var.add_offset
+    except AttributeError:
+        add_offset = 0
+    try:
+        scale_factor = var.scale_factor
+    except AttributeError:
+        scale_factor = 1
+
+    if scale_factor ==1 and add_offset == 0:
+        return vdata
+    else:
+        return (vdata - add_offset) * scale_factor
+
+def _modis_mask_variable(vdata, var):
+    try:
+        vdata = np.where(vdata == var._Fillvalue, np.nan, vdata)
+    except AttributeError:  # No fill value
+        pass
+    return vdata
+    
+
 ###################
 # Readin function #
 ###################
@@ -134,10 +161,7 @@ def readin_MODIS_L3_filename(filename, names):
             var.set_auto_scale(False)
             dims = ["time"] + [a.replace(":mod08", "") for a in var.dimensions]
             units = var.units
-            try:
-                indata = (var[:] - var.add_offset) * var.scale_factor
-            except AttributeError:  # No scale factors
-                indata = var[:]
+            indata = _modis_scale_variable(var[:], var)
             indata = np.ma.filled(indata, np.nan)
             ds[name] = xr.DataArray(indata[None, :, :], dims=dims)
             ds[name].attrs["units"] = units
@@ -275,14 +299,8 @@ def readin_MODIS_L2_filename(filename, names):
                 a.replace(":mod08", "").replace(":MODIS_SWATH_Type_L1B", "").replace(":MODIS_Swath_Type_GEO", "")
                 for a in var.dimensions
             ]
-            try:
-                indata = (var[:] - var.add_offset) * var.scale_factor
-            except AttributeError:  # No scale factors
-                indata = var[:]
-            try:
-                indata = np.where(indata == var._Fillvalue, np.nan, indata)
-            except AttributeError:  # No fill value
-                pass
+            indata = _modis_scale_variable(var[:], var)
+            indata = _modis_mask_variable(indata, var)
             ds[name] = xr.DataArray(indata, dims=dims)
             try:
                 ds[name].attrs["units"] = var.units
@@ -320,14 +338,8 @@ def readin_MODIS_L2_filename_fast(filename, names, varind=None):
                     a.replace(":mod08", "").replace(":MODIS_SWATH_Type_L1B", "").replace(":MODIS_Swath_Type_GEO", "")
                     for a in var.dimensions
                 ]
-            try:
-                indata = (vdata - var.add_offset) * var.scale_factor
-            except AttributeError:  # No scale factors
-                indata = vdata
-            try:
-                indata = np.where(indata == var._Fillvalue, np.nan, indata)
-            except AttributeError:  # No fill value
-                pass
+            indata = _modis_scale_variable(vdata, var)
+            indata = _modis_mask_variable(indata, var)
             ds[name] = xr.DataArray(indata, dims=dims)
             try:
                 ds[name].attrs["units"] = var.units
@@ -342,6 +354,8 @@ def readin_MODIS_L2_filename_fast(filename, names, varind=None):
                 pass
         return ds
 
+
+    
 
 def readin_MODIS_GEOMETA(year, doy, sat="aqua"):
     if sat not in ["aqua", "terra"]:
