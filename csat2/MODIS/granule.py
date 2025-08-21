@@ -12,7 +12,6 @@ from .readfiles import (
 from .util import band_centres, bowtie_correct
 from .download import download, download_geometa, check
 import numpy as np
-from sklearn.neighbors import BallTree
 from scipy.spatial import KDTree
 import scipy.constants
 from netCDF4 import Dataset
@@ -153,7 +152,7 @@ class Granule(object):
 
     def locate(self, locs,
                rectified=False, product=None, col=None,
-               locator_type='BallTree',
+               locator_type='SphereRemap2km',
                **kwargs):
         """Returns the locations in the granule of lon,lat pairs,
         is an instance of MODISlocator"""
@@ -175,7 +174,7 @@ class Granule(object):
             return self.locator.locate(locs, **kwargs)
 
     def points_in_radius(self, loc, dist=20,
-                         locator_type='BallTree', **kwargs):
+                         locator_type='SphereRemap2km', **kwargs):
         if not self.locator:
             self.locator = _MODISlocator(self, col=self.col,
                                          locator_type=locator_type, **kwargs)
@@ -580,7 +579,7 @@ class _MODISlocator:
                  col=None,
                  product=None,
                  dateline=False,
-                 locator_type='BallTree',
+                 locator_type='SphereRemap2km',
                  *args,
                  **kwargs
                  ):
@@ -643,6 +642,8 @@ class _MODISlocator:
 class _MODISlocatorBallTree:
     """Converts lat-lon to MODIS grid locations for a specified accuracy (factor)"""
     def __init__(self, lon, lat, factor=2, *args, **kwargs):
+        from sklearn.neighbors import BallTree
+
         # FUTURE: Transform coordinates then use cKDTree for speed
         self.factor = factor
         self.locator_tree = BallTree(

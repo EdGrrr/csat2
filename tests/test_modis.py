@@ -127,6 +127,7 @@ class BaseMODISLocator(unittest.TestCase):
         # Requires that the download tests have passed
         # Some data is required!
         self.gran = MODIS.Granule.fromtext("2015001.1220A")
+        self.polar_gran = MODIS.Granule.fromtext("2015001.1235A")
 
         assert self.locator_type is not None, "Subclasses must set locator_type"
         
@@ -214,6 +215,28 @@ class BaseMODISLocator(unittest.TestCase):
         ).reshape((pattern_locs).shape)
         assert (abs(calc_plocs-pattern_locs) ==0 ).all()
 
+    def test_pattern_locations_poles(self):
+        pattern_locs = np.array(
+            np.meshgrid(np.arange(5, 2100, 200),
+                        np.arange(5, 1350, 130))).T
+        geo_locs = self.polar_gran.geolocate(pattern_locs)
+        calc_plocs = self.polar_gran.locate(
+            geo_locs.reshape((-1, 2)),
+            locator_type=self.locator_type
+        ).reshape((pattern_locs).shape)
+        assert (abs(calc_plocs-pattern_locs) <= 1).all()
+
+    def test_pattern_locations_poles_exact(self):
+        pattern_locs = np.array(
+            np.meshgrid(np.arange(5, 2100, 200),
+                        np.arange(5, 1350, 130))).T
+        geo_locs = self.polar_gran.geolocate(pattern_locs)
+        calc_plocs = self.polar_gran.locate(
+            geo_locs.reshape((-1, 2)),
+            locator_type=self.locator_type
+        ).reshape((pattern_locs).shape)
+        assert (abs(calc_plocs-pattern_locs) ==0 ).all()
+
     def test_locator_invalid(self):
         for loc in self.fail_locs:
             ilon, ilat = loc[1]
@@ -232,6 +255,10 @@ class TestMODISLocator_BallTree(BaseMODISLocator):
     @pytest.mark.xfail
     def test_pattern_locations_exact(self):
         super().test_pattern_locations_exact()
+
+    @pytest.mark.xfail
+    def test_pattern_locations_poles_exact(self):
+        super().test_pattern_locations_poles_exact()
 
 
 class TestMODISLocator_BallTree1km(BaseMODISLocator):
@@ -256,3 +283,7 @@ class TestMODISLocator_SphereRemap2km(BaseMODISLocator):
     @pytest.mark.xfail
     def test_pattern_locations_exact(self):
         super().test_pattern_locations_exact()
+
+    @pytest.mark.xfail
+    def test_pattern_locations_poles_exact(self):
+        super().test_pattern_locations_poles_exact()
