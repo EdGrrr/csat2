@@ -173,29 +173,24 @@ class Granule:
         ds.close()
         return metadata
         
-    def geolocate(self, lon, lat, collection, product, varname: str, method='gridded'):
+    def geolocate(self, collection, product, varname: str, lon, lat, method='gridded'):
         '''For a specific granule and set of lon and lats, returns the corresponding ISCCP data as an xarray object
         Note, that is only accepts longitudes in the range [0, 360] and assumes that the ISCCP data is on a regular 1 x 1 degree grid.
         i.e. lons [0.5, 1.5, ..., 359.5] and lats [-89.5, -88.5, ..., 89.5]
 
         Parameters:
         -----------
-        lon : scalar, array-like
-            Longitude values in [0, 360]
-        lat : scalar, array-like  
-            Latitude values in [-90, 90]
+        lon : array like or scalar, can convert between different longitude conventions
+        lat : array like, this needs to be between [-90,90]
         collection : str
             Collection name
         product : str
             Product name
-        varname : str
-            Variable name to extract
-        method : str
-            Method for geolocation ('gridded' is currently the only option)
-        
+        varname : Variable of interest, note it returns an xarray object with the same structure as the target
+        method : gridded, this is the only method currently implemented, this will fail for some of the ISCCP data that is on a differnt grid
         Returns:
         --------
-        data : scalar or numpy array
+        data : xarray object
             ISCCP data at the specified locations, maintaining input array shape
         '''
         
@@ -225,94 +220,137 @@ class Granule:
             lat_flat = lat.flatten()
 
             ## ensure that the lons are in the [0,360) range, if not wrap them around such that they are
+            lon_flat = np.asarray(lon_flat, dtype=float) % 360  ## modulo operator
 
-            lon_flat = lon_flat % 360 ## modulo operator
-            
             # Validate bounds, this is slighly superfluous for lons, but is nessecary for the lats
             if np.any((lon_flat < 0) | (lon_flat > 360)):
                 raise ValueError("Longitude must be in [0, 360].")
             if np.any((lat_flat < -90) | (lat_flat > 90)):
                 raise ValueError("Latitude must be in [-90, 90].")
             
-            
             # Calculate indices
             lon_indices = np.floor(lon_flat).astype(int) ## any lon between [0,360) will map to [0,359] index
             lat_indices = np.floor(lat_flat + 90).astype(int) 
             
-            # Clamp indices to valid range, no indices should fall outside of this range however
+            # ensure the indices fall within  valid range, no indices should fall outside of this range however it is abit of a safety check to stop things breaking
             lon_indices = np.clip(lon_indices, 0, 359)
             lat_indices = np.clip(lat_indices, 0, 179)
             
-            # Get the variable data (shape: [time, lat, lon])
+            # Get the variable data
             var_data = self.get_variable(collection, product, varname)
             
-            # Remove singleton dimensions (like time=1) to simplify indexing
-            var_data_squeezed = var_data.squeeze()
+
             
-            # Extract data at specified locations using TRUE pairwise indexing with zip
-            # Convert to numpy array to ensure we can do advanced indexing
-            if hasattr(var_data_squeezed, 'values'):
-                data_array = var_data_squeezed.values
+            # Find lat and lon dimension positions
+            dims = var_data.dims
+            try:
+                lat_dim_idx = dims.index('lat')
+                lon_dim_idx = dims.index('lon')
+            except ValueError:
+                raise ValueError(f"Could not find 'lat' and 'lon' dimensions in variable '{varname}'")
+            
+            print(f"Lat dimension at index {lat_dim_idx}, Lon dimension at index {lon_dim_idx}")
+            
+            # Convert to numpy array for indexingk
+            if hasattr(var_data, 'values'):
+                data_array = var_data.values
             else:
-                data_array = np.array(var_data_squeezed)
+                data_array = np.array(var_data)
             
-            # Use zip for explicit pairwise extraction - most readable approach
+            # Create advanced indexing list
+            # We need to handle the case where lat/lon are not the last dimensions
+            indexing_list = [slice(None)] * data_array.ndim ## generates a list of slices for all dimensions
+            
+            # Extract data at specified locations
             data_list = []
             for lat_idx, lon_idx in zip(lat_indices, lon_indices):
-                data_list.append(data_array[lat_idx, lon_idx])
-            data_flat = np.array(data_list)
+                # Create indexing list for this specific lat/lon pair
+                current_indexing = indexing_list.copy()
+                current_indexing[lat_dim_idx] = lat_idx # work out which are the lat and lon dimensions
+                current_indexing[lon_dim_idx] = lon_idx
+                
+                # Extract data - this will preserve all other dimensions
+                extracted_data = data_array[tuple(current_indexing)]
+                data_list.append(extracted_data)
             
-            # Reshape to original input shape and create xarray DataArray with coordinates
+            # Convert to numpy array - this will have shape (n_points, *other_dims)
+            if len(data_list) > 0:
+                data_flat = np.array(data_list)
+            else:
+                data_flat = np.array([])
+            
+            # Reshape to original input shape
             if original_shape == ():
-                # Handle scalar case - convert to Python scalar
-                data_values = data_flat.values.item() if hasattr(data_flat, 'values') else data_flat.item()
+                # Handle scalar case
+                if data_flat.ndim > 1:
+                    # If there are other dimensions (like cloud type), keep them
+                    data_values = data_flat[0]  # Take the single point
+                else:
+                    data_values = data_flat.item() if data_flat.size == 1 else data_flat
                 
                 # Create scalar DataArray with coordinates
                 data = xr.DataArray(
                     data_values,
                     coords={'lon': lon.item(), 'lat': lat.item()},
-                    attrs=data_flat.attrs if hasattr(data_flat, 'attrs') else {},
+                    attrs=var_data.attrs,
                     name=varname
                 )
             else:
-                # Use numpy reshape on the underlying data
-                if hasattr(data_flat, 'values'): ## an xarray data format is expected
-                    data_values = data_flat.values.reshape(original_shape)
-                else:
-                    data_values = np.array(data_flat).reshape(original_shape)
+                # For array inputs e.g. a grid reshape the output to match the original structure
+                # for flat data we have (n_points, *other_dims)
+                # We want (other_dims..., *original_shape)
                 
-                # Create coordinate arrays in the same shape as the output
+                if data_flat.ndim > 1:
+                    # Move the points dimension to the end and reshape it to original_shape
+                    # data_flat is (n_points, dim1, dim2, ...) -> (dim1, dim2, ..., *original_shape)
+                    other_dims_shape = data_flat.shape[1:]  # Everything except the first (points) dimension
+                    new_shape = other_dims_shape + original_shape
+                    
+                    # Transpose to move points dimension to the end, then reshape
+                    axes = list(range(1, data_flat.ndim)) + [0]  # Move first dim to end
+                    data_transposed = np.transpose(data_flat, axes)
+                    data_values = data_transposed.reshape(new_shape)
+                else:
+                    data_values = data_flat.reshape(original_shape)
+                
+                # Create coordinate arrays in the same shape as the spatial dimensions
                 lon_coords = np.broadcast_to(lon, original_shape)
                 lat_coords = np.broadcast_to(lat, original_shape)
                 
-                # Determine dimension names based on array shape
+                # Get original non-spatial dimensions
+                original_dims = list(var_data.dims)
+                original_dims.remove('lat')
+                original_dims.remove('lon')
+                
+                # Determine final dimension names
                 if len(original_shape) == 1:
-                    dims = ['points']
+                    spatial_dims = ['points']
                     coords = {
                         'lon': ('points', lon_coords),
                         'lat': ('points', lat_coords)
                     }
                 elif len(original_shape) == 2:
-                    # this saves the dimensions separate to the coordinates such that it could deal with a curvilinear coordinate system
-                    dims = ['y', 'x']
+                    spatial_dims = ['y', 'x']
                     coords = {
                         'lon': (['y', 'x'], lon_coords),
                         'lat': (['y', 'x'], lat_coords)
                     }
                 else:
-                    # For higher dimensions, create generic dimension names
-                    dims = [f'dim_{i}' for i in range(len(original_shape))]
+                    # For higher dimensions use generic names
+                    spatial_dims = [f'spatial_dim_{i}' for i in range(len(original_shape))]
                     coords = {
-                        'lon': (dims, lon_coords),
-                        'lat': (dims, lat_coords)
+                        'lon': (spatial_dims, lon_coords),
+                        'lat': (spatial_dims, lat_coords)
                     }
                 
-                # Create DataArray with proper coordinates and metadata
+                final_dims = original_dims + spatial_dims
+                
+                # Create the data araray
                 data = xr.DataArray(
                     data_values,
-                    dims=dims,
+                    dims=final_dims,
                     coords=coords,
-                    attrs=data_flat.attrs if hasattr(data_flat, 'attrs') else {},
+                    attrs=var_data.attrs,
                     name=varname
                 )
                 
@@ -320,7 +358,7 @@ class Granule:
             raise NotImplementedError(f"Method '{method}' is not implemented.")
         
         return data
-    
+        
 
     def next(self):
         '''Return a new Granule object for the next 3-hour interval, note that this is specific to hgg data at the minute.'''
