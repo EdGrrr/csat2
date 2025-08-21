@@ -272,7 +272,7 @@ def readin_MODIS_L2_filename(filename, names):
             var.set_auto_scale(False)
             var.set_auto_mask(False)
             dims = [
-                a.replace(":mod08", "").replace(":MODIS_SWATH_Type_L1B", "")
+                a.replace(":mod08", "").replace(":MODIS_SWATH_Type_L1B", "").replace(":MODIS_Swath_Type_GEO", "")
                 for a in var.dimensions
             ]
             try:
@@ -311,13 +311,13 @@ def readin_MODIS_L2_filename_fast(filename, names, varind=None):
             if (varind is not None) and len(ncdf.variables[name].shape) > 2:
                 vdata = var[varind]
                 dims = [
-                    a.replace(":mod08", "").replace(":MODIS_SWATH_Type_L1B", "")
+                    a.replace(":mod08", "").replace(":MODIS_SWATH_Type_L1B", "").replace(":MODIS_Swath_Type_GEO", "")
                     for a in var.dimensions[1:]
                 ]
             else:
                 vdata = var[:]
                 dims = [
-                    a.replace(":mod08", "").replace(":MODIS_SWATH_Type_L1B", "")
+                    a.replace(":mod08", "").replace(":MODIS_SWATH_Type_L1B", "").replace(":MODIS_Swath_Type_GEO", "")
                     for a in var.dimensions
                 ]
             try:
