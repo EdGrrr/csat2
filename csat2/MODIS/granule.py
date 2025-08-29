@@ -9,7 +9,7 @@ from .readfiles import (
     field_interpolate,
     DEFAULT_COLLECTION,
 )
-from .util import band_centres, bowtie_correct
+from .util import band_centres, bowtie_correct, altitude_correction_coords
 from .download import download, download_geometa, check
 import numpy as np
 from scipy.spatial import KDTree
@@ -34,6 +34,7 @@ class Granule(object):
         self.locator = None
         self.rect_locator = None
         self.lonlat = None
+        self.altitude_correct_coords = None
         self._orbit = None
         self._daynight = None
         self._gring = None
@@ -211,19 +212,28 @@ class Granule(object):
             self._read_lonlat(product=product, col=col, dateline=dateline)
         return self.lonlat
 
-    def mloc_to_lonlat(self, mlocs):
+    def mloc_to_lonlat(self, mlocs, altitude_correct=False):
         """The the lon/lat positions for a given set of MODIS coordinates"""
         if not self.lonlat:
             self._read_lonlat()
-        mlocslon = np.array(mlocs)[..., 0].clip(0, self.lonlat[0].shape[0] - 1)
-        mlocslat = np.array(mlocs)[..., 1].clip(0, self.lonlat[0].shape[1] - 1)
+        if altitude_correct and (self.altitude_correct_coords is None):
+            self.altitude_correct_coords = altitude_correction_coords()
+
+        mlocs_along = np.array(mlocs)[..., 0].clip(0, self.lonlat[0].shape[0] - 1)
+        mlocs_cross = np.array(mlocs)[..., 1].clip(0, self.lonlat[0].shape[1] - 1)
+
+        if altitude_correct:
+            mlocs_alt = np.array(mlocs)[..., 2]
+            mlocs_alt_shift = (mlocs_alt/10)*self.altitude_correct_coords[mlocs_cross]
+            mlocs_cross -= (mlocs_alt_shift+0.5).astype('int')
+
         return np.moveaxis(
-            np.array([self.lonlat[0][mlocslon, mlocslat],
-                      self.lonlat[1][mlocslon, mlocslat]]),
+            np.array([self.lonlat[0][mlocs_along, mlocs_cross],
+                      self.lonlat[1][mlocs_along, mlocs_cross]]),
             0, -1)
 
-    def geolocate(self, mlocs):
-        return self.mloc_to_lonlat(mlocs)
+    def geolocate(self, mlocs, altitude_correct=False):
+        return self.mloc_to_lonlat(mlocs, altitude_correct=altitude_correct)
     
     def get_angles(self, mst=False, product=None, col=None, dateline=False):
         """Get the solar and scattering angles for a MODIS/VIIRS image
@@ -617,15 +627,27 @@ class _MODISlocator:
         else:
             self.rectified = False
 
+        self.altitude_correct_coords = altitude_correction_coords()
+            
         self.locator_type = locator_type
         self.locator_class = locator_dict[self.locator_type](
                                   lon, lat, *args, **kwargs)
             
-    def locate(self, locs, filter_outside=10, remove_outside=False):
+    def locate(self, locs, filter_outside=10, remove_outside=False, altitude_correct=False):
         # Return nans if passed nans
         if not np.all(np.isfinite(locs)):
             return [(np.nan, np.nan)] * len(locs)
-        output = self.locator_class.locate(locs, filter_outside, remove_outside)
+        locs = np.array(locs)
+        output = self.locator_class.locate(locs[:, :2], filter_outside, remove_outside)
+        if altitude_correct == True:
+            if locs.shape[1] != 3:
+                raise AttributeError('Must have altitude information in the locs as a third corrdinate')
+            else:
+                # Work out how many gridboxes to shift by, coverting the latitude (in km)
+                alt_shift = (locs[:, 2]/10)*self.altitude_correct_coords[output[:, 1]]
+                new_cross = output[:, 1] + (alt_shift+0.5).astype('int')
+                output[:, 1] = np.clip(new_cross, 0, 1349)
+                
         if self.rectified:
             # Only remap valid points (not nan or -1)
             valid = np.where(

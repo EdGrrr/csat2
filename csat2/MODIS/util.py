@@ -158,6 +158,21 @@ def crosstrack_rectcoords():
         return ncdf.variables["remap_locate"][:]
 
 
+def altitude_correction_coords():
+    try:
+        file_correct = pkg_resources.resource_filename(
+            "csat2", f"data/modis_remapping/altitude_correction.nc")
+    except IndexError:  # No files returned
+        raise FileNotFoundError(
+            """Crosstrack rectify file not found. You need
+            to create this file first with the functions
+            in csat2.MODIS.util"""
+        )
+    with Dataset(file_correct) as ncdf:
+        return ncdf.variables["pix_adjust_10km"][:]
+    
+
+
 def _create_bowtie_correct(mod_data, output_file):
     lon = np.zeros(mod_data["Cloud_Effective_Radius"][:, :-4].shape)
     lat = np.zeros(lon.shape)
@@ -270,6 +285,34 @@ def _create_crosstrack_rectify_files():
         "MYD06_L2", 2015, 24, time="2220", sds=["Cloud_Effective_Radius"], col="61"
     )
     _create_crosstrack_rectify(mod_data, "crosstrack_rectify_1km.nc")
+
+
+def _create_altitude_correction_files():
+    # Chose an ocean granule
+    gran = MODIS.Granule.fromtext("2015001.1400T")
+    gran.download('03')
+    
+    data = gran.get_variable('03', ['SensorZenith', 'Longitude', 'Latitude'])
+    
+    centre = np.argmin(abs(data['SensorZenith'].values[0]))
+    
+    dist = csat2.misc.geo.haversine(data['Longitude'].values[0],
+                                    data['Latitude'].values[0],
+                                    data['Longitude'].values[0, centre],
+                                    data['Latitude'].values[0, centre])
+
+    alt = 10
+    altdist = alt*np.tan(np.deg2rad(data['SensorZenith'].values[7]))
+    pix_adjust = altdist[1:1349]/np.diff(dist)[1:1349]
+    
+    output_file = 'altitude_correction.nc'
+    with Dataset(output_file, "w") as ncdf:
+        ncdf.createDimension("cross_track", 1350)
+        
+        Var = ncdf.createVariable("pix_adjust_10km", "f", ("cross_track",))
+        Var[1:1349] = pix_adjust
+        Var[0] = pix_adjust[0]
+        Var[-1] = pix_adjust[-1]
 
 
 # Code for selecting MODIS granules that intersect with points

@@ -247,6 +247,19 @@ class BaseMODISLocator(unittest.TestCase):
             assert np.isnan(mlon_1km) or (mlon_1km == -1)
             assert np.isnan(mlat_1km) or (mlat_1km == -1)
 
+    def test_locator_altitude(self):
+        alt = 10
+        for loc in self.locs:
+            ilon, ilat = loc[1]
+            # Check 1km locator
+            mlon_1km, mlat_1km = self.gran.locate(
+                [[ilon, ilat, alt]],
+                locator_type=self.locator_type, altitude_correct=True)[0]
+            nlon, nlat = self.gran.geolocate([[mlon_1km, mlat_1km, 10]], altitude_correct=True)[0]
+            # Allow a 1-pixel mis-registration
+            assert misc.geo.haversine(nlon, nlat, ilon, ilat) < 1.41
+
+            
 
 class TestMODISLocator_BallTree(BaseMODISLocator):
     locator_type = 'BallTree'
