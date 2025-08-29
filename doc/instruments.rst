@@ -78,6 +78,16 @@ The granule object can also provide the approximate nearest pixel to a list of l
    >>> gran.locate([[-130, 31]], locator_type='SphereRemap')
    array([[ 774, 1322]])
 
+You can add altitude information to the MODIS locator to account for parallax (e.g. for aircraft). This is done by adding an extra coordinate (where the altitude is in km) and setting the argument ``altitude_correct``.
+
+.. code-block:: python
+
+   >>> gran.locate([[-130, 31, 10]], altitude_correct=True)
+   array([[ 774, 1327]])
+   >>> gran.geolocate([[774, 1327]])
+   array([[-130.18890686,   30.9575985 ]])
+   >>> gran.geolocate([[774, 1327, 10]], altitude_correct=True)
+   array([[-129.99105835,   31.00494385]])
 
 
 
