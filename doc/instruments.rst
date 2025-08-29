@@ -43,17 +43,6 @@ You can then return information about the granule - note that this requires the 
    >>> gran.daynight()
    'D'
 
-
-The granule object can also provide the approximate nearest pixel to a list of lon-lat points (points are always given in a ``[lon, lat]`` format. Sun and observation zenith angles can also be calculated, along with the interpolated lon-lat locations for each pixel.
-
-.. code-block:: python
-
-   >>> gran.locate([[-130, 31]])
-   array([[ 774, 1322]])
-   >>> sunz, suna, satz, sata, azidiff = gran.get_angles(mst=False)
-   >>> lon, lat = gran.get_lonlat()
-
-
 To get data for a granule, you can read a variable direct from a file, using the ``get_variable`` method, or get brightness temperature/reflectance data from the radiance product ``021KM`` (use ``refl=True``) to get reflectance. Set ``bowtie_corr=True`` to re-order the edge of swath pixels to account for the bowtie effect.
 
 .. code-block:: python
@@ -64,11 +53,33 @@ To get data for a granule, you can read a variable direct from a file, using the
    >>> refl2 = gran.get_band_radiance(2, refl=True, bowtie_corr=False)
 
 
-Finally, you can step forward a specified number of granules
+You can step forward a specified number of granules
 
 .. code-block:: python
 
    >>> newgran = gran.increment(number=1)
+
+Sun and observation zenith angles can also be calculated, along with the interpolated lon-lat locations for each pixel.
+
+.. code-block:: python
+
+   >>> sunz, suna, satz, sata, azidiff = gran.get_angles(mst=False)
+   >>> lon, lat = gran.get_lonlat()
+
+   
+   
+The granule object can also provide the approximate nearest pixel to a list of lon-lat points (points are always given in a ``[lon, lat]`` format. by default this is only approximate (to with +/- 1 gridbox). You can switch to an exact locator by changing the ``locator_type`` argument. If you only want to locate a small number of points, using ``locator_type='FullSearch'`` can be faster. There is more information about the different lcoators and their speed in the examples folder.
+
+
+.. code-block:: python
+
+   >>> gran.locate([[-130, 31]])
+   array([[ 774, 1322]])
+   >>> gran.locate([[-130, 31]], locator_type='SphereRemap')
+   array([[ 774, 1322]])
+
+
+
 
    
 Downloading MODIS data
