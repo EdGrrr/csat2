@@ -12,11 +12,11 @@ from .utils import check_valid_gran_args, check_valid_collection_product
 
 def get_file_from_url(url, local_path, fallback_url=None):
     '''helper function to download a file from a URL to a local path'''
-    urls_to_try = [url]
-    if fallback_url:
+    urls_to_try = [url] # start with the primary URL
+    if fallback_url: # if a fallback URL is provided, add it to the list of URLs to try
         urls_to_try.append(fallback_url)
 
-    for attempt,current_url in enumerate(urls_to_try):
+    for attempt,current_url in enumerate(urls_to_try): # try each URL in turn
         try:
             logging.info(f"Attempt {attempt+1} to download from {current_url}")
             response = requests.get(current_url, stream=True)
@@ -47,20 +47,6 @@ def get_file_from_url(url, local_path, fallback_url=None):
                 logging.error(f"All attempts to download {url} failed.")
                 raise
         
-
-    try:
-        response = requests.get(url, stream=True)
-        response.raise_for_status()  # Raise an error for bad responses
-        with open(local_path, 'wb') as file:
-            for chunk in response.iter_content(chunk_size=8192):
-                file.write(chunk)
-        logging.info(f"Downloaded {local_path} from {url}")
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Failed to download {url}: {e}")
-        sys.exit(1)
-    except Exception as e:
-        logging.error(f"Failed to download {url}: {e}")
-        raise
 
 
 
