@@ -437,8 +437,8 @@ Note that is assumes that the ISCCP data is on a regular 1 x 1 lon lat grid and 
 .. code-block:: python
 
     # Define target locations
-    target_lons = [-75.0, 0.0, 120.0]  # longitude in [0, 360]
-    target_lats = [40.0, 0.0, -30.0]   # latitude in [-90, 90]
+    target_lons = [-75.0, 0.0, 120.0] 
+    target_lats = [40.0, 0.0, -30.0]   
 
     # Get nearest values
     colocated_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt',
@@ -446,6 +446,18 @@ Note that is assumes that the ISCCP data is on a regular 1 x 1 lon lat grid and 
 
 
 Note that ISCCP uses a longitude convention of [0, 360] degrees and latitude of [-90, 90] degrees, but this method can handle lons in the range [-180, 180] degrees by converting them internally.
+The returned xarray will have the same structure as the variable of choice, i.e. if you choose 'cldamt_irtypes', the returned xarray will have the same structure as the 'cldamt_irtypes' variable, with the target lon and lat as coordinates and you can select low level clouds (1st index), for example:
+
+.. code-block:: python
+
+    # Define target locations
+    target_lons = [-75.0, 0.0, 120.0] 
+    target_lats = [40.0, 0.0, -30.0]   
+
+    # Get nearest values
+    colocated_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt_irtypes',
+                                    target_lons, target_lats).isel(cloud_irtype=0)
+
 
 Metadata Access
 ---------------
