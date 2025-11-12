@@ -93,9 +93,7 @@ def get_eumdac_product(gran):
 
 
 def read_fci_scene(fname):
-    print("\t\tFinding files and readers...")
     files = find_files_and_readers(base_dir=fname, reader="fci_l1c_nc")
-    print("\t\tCreating scene...")
     return Scene(filenames=files)
 
 
