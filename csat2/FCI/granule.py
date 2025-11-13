@@ -1,4 +1,5 @@
 from functools import cached_property
+import gc
 
 from tqdm import tqdm
 from csat2 import GOES
@@ -10,6 +11,7 @@ import requests
 import datetime
 import warnings
 import shutil
+import numpy as np
 import eumdac
 from satpy.scene import (
     Scene,
@@ -18,20 +20,30 @@ from satpy import find_files_and_readers
 
 CREDENTIALFILE = os.environ["HOME"] + "/.csat2/eumetsat_key.json"
 
+satpy_warning_issued = False
+
 with open(CREDENTIALFILE, "r") as jfile:
     credentials = json.load(jfile)
 
 
 def get_chunk_files(product):
-    return sorted([e for e in product.entries if "FD--CHK-BODY" in e], key=lambda e: e[-7:-3])
+    return sorted(
+        [e for e in product.entries if "FD--CHK-BODY" in e], key=lambda e: e[-7:-3]
+    )
 
-def download_fci(directory, selected_product: eumdac.product.Product, load_chunks_iis=None, force_redownload=False):
+
+def download_fci(
+    directory,
+    selected_product: eumdac.product.Product,
+    load_chunks_iis=None,
+    force_redownload=False,
+):
     directory = os.path.join(directory, str(selected_product))
     try:
         os.makedirs(directory)
     except FileExistsError:
         pass
-    
+
     chunks = get_chunk_files(selected_product)
     if load_chunks_iis is not None:
         chunks = [chunks[i] for i in load_chunks_iis]
@@ -40,9 +52,7 @@ def download_fci(directory, selected_product: eumdac.product.Product, load_chunk
             with selected_product.open(chunk) as fsrc:
                 file = os.path.join(directory, fsrc.name)
                 if not os.path.exists(file) or force_redownload:
-                    with open(
-                        os.path.join(directory, fsrc.name), mode="wb"
-                    ) as fdst:
+                    with open(os.path.join(directory, fsrc.name), mode="wb") as fdst:
                         shutil.copyfileobj(fsrc, fdst)
                 # print(f"Download of product {selected_product} finished.")
         except eumdac.product.ProductError as error:
@@ -82,35 +92,31 @@ def get_eumdac_product(gran):
     return products
 
 
-
 def read_fci_scene(fname):
-    files = find_files_and_readers(
-        base_dir=fname, reader="fci_l1c_nc"
-    )
+    files = find_files_and_readers(base_dir=fname, reader="fci_l1c_nc")
     return Scene(filenames=files)
 
-    
+
 def read_fci_file(fname, datasets, output_variable="radiance"):
     scn = read_fci_scene(fname)
     scn.load(datasets, upper_right_corner="NE", calibration=output_variable)
-    ds = scn.to_xarray_dataset().compute() # doing dask and lazy loading would be nice - but needs us to stop the tempfiles.
+    ds = (
+        scn.to_xarray_dataset().compute()
+    )  # doing dask and lazy loading would be nice - but needs us to stop the tempfiles.
+    del scn
+    gc.collect()
 
     return ds
+
 
 def get_available_products(fname):
     scn = read_fci_scene(fname)
     avail_data = scn.available_dataset_names()
     avail_comp = scn.available_composite_names()
     avail_data.extend(avail_comp)
+    del scn
+    gc.collect()
     return avail_data
-
-
-# def fci_datafile_name(
-#     high_res, process_time, start_time, end_time, repeat_cycle_in_day
-# ):
-#     imager_n = 1  # i.e. MTGi (Meteosat-12 is MTG1)
-#     subtype = "HRFI" if high_res else "FDHSI"
-#     return f"W_XX-EUMETSAT-Darmstadt,IMG+SAT,MTI{imager_n}+FCI-1C-RRAD-{subtype}-FD--x-x---x_C_EUMT_{process_time.strftime('%Y%m%d%H%M%S')}_IDPFI_OPE_{start_time.strftime('%Y%m%d%H%m%S')}_{end_time.strftime('%Y%m%d%H%m%S')}_N__O_{repeat_cycle_in_day}_0000.nc"
 
 
 class Granule(GOES.Granule):
@@ -126,6 +132,7 @@ class Granule(GOES.Granule):
         # the files
         self.resolution = resolution
         self.data = None
+        self._loaded_satpy_scene = None
 
     def download(self, force_redownload=False):
         local_folder = csat2.locator.get_folder(
@@ -204,40 +211,60 @@ class Granule(GOES.Granule):
             raise IndexError("Non-unique filename")
         return files[0]
 
-    def _read_file(self, datasets, output_variable='radiance'):
+    def _read_file(self, datasets, output_variable="radiance"):
         fname = self.get_filename()
         self.data = read_fci_file(fname, datasets, output_variable=output_variable)
 
-    def get_band_radiance(self, channel):
-        # channels e.g. "vis_04" for the .4 micron channel, or wavelength in microns.
-        datasets = [channel] if isinstance(channel, str) else channel
-        self._read_file(datasets=datasets)
-        return self.data[channel]
-    
     @cached_property
     def available_products(self):
         fname = self.get_filename()
         return get_available_products(fname)
-        
+
     def get_band_bt(self, channel):
-        datasets = [channel] if isinstance(channel, str) else channel
+        # channel can be a string (band name), integer (band number), float (wavelength in microns) or list of these
+        datasets = [channel] if isinstance(channel, (str, int, float)) else channel
         self._read_file(datasets=datasets, output_variable="brightness_temperature")
-        return self.data[channel]
-    
+        if len(datasets) == 1:
+            data_vars = list(self.data.data_vars.keys())
+            data_vars = [dv for dv in data_vars if dv not in ["x", "y", "crs"]]
+            return self.data[data_vars[0]]
+        return self.data
+
+    def get_band_radiance(self, channel):
+        datasets = (
+            [channel] if isinstance(channel, str) or np.isnumeric(channel) else channel
+        )
+        self._read_file(datasets=datasets)
+        if len(datasets) == 1:
+            data_vars = list(self.data.data_vars.keys())
+            data_vars = [dv for dv in data_vars if dv not in ["x", "y", "crs"]]
+            return self.data[data_vars[0]]
+        return self.data
+
     def get_satpy_scene(self):
+        global satpy_warning_issued
+        if not satpy_warning_issued:
+            print(
+                "Warning: Loading satpy scenes seem to leak memory, leading to crashes.\nThis can be mitigated by running `del scn` and `gc.collect()` after use.\nIt's recommended to use `get_band_bt` or `get_band_radiance` instead."
+            )
+            satpy_warning_issued = True
+
         fname = self.get_filename()
-        scn =  read_fci_scene(fname)
-        return scn
+        del self._loaded_satpy_scene
+        gc.collect()
+
+        self._loaded_satpy_scene = read_fci_scene(fname)
+        return self._loaded_satpy_scene
 
     def check(self, chunks=None):
         try:
             fname = self.get_filename()
         except IndexError:
             return False
-        
+
         possible_chunks = get_chunk_files(get_eumdac_product(self))
         if chunks is None:
             chunks = list(range(len(possible_chunks)))
-        
+
         files_to_check = [os.path.join(fname, possible_chunks[i]) for i in chunks]
         return all([os.path.exists(f) for f in files_to_check])
