@@ -230,11 +230,13 @@ class Granule(GOES.Granule):
             return self.data[data_vars[0]]
         return self.data
 
-    def get_band_radiance(self, channel):
-        datasets = (
-            [channel] if isinstance(channel, str) or np.isnumeric(channel) else channel
-        )
-        self._read_file(datasets=datasets)
+    def get_band_radiance(self, channel, refl=False):
+        # channel can be a string (band name), integer (band number), float (wavelength in microns) or list of these
+        datasets = [channel] if isinstance(channel, (str, int, float, np.integer, np.floating)) else channel
+        if refl==True:
+            self._read_file(datasets=datasets, output_variable="reflectance")
+        else:
+            self._read_file(datasets=datasets)
         if len(datasets) == 1:
             data_vars = list(self.data.data_vars.keys())
             data_vars = [dv for dv in data_vars if dv not in ["x", "y", "crs"]]
