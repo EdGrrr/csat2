@@ -2,6 +2,8 @@ import os
 from csat2 import locator
 from csat2 import misc
 from csat2.CERES.download import download_files
+import netCDF4 as nc
+import xarray as xr
 
 
 
@@ -49,18 +51,68 @@ class Granule:
             else:
                 return f'File already exists at {fileloc}, not redownloading.'
         
-    # def get_variable(self,varname:str):
-    #     ''' Get a specific variable from the granule. Will download the file if it does not already exist locally.
-    #    Note that the files are saved on the server in .hdf format'''
-
-        
+    # def get_variable(self, varname: str):
+    #     """
+    #     Get a specific variable from the granule.
+    #     Will download the file if it does not already exist locally.
+    #     """
     #     # Ensure the file is downloaded
     #     self.download()
         
     #     fileloc = self.get_fileloc()
         
-    #     # Open the netCDF file and extract the variable
+    #     # Check that the file exists
+    #     if not os.path.exists(fileloc):
+    #         raise FileNotFoundError(f"Granule file does not exist at {fileloc}")
+        
+    #     # Open the NetCDF/HDF file and extract the variable
     #     with nc.Dataset(fileloc, 'r') as dataset:
+    #         if varname not in dataset.variables:
+    #             raise KeyError(f"Variable '{varname}' not found in file {fileloc}")
     #         variable_data = dataset.variables[varname][:]
         
     #     return variable_data
+
+    def get_variable(self, varname: str):
+        """
+        Get a specific variable from the granule using xarray.
+        Will download the file if it does not already exist locally.
+        """
+        # Ensure the file is downloaded
+        self.download()
+        
+        fileloc = self.get_fileloc()
+        
+        # Check that the file exists
+        if not os.path.exists(fileloc):
+            raise FileNotFoundError(f"Granule file does not exist at {fileloc}")
+        
+        # Open the dataset with xarray (lazy-loading by default)
+        ds = xr.open_dataset(fileloc, engine='netcdf4')  # or engine='h5netcdf' if needed
+        
+        if varname not in ds:
+            raise KeyError(f"Variable '{varname}' not found in file {fileloc}")
+        
+        variable_data = ds[varname]  # This is an xarray.DataArray
+        
+        return variable_data
+    
+    def list_variables(self):
+        """
+        List all available variables in the granule.
+        Will download the file if it does not already exist locally.
+        """
+        # Ensure the file is downloaded
+        self.download()
+        
+        fileloc = self.get_fileloc()
+        
+        # Check that the file exists
+        if not os.path.exists(fileloc):
+            raise FileNotFoundError(f"Granule file does not exist at {fileloc}")
+        
+        # Open the NetCDF/HDF file and list the variables
+        with nc.Dataset(fileloc, 'r') as dataset:
+            variable_names = list(dataset.variables.keys())
+        
+        return variable_names
