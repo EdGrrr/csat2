@@ -6,6 +6,25 @@ import netCDF4 as nc
 import xarray as xr
 import numpy as np
 
+#### SOME NOTES ON THE CERES SYN1deg-1Hour PRODUCT
+# The CERES SYN1deg-1Hour product is a gridded product on a 1 degree latitude by 1 degree longitude grid, with hourly temporal resolution.
+# The data files are in HDF format, but can be read using netCDF4 or xarray in Python.
+
+# Ncld is the cloud layer index and takes the values 1 - 5 (or 0 to 4 in python/ numpy indexing), with 1: high, 2: Upper mid, 3: lower mid, 4: low, 5: Total
+# 1 = High (50-300 mb), 2 = UpperMid (300-500 mb), 3 = LowerMid (500-700 mb), 4 = Low (700 mb-Surface), 5 = Total (50 mb - Surface)
+# Nhour is the hour of day index (0-23 UTC) the first (or zeroth) index is hour 0 and the final index is hour 23
+# Nlat has length 180 Index #1 is defined at 89.5°N and #180 is at 89.5°S (-89.5) 
+# Nlon has length 360 Index #1 is defined at 179.5°W (-179.5) and #360 is at 179.5°E
+# Common variables useful for liquid water cloud analysis are:
+# [sza] - Solar zenith angle in degrees (0-90) shape (Nhour,Nlat,Nlon)
+# [obs_cld_amount] - Observed cloud amount (or CF) expressed as a percentage (0-100) it has shape (Ncld,Nhour,Nlat,Nlon)
+# [obs_cld_od] - Observed cloud optical depth ( 3.7 um retrieval - unitless, range: 0 - 400) shape (Ncld,Nhour,Nlat,Nlon)
+# [obs_cld_lwp] - Observed cloud liquid water path (in g/m^2) shape (Ncld,Nhour,Nlat,Nlon)
+# [obs_cld_liq_radius] - Observed cloud liquid water radius (in micrometers, range 0-40) shape (Ncld,Nhour,Nlat,Nlon)
+
+
+
+
 
 
 class Granule:
@@ -183,43 +202,75 @@ class Granule:
                 
             target_lons_180 = ((target_lons + 180) % 360) - 180  # Convert to [-180, 180] range    
 
-            lon_ind = np.round (target_lons_180 + 179.5).astype(int)
-            lat_ind = np.round (89.5 - target_lats).astype(int)
-
-            lon_ind = np.mod(lon_ind, lon.size)  # Wrap around longitudes
-            lat_ind = np.clip(lat_ind, 0, lat.size - 1)  # Clip latitudes to valid range, no wrapping at the poles
+            lon_ind = np.floor(target_lons_180 + 180).astype(int) % lon.size
+            lat_ind = np.floor(89.5 - target_lats).astype(int)
+            lat_ind = np.clip(lat_ind, 0, lat.size - 1)
 
             # Load variable data
-            var = self.get_variable(varname).values
-            assert var.ndim >=2, "Variable data must be at least 2D (lat, lon)."
-            assert var.shape[-2] == lat.shape[0] and var.shape[-1] == lon.shape[0], \
-                    "Variable data shape does not match expected CERES SYN grid shape."
+            var = self.get_variable(varname)
 
-            # Return values
-            if var.ndim == 3:
-                return np.array([var[:, li, lj] for li, lj in zip(lat_ind, lon_ind)])
+            var_data = var.values
+            assert var_data.shape[-2:] == (lat.size, lon.size), "Variable grid mismatch."
+            assert var_data.ndim >=2, "Variable data must be at least 2D (lat, lon)."
+
+
+            # Vectorized extraction
+            if var_data.ndim == 2:          
+                out = var_data[lat_ind, lon_ind]
+                dims = ["points"]
+                coords = {
+                    "points": np.arange(len(target_lons)),
+                    "target_lat": ("points", target_lats),
+                    "target_lon": ("points", target_lons),
+                }
+            elif var_data.ndim == 3:         # (time, lat, lon) → (time, points)
+                out = var_data[:, lat_ind, lon_ind]
+                dims = [var.dims[0], "points"]
+                coords = {var.dims[0]: var.coords[var.dims[0]],
+                        "points": np.arange(len(target_lons)),
+                        "target_lat": ("points", target_lats),
+                        "target_lon": ("points", target_lons)}
+            elif var_data.ndim == 4:         # (Ncld, Nhour, lat, lon) → (Ncld, Nhour, points)
+                out = var_data[:, :, lat_ind, lon_ind]
+                dims = [var.dims[0], var.dims[1], "points"]
+                coords = {var.dims[0]: var.coords[var.dims[0]],
+                        var.dims[1]: var.coords[var.dims[1]],
+                        "points": np.arange(len(target_lons)),
+                        "target_lat": ("points", target_lats),
+                        "target_lon": ("points", target_lons)}
             else:
-                return var[lat_ind, lon_ind]
+                raise ValueError("Unsupported variable dimensionality.")
+
+            return xr.DataArray(out, dims=dims, coords=coords)
 
     def _geolocate_xarray(self, varname, target_lons, target_lats):
             """
             Nearest-neighbor lookup using xarray .sel(method='nearest').
             """
 
-            ds = xr.open_dataset(self.get_fileloc(), engine="netcdf4")
-            da = ds[varname]
+            ds = xr.open_dataset(self.get_fileloc(), engine="netcdf4") ## open the dataset
+            da = ds[varname] # This is an xarray.DataArray
 
             # Fix target longitude convention
-            if da.lon.max() > 180:
+            if da.longitude.max() > 180: ## I don't think CERES SYN ever has this, but just in case
                 target_lons = np.mod(target_lons, 360)
             else:
                 target_lons = ((target_lons + 180) % 360) - 180
 
-            # Vectorized selection using DataArray indexers
-            return da.sel(
-                lon=xr.DataArray(target_lons, dims="points"),
-                lat=xr.DataArray(target_lats, dims="points"),
-                method="nearest"
-            ).values
-            
+            out = da.sel(
+            longitude=xr.DataArray(target_lons, dims="points"),
+            latitude=xr.DataArray(target_lats, dims="points"),
+            method="nearest") 
+
+            # Add target lat/lon coordinates
+            out = out.assign_coords(
+                target_lat=("points", target_lats),
+                target_lon=("points", target_lons)
+            )
+            return out
+
+    
+
+
+
         
