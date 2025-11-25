@@ -35,7 +35,7 @@ def find_granule_url(year: int, month: int, dom: int):
         if f.endswith(f".{date_str}.hdf"):
             return dir_url + f
 
-    # If none matched, raise debug message listing available few files
+    # If none matched, raise debug message listing available few files, this is highly unlikely to occur normally.
     preview = "\n".join(files[:5]) if files else "(no .hdf entries found)"
     raise ValueError(
         f"No CERES hourly file found for {date_str} in {dir_url}\n"
@@ -60,7 +60,7 @@ def download_files(year: int, month: int, dom: int, local_path: Path):
         print(f"Downloading from: {file_url}")
         print(f"Saving to:       {local_path}")
 
-        # Download the file into the local path. geturl will stream and show tqdm.
+        # Download the file into the local path, show progress bar
         with open(local_path, "wb") as f:
             geturl(file_url, out=f, quiet=False)
 
