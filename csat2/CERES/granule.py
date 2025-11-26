@@ -31,13 +31,13 @@ class Granule:
     '''An object for accessing and managing a specific CERES granule
     Note that this is only currently set up to deal with the CERES SYN - hourly product, and may have to be substancially editted if
     you want the data at different temporal frequencies.'''
-    def __init__(self,year:int, doy :int, time:int):
+    def __init__(self,year:int, doy :int, time:int= None):
         self.year = year
         _,month,dom = misc.time.doy_to_date(year, doy)  # Get month and day of month (dom) from year and day of year
         self.month = month
         self.dom = dom
         self.doy = doy
-        self.time = time ## this is the UTC time in hours (0-23)
+        self.time = time ## this is the UTC time in hours (0-23), if no time is given we will just use the full daily file
         
 
         
@@ -73,7 +73,7 @@ class Granule:
         
 
 
-    def get_variable(self, varname: str):
+    def get_variable(self, varname: str, daily = False):
         """
         Get a specific variable from the granule using xarray.
         Will download the file if it does not already exist locally.
@@ -93,7 +93,11 @@ class Granule:
         if varname not in ds:
             raise KeyError(f"Variable '{varname}' not found in file {fileloc}")
         
-        variable_data = ds[varname]  # This is an xarray.DataArray
+        if self.time is None or daily:
+            variable_data = ds[varname]  # Return the full variable if no time is specified
+        else:
+        
+            variable_data = ds[varname].isel(gmt_hr_index=self.time) # Extract the variable at the specified time
         
         return variable_data
     
@@ -119,8 +123,8 @@ class Granule:
     
     def get_lonlat(self,grid:bool = False,lon_360:bool = False):
         ''' Return the longitude and latitude arrays from the granule, optional arguments to return as a grid or have longitudes in [0,360] range'''
-        lon = self.get_variable('longitude').values
-        lat = self.get_variable('latitude').values
+        lon = self.get_variable('longitude', daily=True).values ## since a single time slice is not really defined for lon and lat
+        lat = self.get_variable('latitude', daily=True).values
 
         if grid:
             lon,lat = np.meshgrid(lon,lat)
@@ -213,61 +217,129 @@ class Granule:
             assert var_data.shape[-2:] == (lat.size, lon.size), "Variable grid mismatch."
             assert var_data.ndim >=2, "Variable data must be at least 2D (lat, lon)."
 
+            original_shape = target_lons.shape ## save the oroginal shape for reshaping later
+            assert target_lats.shape == original_shape, "Target lon and lat must have the same shape."
 
-            # Vectorized extraction
-            if var_data.ndim == 2:          
+
+            # Flatten the lon and lat
+            lon_flat = target_lons.ravel()
+            lat_flat = target_lats.ravel()
+
+            # Convert lon convention
+            lon_flat_180 = ((lon_flat + 180) % 360) - 180
+
+            # Compute exact grid indices
+            lon_ind = np.round(lon_flat_180 + 179.5).astype(int)
+            lat_ind = np.round(89.5 - lat_flat).astype(int)
+
+            # Wrap and clip
+            lon_ind = np.mod(lon_ind, lon.size)
+            lat_ind = np.clip(lat_ind, 0, lat.size - 1)
+
+            # Load CERES variable
+            var = self.get_variable(varname)
+            var_data = var.values
+
+            # indexing based on variable dimensions, remeber that the var data is stored as [Plevel,Time,lat, lon] in the file
+
+            if var_data.ndim == 2:      # (lat,lon)
                 out = var_data[lat_ind, lon_ind]
-                dims = ["points"]
-                coords = {
-                    "points": np.arange(len(target_lons)),
-                    "target_lat": ("points", target_lats),
-                    "target_lon": ("points", target_lons),
-                }
-            elif var_data.ndim == 3:         # (time, lat, lon) → (time, points)
-                out = var_data[:, lat_ind, lon_ind]
-                dims = [var.dims[0], "points"]
-                coords = {var.dims[0]: var.coords[var.dims[0]],
-                        "points": np.arange(len(target_lons)),
-                        "target_lat": ("points", target_lats),
-                        "target_lon": ("points", target_lons)}
-            elif var_data.ndim == 4:         # (Ncld, Nhour, lat, lon) → (Ncld, Nhour, points)
-                out = var_data[:, :, lat_ind, lon_ind]
-                dims = [var.dims[0], var.dims[1], "points"]
-                coords = {var.dims[0]: var.coords[var.dims[0]],
-                        var.dims[1]: var.coords[var.dims[1]],
-                        "points": np.arange(len(target_lons)),
-                        "target_lat": ("points", target_lats),
-                        "target_lon": ("points", target_lons)}
-            else:
-                raise ValueError("Unsupported variable dimensionality.")
 
-            return xr.DataArray(out, dims=dims, coords=coords)
+                new_shape = original_shape
+                new_dims = ["dim_" + str(i) for i in range(len(original_shape))]
+
+            elif var_data.ndim == 3:    # (time,lat,lon)
+                out = var_data[:, lat_ind, lon_ind]
+
+                new_shape = (var_data.shape[0],) + original_shape
+                new_dims = [var.dims[0]] + ["dim_" + str(i) for i in range(len(original_shape))]
+
+            elif var_data.ndim == 4:    # (Ncld,Nhour,lat,lon)
+                out = var_data[:, :, lat_ind, lon_ind]
+
+                new_shape = (var_data.shape[0], var_data.shape[1]) + original_shape
+                new_dims = [var.dims[0], var.dims[1]] + \
+                        ["dim_" + str(i) for i in range(len(original_shape))]
+
+            else:
+                raise ValueError("Unsupported variable dimension.")
+
+            # Reshape back to target shape
+            out = out.reshape(new_shape)
+
+            # construct the new coordinates
+            coords = {}
+
+            # CERES dims
+            for d in var.dims:
+                if d not in ("latitude", "longitude"):
+                    coords[d] = var.coords[d]
+
+            # New dims (corresponding to target shape)
+            for i, nd in enumerate(new_dims[-len(original_shape):]):
+                coords[nd] = np.arange(original_shape[i])
+
+            # Target coordinate fields
+            coords["target_lon"] = (new_dims[-len(original_shape):], target_lons)
+            coords["target_lat"] = (new_dims[-len(original_shape):], target_lats)
+
+            return xr.DataArray(out, dims=new_dims, coords=coords)
 
     def _geolocate_xarray(self, varname, target_lons, target_lats):
-            """
-            Nearest-neighbor lookup using xarray .sel(method='nearest').
-            """
+        """
+        Xarray version of nearest-neighbour geolocation.
+        Works for arbitrary-shaped input lon/lat arrays.
+        """
 
-            ds = xr.open_dataset(self.get_fileloc(), engine="netcdf4") ## open the dataset
-            da = ds[varname] # This is an xarray.DataArray
+        ds = xr.open_dataset(self.get_fileloc(), engine="netcdf4")
+        da = ds[varname]
 
-            # Fix target longitude convention
-            if da.longitude.max() > 180: ## I don't think CERES SYN ever has this, but just in case
-                target_lons = np.mod(target_lons, 360)
-            else:
-                target_lons = ((target_lons + 180) % 360) - 180
+        # Save original shape
+        original_shape = target_lons.shape
+        assert target_lats.shape == original_shape
 
-            out = da.sel(
-            longitude=xr.DataArray(target_lons, dims="points"),
-            latitude=xr.DataArray(target_lats, dims="points"),
-            method="nearest") 
+        # Flatten
+        lon_flat = target_lons.ravel()
+        lat_flat = target_lats.ravel()
 
-            # Add target lat/lon coordinates
-            out = out.assign_coords(
-                target_lat=("points", target_lats),
-                target_lon=("points", target_lons)
-            )
-            return out
+        # Fix longitude convention
+        if da.longitude.max() > 180:
+            lon_flat = np.mod(lon_flat, 360)
+        else:
+            lon_flat = ((lon_flat + 180) % 360) - 180
+
+        # Run vectorised selection
+        out = da.sel(
+            longitude=xr.DataArray(lon_flat, dims="points"),
+            latitude=xr.DataArray(lat_flat, dims="points"),
+            method="nearest",
+        )
+
+        # Now reshape output dims
+        # Example out dims: (time, points) or (points)
+        extra_dims = ["dim_" + str(i) for i in range(len(original_shape))]
+
+        new_dims = list(out.dims[:-1]) + extra_dims
+        new_shape = out.shape[:-1] + original_shape
+
+        out = out.values.reshape(new_shape)
+
+        # Build coords
+        coords = {}
+
+        # Existing CERES dims
+        for d in da.dims:
+            if d not in ("latitude", "longitude"):
+                coords[d] = da.coords[d]
+
+        # Extra dims
+        for i, nd in enumerate(extra_dims):
+            coords[nd] = np.arange(original_shape[i])
+
+        coords["target_lon"] = (extra_dims, target_lons)
+        coords["target_lat"] = (extra_dims, target_lats)
+
+        return xr.DataArray(out, dims=new_dims, coords=coords)
 
     
 
