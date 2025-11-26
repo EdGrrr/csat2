@@ -32,13 +32,14 @@ class Granule:
     Note that this is only currently set up to deal with the CERES SYN - hourly product, and may have to be substancially editted if
     you want the data at different temporal frequencies.'''
     def __init__(self,year:int, doy :int, time:int= None):
+
         self.year = year
         _,month,dom = misc.time.doy_to_date(year, doy)  # Get month and day of month (dom) from year and day of year
         self.month = month
         self.dom = dom
         self.doy = doy
         self.time = time ## this is the UTC time in hours (0-23), if no time is given we will just use the full daily file
-        
+  
 
         
     def get_fileloc(self):
@@ -77,9 +78,15 @@ class Granule:
         """
         Get a specific variable from the granule using xarray.
         Will download the file if it does not already exist locally.
+        daily: if this is set to True the full daily variable will be returne, i.e. we will have an extra dimesnion of length 24 hours
+        otherwise it will just be the variable at the specified time slice,
+        This is nessecary since some variables (lon and lat) cannot be accessed at a single time slice.
+        (i.e. theyt are the same for all time slices)
         """
         # Ensure the file is downloaded
         self.download()
+
+
         
         fileloc = self.get_fileloc()
         
@@ -123,7 +130,7 @@ class Granule:
     
     def get_lonlat(self,grid:bool = False,lon_360:bool = False):
         ''' Return the longitude and latitude arrays from the granule, optional arguments to return as a grid or have longitudes in [0,360] range'''
-        lon = self.get_variable('longitude', daily=True).values ## since a single time slice is not really defined for lon and lat
+        lon = self.get_variable('longitude', daily=True).values ## since a single time slice is not really defined for lon and lat, hence daily has to be imposed, maybe abit hacky, but a reasonable workaround for tge time being
         lat = self.get_variable('latitude', daily=True).values
 
         if grid:
@@ -149,7 +156,7 @@ class Granule:
                 
         return Granule(year=new_year, doy=new_doy, time=new_time)
     
-    def geolocate(self, varname: str, target_lons, target_lats, method: str = "linear"):
+    def geolocate(self, varname: str, target_lons, target_lats, method: str = "linear", daily: bool = False):
             """
             Given target longitude and latitude, return the value of `varname`
             at the nearest CERES grid cell.
@@ -167,6 +174,9 @@ class Granule:
             -------
             np.ndarray or float
                 Sampled values at requested coordinates.
+
+            daily: if this is set to True the full daily variable will be returne, i.e. we will have an extra dimesnion of length 24 hours, same as the get_variable method
+
             """
 
             # Make arrays
@@ -177,16 +187,16 @@ class Granule:
 
             if method == "linear":
                 
-                return self._geolocate_linear(varname, target_lons, target_lats)
+                return self._geolocate_linear(varname, target_lons, target_lats,daily=daily)
             
 
             elif method == "xarray":
-                return self._geolocate_xarray(varname, target_lons, target_lats)
+                return self._geolocate_xarray(varname, target_lons, target_lats, daily=daily)
 
             else:
                 raise NotImplementedError("method must be 'linear' or 'xarray'")
             
-    def _geolocate_linear(self, varname, target_lons, target_lats):
+    def _geolocate_linear(self, varname, target_lons, target_lats,daily):
             """
             Nearest-neighbor lookup using linear index mapping.
             Works because CERES SYN is on a regular lat/lon grid.
@@ -237,7 +247,7 @@ class Granule:
             lat_ind = np.clip(lat_ind, 0, lat.size - 1)
 
             # Load CERES variable
-            var = self.get_variable(varname)
+            var = self.get_variable(varname, daily=daily)
             var_data = var.values
 
             # indexing based on variable dimensions, remeber that the var data is stored as [Plevel,Time,lat, lon] in the file
@@ -248,7 +258,7 @@ class Granule:
                 new_shape = original_shape
                 new_dims = ["dim_" + str(i) for i in range(len(original_shape))]
 
-            elif var_data.ndim == 3:    # (time,lat,lon)
+            elif var_data.ndim == 3:    # (time,lat,lon) or (Ncld,lat,lon)
                 out = var_data[:, lat_ind, lon_ind]
 
                 new_shape = (var_data.shape[0],) + original_shape
@@ -285,14 +295,13 @@ class Granule:
 
             return xr.DataArray(out, dims=new_dims, coords=coords)
 
-    def _geolocate_xarray(self, varname, target_lons, target_lats):
+    def _geolocate_xarray(self, varname, target_lons, target_lats, daily):
         """
         Xarray version of nearest-neighbour geolocation.
         Works for arbitrary-shaped input lon/lat arrays.
         """
 
-        ds = xr.open_dataset(self.get_fileloc(), engine="netcdf4")
-        da = ds[varname]
+        var = self.get_variable(varname, daily=daily)
 
         # Save original shape
         original_shape = target_lons.shape
@@ -303,13 +312,13 @@ class Granule:
         lat_flat = target_lats.ravel()
 
         # Fix longitude convention
-        if da.longitude.max() > 180:
+        if var.longitude.max() > 180:
             lon_flat = np.mod(lon_flat, 360)
         else:
             lon_flat = ((lon_flat + 180) % 360) - 180
 
         # Run vectorised selection
-        out = da.sel(
+        out = var.sel(
             longitude=xr.DataArray(lon_flat, dims="points"),
             latitude=xr.DataArray(lat_flat, dims="points"),
             method="nearest",
@@ -328,9 +337,9 @@ class Granule:
         coords = {}
 
         # Existing CERES dims
-        for d in da.dims:
+        for d in var.dims:
             if d not in ("latitude", "longitude"):
-                coords[d] = da.coords[d]
+                coords[d] = var.coords[d]
 
         # Extra dims
         for i, nd in enumerate(extra_dims):
