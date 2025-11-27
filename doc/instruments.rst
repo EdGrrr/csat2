@@ -394,7 +394,7 @@ In your csat2 machine file (e.g. hardin.txt), ensure an ``[CERES]`` section is i
 
          [CERES]
          -[SYN-hourly]
-         {csat_folder}/CERES/SYN-hourly/{year}/{month:0>2}/CER_SYN1deg-1Hour_Terra-Aqua-NOAA20_Edition4B_407412.{year}{month:0>2}{dom:0>2}.hdf
+         {csat_folder}/CERES/SYN-hourly/{year}/{month:0>2}/CER_SYN1deg-1Hour_Terra-Aqua-NOAA20_Edition4B.{year}{month:0>2}{dom:0>2}.hdf
 
 
 .. code-block:: python
