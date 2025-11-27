@@ -260,44 +260,51 @@ class Granule:
                 out = var_data[lat_ind, lon_ind]
 
                 new_shape = original_shape
-                new_dims = ["dim_" + str(i) for i in range(len(original_shape))]
+
 
             elif var_data.ndim == 3:    # (time,lat,lon) or (Ncld,lat,lon)
                 out = var_data[:, lat_ind, lon_ind]
 
                 new_shape = (var_data.shape[0],) + original_shape
-                new_dims = [var.dims[0]] + ["dim_" + str(i) for i in range(len(original_shape))]
+
 
             elif var_data.ndim == 4:    # (Ncld,Nhour,lat,lon)
                 out = var_data[:, :, lat_ind, lon_ind]
 
                 new_shape = (var_data.shape[0], var_data.shape[1]) + original_shape
-                new_dims = [var.dims[0], var.dims[1]] + \
-                        ["dim_" + str(i) for i in range(len(original_shape))]
+
 
             else:
                 raise ValueError("Unsupported variable dimension.")
+                    
+                    # Determine new dims
+            if len(original_shape) == 1:
+                target_dims = ['points']
+            elif len(original_shape) == 2:
+                target_dims = ['y', 'x']
+            else:
+                target_dims = [f"dim_{i}" for i in range(len(original_shape))] ## generic names for higher dimensions
+
+            # Add CERES dims
+            if var_data.ndim == 2:
+                dims = target_dims
+            else:
+                dims = list(var.dims[:-2]) + target_dims  # skip lat/lon
 
             # Reshape back to target shape
             out = out.reshape(new_shape)
 
-            # construct the new coordinates
+            # Build cxarray
             coords = {}
-
-            # CERES dims
             for d in var.dims:
-                if d not in ("latitude", "longitude"):
+                if d not in ('latitude', 'longitude'):
                     coords[d] = var.coords[d]
-
-            # New dims (corresponding to target shape)
-            for i, nd in enumerate(new_dims[-len(original_shape):]):
+            for i, nd in enumerate(target_dims):
                 coords[nd] = np.arange(original_shape[i])
+            coords['target_lon'] = (target_dims, target_lons)
+            coords['target_lat'] = (target_dims, target_lats)
 
-            # Target coordinate fields
-            coords["target_lon"] = (new_dims[-len(original_shape):], target_lons)
-            coords["target_lat"] = (new_dims[-len(original_shape):], target_lats)
-
-            return xr.DataArray(out, dims=new_dims, coords=coords)
+            return xr.DataArray(out, dims=dims, coords=coords)
 
     def _geolocate_xarray(self, varname, target_lons, target_lats, daily):
         """
@@ -328,9 +335,16 @@ class Granule:
             method="nearest",
         )
 
-        # Now reshape output dims
-        # Example out dims: (time, points) or (points)
-        extra_dims = ["dim_" + str(i) for i in range(len(original_shape))]
+    # Determine target dims
+        if len(original_shape) == 1:
+            target_dims = ['points']
+        elif len(original_shape) == 2:
+            target_dims = ['y', 'x']
+        else:
+            target_dims = [f"dim_{i}" for i in range(len(original_shape))]
+
+        extra_dims = target_dims
+
 
         new_dims = list(out.dims[:-1]) + extra_dims
         new_shape = out.shape[:-1] + original_shape
