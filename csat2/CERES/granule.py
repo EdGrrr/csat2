@@ -169,6 +169,7 @@ class Granule:
                 Coordinates to sample at.
             method : 'linear' (this is defaul and will be fastest)
                     'xarray' (this is jsut incase there are issues with linear, but will be slower, and not really needed for CERES SYN data, but included incase the grid happens to be non regular in future data products)
+                    this is mostly for testing and validation purposes, as the linear method should work fine for CERES SYN data
 
             Returns
             -------

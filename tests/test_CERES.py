@@ -92,11 +92,24 @@ def test_xarray_geolocation(granule):
 
 def test_linear_matches_xarray(granule):
     """Basic consistency check between methods."""
-    lons = np.array([0.0, 179.0, -123.4])
-    lats = np.array([10.0, -45.0, 60.0])
+
+    N = 10 # number of random points to test
+    lons = np.random.uniform(-180, 180, N)
+    lats = np.random.uniform(-90, 90, N)
+
+    eps = 1e-4 ## this is so that a point exactly at the midpoint between two grid points is nudged either side so that both methods should (in theopry) give the same results, since xarrays tie breaker logic was causing this test to fdails since if two points are equally close xarray chooses the lower index one
+
+    def nudge(coords,grid_spacing=1.0,eps=eps):
+        frac_part = np.mod(coords,grid_spacing)
+        mask = np.isclose(frac_part,0.0,atol=1e-8)
+        coords[mask] += np.random.choice([-1,1],size=np.sum(mask))*eps
+        return coords
+    lons = nudge(lons)
+    lats = nudge(lats)
 
     v_lin = granule.geolocate(TEST_VAR, lons, lats, method="linear")
     v_xr  = granule.geolocate(TEST_VAR, lons, lats, method="xarray")
 
     # They should match because both do nearest-neighbour on a regular grid
     np.testing.assert_allclose(v_lin, v_xr, rtol=1e-5, atol=1e-5)
+
