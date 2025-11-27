@@ -64,7 +64,7 @@ class Granule:
             if not self.check() or force_redownload:
                 download_files(
                     year=self.year,
-                    month=self.month,  # Now passes month instead of doy
+                    month=self.month,  #  uses month and dom since this is how the files are organised on the server
                     dom=self.dom,
                     local_path=fileloc
                 )
@@ -161,10 +161,10 @@ class Granule:
             Given target longitude and latitude, return the value of `varname`
             at the nearest CERES grid cell.
 
-            Parameters
-            ----------
+    
+            Inputs:
             varname : str
-                Name of CERES variable.
+                Name of CERES variable, check with list_variables() method if you are unsure what is available. Note certain variables may not work with this method (e.g., variables that do not have lat/lon dimensions)
             target_lons, target_lats : float or array-like
                 Coordinates to sample at.
             method : 'linear' (this is defaul and will be fastest)
@@ -172,11 +172,14 @@ class Granule:
                     this is mostly for testing and validation purposes, as the linear method should work fine for CERES SYN data
 
             Returns
-            -------
-            np.ndarray or float
-                Sampled values at requested coordinates.
+         
+            xarray object with the target lon/ lats as the coordinates.
 
-            daily: if this is set to True the full daily variable will be returne, i.e. we will have an extra dimesnion of length 24 hours, same as the get_variable method
+            note if it is a 1d array of lon lat the name will be 'dim_0', if 2d array the names will be 'dim_0' and 'dim_1' etc for higher dimensions
+
+
+            daily: if this is set to True the full daily variable will be returne, i.e. we will have an extra dimesnion of length 24 hours,
+            same as the get_variable method
 
             """
 

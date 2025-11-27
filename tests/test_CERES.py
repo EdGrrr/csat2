@@ -4,7 +4,7 @@ import pytest
 from csat2.CERES.granule import Granule 
 
 
-## define constants for testing
+## constants for the test, this could be made 'random' for future testing
 
 TEST_YEAR = 2020
 TEST_DOY = 1       # 1 Jan 2020
