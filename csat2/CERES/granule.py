@@ -5,6 +5,7 @@ from csat2.CERES.download import download_files
 import netCDF4 as nc
 import xarray as xr
 import numpy as np
+import calendar
 
 #### SOME NOTES ON THE CERES SYN1deg-1Hour PRODUCT
 # The CERES SYN1deg-1Hour product is a gridded product on a 1 degree latitude by 1 degree longitude grid, with hourly temporal resolution.
@@ -140,20 +141,21 @@ class Granule:
             lon = np.where(lon <0, lon + 360, lon)
         return lon, lat
     
+    
     def next(self):
         ''' Return a Granule object for the next hour'''
         new_time = self.time + 1
         new_doy = self.doy
         new_year = self.year
-        
+
         if new_time >= 24:
             new_time = 0
             new_doy += 1
             # Check for year rollover
-            if new_doy > misc.time.days_in_year(new_year):
+            if new_doy > (366 if calendar.isleap(new_year) else 365):
                 new_doy = 1
                 new_year += 1
-                
+
         return Granule(year=new_year, doy=new_doy, time=new_time)
     
     def geolocate(self, varname: str, target_lons, target_lats, method: str = "linear", daily: bool = False):
