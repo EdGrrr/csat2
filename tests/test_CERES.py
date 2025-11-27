@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pytest
-from csat2.CERES.granule import Granule 
+import csat2.CERES
 
 
 ## constants for the test, this could be made 'random' for future testing
@@ -12,35 +12,27 @@ TEST_TIME = 12     # midday UTC/ GMT
 TEST_VAR = "obs_cld_amount"  
 
 
-# ---------------------------
-# FIXTURES
-# ---------------------------
-
 @pytest.fixture(scope="module")
 def granule(tmp_path_factory):
     """
     Create a Granule object, ensure the file is deleted, then downloaded fresh.
     """
-    g = Granule(TEST_YEAR, TEST_DOY, TEST_TIME)
+    granule = csat2.CERES.Granule(TEST_YEAR, TEST_DOY, TEST_TIME)
 
-    fileloc = g.get_fileloc()
+    fileloc = granule.get_fileloc()
 
     # Delete old file so test is clean
     if os.path.exists(fileloc):
         os.remove(fileloc)
 
     # Fresh download
-    g.download(force_redownload=True)
+    granule.download(force_redownload=True)
 
     assert os.path.exists(fileloc), "CERES file did not download correctly."
 
-    return g
+    return granule
 
-
-# ---------------------------
-# BASIC TESTS
-# ---------------------------
-
+## defie some tests
 def test_download(granule):
     """File should exist after download."""
     assert granule.check()
