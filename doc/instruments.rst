@@ -389,13 +389,12 @@ The primary interface is the ``Granule`` class, which represents a single day (o
 The granule is tied to a specific year, day-of-year (DOY), and optionally an hour (UTC). It is primarily designed for the CERES SYN1deg-1Hour product and may require adaptation for other temporal resolutions.
 
 In your csat2 machine file (e.g. hardin.txt), ensure an ``[CERES]`` section is included, for example:
-.. code-block:: ini
 
+   .. code-block:: ini
 
-
-      [CERES]
-      -[SYN-hourly]
-      {csat_folder}/CERES/SYN-hourly/{year}/{month:0>2}/CER_SYN1deg-1Hour_Terra-Aqua-NOAA20_Edition4B_407412.{year}{month:0>2}{dom:0>2}.hdf
+         [CERES]
+         -[SYN-hourly]
+         {csat_folder}/CERES/SYN-hourly/{year}/{month:0>2}/CER_SYN1deg-1Hour_Terra-Aqua-NOAA20_Edition4B_407412.{year}{month:0>2}{dom:0>2}.hdf
 
 
 .. code-block:: python
@@ -543,18 +542,36 @@ Example Workflow
 
     import matplotlib.pyplot as plt
     import csat2.CERES
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
 
-    gran = csat2.CERES.Granule(year=2023, doy=150, time=12)
-    cloud_amount = gran.get_variable('obs_cld_amount')
-    lon, lat = gran.get_lonlat(grid=True)
 
-    plt.figure(figsize=(10,5))
-    plt.contourf(lon, lat, cloud_amount.sel(cloud_layer = 4))  # Cloud layer takes values 1-5, where 4 is low clouds (note if you use isel it will be 0-4)
-    plt.title('CERES Cloud Fraction')
-    plt.xlabel('Longitude')
-    plt.ylabel('Latitude')
-    plt.colorbar(label='Cloud fraction (%)')
-    plt.show()
+      # Load the CERES granule
+      gran = csat2.CERES.Granule(year=2023, doy=150, time=12)
+      cloud_amount = gran.get_variable('obs_cld_amount')
+      lon, lat = gran.get_lonlat(grid=True) # this returns 2D lon/lat grids, the default is 1D arrays. 
+
+      # Select low cloud layer (layer 4)
+      low_cloud = cloud_amount.sel(cloud_layer=4)
+
+      # Create figure with Cartopy projection
+      fig = plt.figure(figsize=(12, 6))
+      ax = plt.axes(projection=ccrs.PlateCarree())
+      ax.set_global()  
+
+      # Add coastlines and land features
+      ax.coastlines()
+      ax.add_feature(cfeature.BORDERS, linestyle=':')
+
+
+      # Make the plot
+      mesh = ax.pcolormesh(lon, lat, low_cloud, transform=ccrs.PlateCarree(), cmap='coolwarm')
+      ax.gridlines(draw_labels=True) # Add gridlines with labels
+      cbar = plt.colorbar(mesh, ax=ax, orientation='horizontal', pad=0.05)
+      cbar.set_label('Low Cloud Fraction')
+
+      plt.title(f'CERES Low Cloud Amount {gran.year}-{gran.month:02d}-{gran.dom:02d} Hour: {gran.time:02d} UTC')
+      plt.show()
 
 
 Notes
