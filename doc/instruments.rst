@@ -388,12 +388,22 @@ The primary interface is the ``Granule`` class, which represents a single day (o
 
 The granule is tied to a specific year, day-of-year (DOY), and optionally an hour (UTC). It is primarily designed for the CERES SYN1deg-1Hour product and may require adaptation for other temporal resolutions.
 
+In your csat2 machine file (e.g. hardin.txt), ensure an ``[CERES]`` section is included, for example:
+.. code-block:: ini
+
+
+
+      [CERES]
+      -[SYN-hourly]
+      {csat_folder}/CERES/SYN-hourly/{year}/{month:0>2}/CER_SYN1deg-1Hour_Terra-Aqua-NOAA20_Edition4B_407412.{year}{month:0>2}{dom:0>2}.hdf
+
+
 .. code-block:: python
 
-    from csat2.CERES import Granule
+    import csat2.CERES
 
     # Create a granule for a specific date and time
-    gran = Granule(year=2023, doy=150, time=12)
+    gran = csat2.CERES.Granule(year=2023, doy=150, time=12)
 
     # List available variables
     vars = gran.list_variables()
@@ -426,7 +436,7 @@ A granule is constructed using:
 Data Variables
 --------------
 
-CERES SYN1deg-1Hour data variables include:
+CERES SYN1deg-1Hour data variables include (there are many others but these are the main liquid cloud related ones):
 
 - **sza**: Solar zenith angle (degrees), shape (Nhour, Nlat, Nlon)
 - **obs_cld_amount**: Cloud fraction (0-100%), shape (Ncld, Nhour, Nlat, Nlon)
@@ -440,6 +450,14 @@ Indices:
 - **Nhour**: Hour of day (0-23 UTC)
 - **Nlat**: 180 values from 89.5°N to -89.5°S
 - **Nlon**: 360 values from -179.5° to 179.5°E
+
+When you define a granule with a specific hour, the returned variables will have the hour dimension removed.
+So the dimensions will typically be (Ncld, Nlat, Nlon)
+
+Cloud layer index (Ncld):
+
+   **Ncld** is the cloud layer index and takes the values 1 - 5 (or 0 to 4 in python/ numpy indexing), with 1: high, 2: Upper mid, 3: lower mid, 4: low, 5: Total
+   # 1 = High (50-300 mb), 2 = UpperMid (300-500 mb), 3 = LowerMid (500-700 mb), 4 = Low (700 mb-Surface), 5 = Total (50 mb - Surface)
 
 .. code-block:: python
 
@@ -483,9 +501,10 @@ Notes:
 
 - Supports 1D or 2D coordinate arrays.
 - ``method='linear'`` uses fast nearest-neighbor indexing (default).
-- ``method='xarray'`` uses xarray ``.sel(method='nearest')`` for more general cases.
+- ``method='xarray'`` uses xarray ``.sel(method='nearest')`` for more general cases. This is more of a check that the linear method is working and will generally be much slower than the linear method as xarray will have to construct a KD-tree for the full grid.
 - If ``daily=True``, the full daily variable (24-hour dimension) is returned.
 - Coordinates are automatically converted from [-180, 180] if needed.
+- This returns an xarray DataArray with dimensions matching the input coordinate arrays.
 
 
 Coordinate Access
@@ -523,14 +542,14 @@ Example Workflow
 .. code-block:: python
 
     import matplotlib.pyplot as plt
-    from csat2.CERES import Granule
+    import csat2.CERES
 
-    gran = Granule(year=2023, doy=150, time=12)
+    gran = csat2.CERES.Granule(year=2023, doy=150, time=12)
     cloud_amount = gran.get_variable('obs_cld_amount')
     lon, lat = gran.get_lonlat(grid=True)
 
     plt.figure(figsize=(10,5))
-    plt.contourf(lon, lat, cloud_amount[0])  # first cloud layer
+    plt.contourf(lon, lat, cloud_amount.sel(cloud_layer = 4))  # Cloud layer takes values 1-5, where 4 is low clouds (note if you use isel it will be 0-4)
     plt.title('CERES Cloud Fraction')
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
