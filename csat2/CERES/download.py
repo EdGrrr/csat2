@@ -58,7 +58,7 @@ def download_files(year: int, month: int, dom: int, local_path: Path):
 
         print(f"Found granule: {filename}")
         print(f"Downloading from: {file_url}")
-        print(f"Saving to:       {local_path}")
+        print(f"Saving to: {local_path}")
 
         # Download the file into the local path, show progress bar
         with open(local_path, "wb") as f:
