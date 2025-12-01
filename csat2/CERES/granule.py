@@ -101,8 +101,10 @@ class Granule:
         if varname not in ds:
             raise KeyError(f"Variable '{varname}' not found in file {fileloc}")
         
-        if self.time is None or daily:
-            variable_data = ds[varname]  # Return the full variable if no time is specified
+        ##if 'gmt_hr_index' not in gran.get_variable('cloud_layer').coords:
+        
+        if self.time is None or daily or 'gmt_hr_index' not in ds[varname].coords:
+            variable_data = ds[varname]  # Return the full variable if no time is specified or if the time coordinate does not exist
         else:
         
             variable_data = ds[varname].isel(gmt_hr_index=self.time) # Extract the variable at the specified time
