@@ -102,6 +102,6 @@ def test_linear_matches_xarray(granule):
     v_lin = granule.geolocate(TEST_VAR, lons, lats, method="linear")
     v_xr  = granule.geolocate(TEST_VAR, lons, lats, method="xarray")
 
-    # They should match because both do nearest-neighbour on a regular grid
+    # They should match due to the nudging, note this test is mostly to ensure that the faster linear method is working
     np.testing.assert_allclose(v_lin, v_xr, rtol=1e-5, atol=1e-5)
 
