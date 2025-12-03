@@ -83,34 +83,49 @@ class Granule:
         otherwise it will just be the variable at the specified time slice,
         This is nessecary since some variables (lon and lat) cannot be accessed at a single time slice.
         (i.e. theyt are the same for all time slices)
+
+        This can either get a single variable (str) or multiple variables if a list of strings is provided
+
+        varname: str or list of str
+        Returns:
+            - xr.DataArray if input was a single string
+            - dict[str, xr.DataArray] if input was a list
         """
+
+        # Ensure list form
+        is_list = isinstance(varname, (list, tuple))
+        varlist = [varname] if not is_list else list(varname)
+
         # Ensure the file exists locally
         if not self.check():
             self.download()
-
-
-        
+             
         fileloc = self.get_fileloc()
-        
+
         # Check that the file exists
         if not os.path.exists(fileloc):
             raise FileNotFoundError(f"Granule file does not exist at {fileloc}, download failed")
         
-        # Open the dataset with xarray
+        # Open the dataset  once!
         ds = xr.open_dataset(fileloc, engine='netcdf4') 
+
+        out = {}
+        for v in varlist:
+            if v not in ds:
+                raise KeyError(f"Variable '{v}' not found in file {fileloc}")
+            
+            # if the variable does not have a gmt_hr_index coordinate, we return the full variable
+
+            if self.time is None or daily or 'gmt_hr_index' not in ds[v].coords:
+                out[v] = ds[v]
+            # otherwise we extract the variable at the specified time
+            else:
+                out[v] = ds[v].isel(gmt_hr_index=self.time)
+        # if only a single variable was requested, return just that variable     
+
+        return out if is_list else out[varlist[0]]
         
-        if varname not in ds:
-            raise KeyError(f"Variable '{varname}' not found in file {fileloc}")
-        
-        ##if 'gmt_hr_index' not in gran.get_variable('cloud_layer').coords:
-        
-        if self.time is None or daily or 'gmt_hr_index' not in ds[varname].coords:
-            variable_data = ds[varname]  # Return the full variable if no time is specified or if the time coordinate does not exist
-        else:
-        
-            variable_data = ds[varname].isel(gmt_hr_index=self.time) # Extract the variable at the specified time
-        
-        return variable_data
+
     
     def list_variables(self):
         """
@@ -161,14 +176,14 @@ class Granule:
 
         return Granule(year=new_year, doy=new_doy, time=new_time)
     
-    def geolocate(self, varname: str, target_lons, target_lats, method: str = "linear", daily: bool = False):
+    def geolocate(self, varname, target_lons, target_lats, method: str = "linear", daily: bool = False):
             """
             Given target longitude and latitude, return the value of `varname`
             at the nearest CERES grid cell.
 
     
             Inputs:
-            varname : str
+            varname : str or list of strings, similar to the get_variable method
                 Name of CERES variable, check with list_variables() method if you are unsure what is available. Note certain variables may not work with this method (e.g., variables that do not have lat/lon dimensions)
             target_lons, target_lats : float or array-like
                 Coordinates to sample at.
