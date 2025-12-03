@@ -84,8 +84,9 @@ class Granule:
         This is nessecary since some variables (lon and lat) cannot be accessed at a single time slice.
         (i.e. theyt are the same for all time slices)
         """
-        # Ensure the file is downloaded
-        self.download()
+        # Ensure the file exists locally
+        if not self.check():
+            self.download()
 
 
         
@@ -93,10 +94,10 @@ class Granule:
         
         # Check that the file exists
         if not os.path.exists(fileloc):
-            raise FileNotFoundError(f"Granule file does not exist at {fileloc}")
+            raise FileNotFoundError(f"Granule file does not exist at {fileloc}, download failed")
         
-        # Open the dataset with xarray (lazy-loading by default)
-        ds = xr.open_dataset(fileloc, engine='netcdf4')  # or engine='h5netcdf' if needed
+        # Open the dataset with xarray
+        ds = xr.open_dataset(fileloc, engine='netcdf4') 
         
         if varname not in ds:
             raise KeyError(f"Variable '{varname}' not found in file {fileloc}")
