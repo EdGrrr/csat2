@@ -82,3 +82,8 @@ M seldon_folder=/net/seldon/disk1/Data/
   {seldon_folder}/VIIRS/{product}/{collection:0>4}/{year}/{doy:0>3}/*.{time}.*.nc
 -[GEOMETA]
   {seldon_folder}/VIIRS/GEOMETA/{year}/{sat}_{year}-{mon:0>2}-{day:0>2}.txt
+
+
+[CERES]
+-[SYN-hourly]
+  {csat_folder}/CERES/SYN-hourly/{year}/{month:0>2}/CER_SYN1deg-1Hour_Terra-Aqua-NOAA20_Edition4B.{year}{month:0>2}{dom:0>2}.hdf
