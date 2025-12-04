@@ -4,6 +4,11 @@ M data_folder=/home/edward/LocalData
 -[LID_L1|LID_L2_VFM]
   {data_folder}/CALIPSO/{product}/{col}/{year}/{doy:0>3}/CAL_{product}-Standard-{col}.{year}-{mon:0>2}-{day:0>2}T{hour:0>2}-{minute:0>2}-*.hdf
 
+[CERES]
+-[SYN-hourly]
+  {data_folder}/CERES/SYN-hourly/{year}/{month:0>2}/CER_SYN1deg-1Hour_Terra-Aqua-NOAA20_Edition4B.{year}{month:0>2}{dom:0>2}.hdf
+
+
 [CLOUDSAT]
 -[1B-CPR|2B-GEOPROF|2B-GEOPROF-LIDAR|2B-CWC-RVOD|2C-PRECIP-COLUMN|ECMWF-AUX|MODIS-AUX|2B-FLXHR-LIDAR|2B-TAU|2C-ICE]
   {data_folder}/CloudSat/{product}/{col}/{year}/{doy:0>3}/*_{orbit:0>5}_*.hdf
@@ -64,9 +69,3 @@ M data_folder=/home/edward/LocalData
   {data_folder}/VIIRS/{product}/{collection:0>4}/{year}/{doy:0>3}/*.{time}.*.nc
 -[GEOMETA]
   {data_folder}/VIIRS/GEOMETA/{year}/{sat}_{year}-{mon:0>2}-{day:0>2}.txt
-
-
-
-[CERES]
--[SYN-hourly]
-  {data_folder}/CERES/SYN-hourly/{year}/{month:0>2}/CER_SYN1deg-1Hour_Terra-Aqua-NOAA20_Edition4B.{year}{month:0>2}{dom:0>2}.hdf
