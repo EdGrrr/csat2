@@ -455,14 +455,25 @@ So the dimensions will typically be (Ncld, Nlat, Nlon)
 
 Cloud layer index (Ncld):
 
-   **Ncld** is the cloud layer index and takes the values 1 - 5 (or 0 to 4 in python/ numpy indexing), with 1: high, 2: Upper mid, 3: lower mid, 4: low, 5: Total
-   # 1 = High (50-300 mb), 2 = UpperMid (300-500 mb), 3 = LowerMid (500-700 mb), 4 = Low (700 mb-Surface), 5 = Total (50 mb - Surface)
+- **Ncld** is the cloud layer index and takes the values 1 - 5 (or 0 to 4 in python/ numpy indexing), with 1: high, 2: Upper mid, 3: lower mid, 4: low, 5: Total
+# 1 = High (50-300 mb), 2 = UpperMid (300-500 mb), 3 = LowerMid (500-700 mb), 4 = Low (700 mb-Surface), 5 = Total (50 mb - Surface)
+
+In order to access a variable, use the ``get_variable`` method, specifying the variable name as a string. This returns an ``xarray.DataArray``.
 
 .. code-block:: python
 
     variables = gran.list_variables()
     cloud_amount = gran.get_variable('obs_cld_amount')
+    
+In order to save reading the file in multiple times, you can also pass a list of variable names to ``get_variable``, which will return a dictionary of DataArrays.
 
+.. code-block:: python
+
+    var_names = ['obs_cld_amount', 'obs_cld_lwp', 'sza']
+    data_dict = gran.get_variable(var_names)
+    cloud_amount = data_dict['obs_cld_amount']
+    cloud_lwp = data_dict['obs_cld_lwp']
+    sza = data_dict['sza']
 
 File Management
 ---------------
