@@ -456,7 +456,7 @@ So the dimensions will typically be (Ncld, Nlat, Nlon)
 Cloud layer index (Ncld):
 
 - **Ncld** is the cloud layer index and takes the values 1 - 5 (or 0 to 4 in python/ numpy indexing), with 1: high, 2: Upper mid, 3: lower mid, 4: low, 5: Total
-# 1 = High (50-300 mb), 2 = UpperMid (300-500 mb), 3 = LowerMid (500-700 mb), 4 = Low (700 mb-Surface), 5 = Total (50 mb - Surface)
+-  1 = High (50-300 mb), 2 = UpperMid (300-500 mb), 3 = LowerMid (500-700 mb), 4 = Low (700 mb-Surface), 5 = Total (50 mb - Surface)
 
 In order to access a variable, use the ``get_variable`` method, specifying the variable name as a string. This returns an ``xarray.DataArray``.
 
