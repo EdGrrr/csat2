@@ -378,3 +378,227 @@ save much space)
 
     
 
+
+
+CERES SYN1deg-1Hour Granule
+============================
+
+The CERES SYN1deg-1Hour module provides access to the hourly CERES SYN cloud and radiative products on a regular 1°x1° latitude-longitude grid.
+The primary interface is the ``Granule`` class, which represents a single day (or hour) of CERES data and provides easy access to variables, geolocation, and file management.
+
+The granule is tied to a specific year, day-of-year (DOY), and optionally an hour (UTC). It is primarily designed for the CERES SYN1deg-1Hour product and may require adaptation for other temporal resolutions.
+
+In your csat2 machine file (e.g. hardin.txt), ensure an ``[CERES]`` section is included, for example:
+
+   .. code-block:: ini
+
+         [CERES]
+         -[SYN-hourly]
+         {csat_folder}/CERES/SYN-hourly/{year}/{month:0>2}/CER_SYN1deg-1Hour_Terra-Aqua-NOAA20_Edition4B.{year}{month:0>2}{dom:0>2}.hdf
+
+
+.. code-block:: python
+
+    import csat2.CERES
+
+    # Create a granule for a specific date and time
+    gran = csat2.CERES.Granule(year=2023, doy=150, time=12)
+
+    # List available variables
+    vars = gran.list_variables()
+
+    # Access cloud fraction at the specified hour
+    cloud_fraction = gran.get_variable('obs_cld_amount')
+
+
+CERES Granule Interface
+-----------------------
+
+A ``Granule`` represents a specific CERES SYN observation in time. The class provides:
+
+- Methods for accessing data variables as ``xarray.DataArray`` objects.
+- File management (checking, downloading, local file paths).
+- Geolocation to extract variable values at arbitrary lon/lat coordinates.
+- Time navigation to move between hourly granules.
+
+A granule is constructed using:
+
+- **year** (int): four-digit year
+- **doy** (int): day of year (1-365/366)
+- **time** (int, optional): hour of day (0-23 UTC). If None, the full daily file is used.
+
+.. code-block:: python
+
+    gran = Granule(year=2023, doy=150, time=12)  # June 1st, 2023 at 12:00 UTC
+
+
+Data Variables
+--------------
+
+CERES SYN1deg-1Hour data variables include (there are many others but these are the main liquid cloud related ones):
+
+- **sza**: Solar zenith angle (degrees), shape (Nhour, Nlat, Nlon)
+- **obs_cld_amount**: Cloud fraction (0-100%), shape (Ncld, Nhour, Nlat, Nlon)
+- **obs_cld_od**: Cloud optical depth (unitless, 0-400), shape (Ncld, Nhour, Nlat, Nlon)
+- **obs_cld_lwp**: Cloud liquid water path (g/m²), shape (Ncld, Nhour, Nlat, Nlon)
+- **obs_cld_liq_radius**: Cloud liquid water radius (µm, 0-40), shape (Ncld, Nhour, Nlat, Nlon)
+
+Indices:
+
+- **Ncld**: Cloud layer index (1: High, 2: UpperMid, 3: LowerMid, 4: Low, 5: Total)
+- **Nhour**: Hour of day (0-23 UTC)
+- **Nlat**: 180 values from 89.5°N to -89.5°S
+- **Nlon**: 360 values from -179.5° to 179.5°E
+
+When you define a granule with a specific hour, the returned variables will have the hour dimension removed.
+So the dimensions will typically be (Ncld, Nlat, Nlon)
+
+Cloud layer index (Ncld):
+
+- **Ncld** is the cloud layer index and takes the values 1 - 5 (or 0 to 4 in python/ numpy indexing), with 1: high, 2: Upper mid, 3: lower mid, 4: low, 5: Total
+-  1 = High (50-300 mb), 2 = UpperMid (300-500 mb), 3 = LowerMid (500-700 mb), 4 = Low (700 mb-Surface), 5 = Total (50 mb - Surface)
+
+In order to access a variable, use the ``get_variable`` method, specifying the variable name as a string. This returns an ``xarray.DataArray``.
+
+.. code-block:: python
+
+    variables = gran.list_variables()
+    cloud_amount = gran.get_variable('obs_cld_amount')
+    
+In order to save reading the file in multiple times, you can also pass a list of variable names to ``get_variable``, which will return a dictionary of DataArrays.
+
+.. code-block:: python
+
+    var_names = ['obs_cld_amount', 'obs_cld_lwp', 'sza']
+    data_dict = gran.get_variable(var_names)
+    cloud_amount = data_dict['obs_cld_amount']
+    cloud_lwp = data_dict['obs_cld_lwp']
+    sza = data_dict['sza']
+
+File Management
+---------------
+
+The granule class handles file paths and downloading automatically:
+
+.. code-block:: python
+
+    # Get the local file path
+    path = gran.get_fileloc()
+
+    # Check if the file exists locally
+    exists = gran.check()
+
+    # Download the file if not present
+    gran.download()
+
+    # Force re-download
+    gran.download(force_redownload=True)
+
+
+Geolocation
+-----------
+
+The ``geolocate`` method allows extraction of variable values at specific geographic coordinates. Returns an ``xarray.DataArray`` with the same structure as the original variable but indexed by 'target_lon' and 'target_lat'.
+
+.. code-block:: python
+
+    target_lons = [-75.0, 0.0, 120.0]
+    target_lats = [40.0, 0.0, -30.0]
+
+    colocated = gran.geolocate('obs_cld_amount', target_lons, target_lats)
+
+Similar to the get_variable method, you can pass a list of variable names to ``geolocate``, which will return a dictionary of DataArrays.
+
+.. code-block:: python
+
+    var_names = ['obs_cld_amount', 'obs_cld_lwp']
+    colocated_dict = gran.geolocate(var_names, target_lons, target_lats)
+    colocated_amount = colocated_dict['obs_cld_amount']
+    colocated_lwp = colocated_dict['obs_cld_lwp']
+
+
+Notes:
+
+- Supports 1D or 2D coordinate arrays.
+- ``method='linear'`` uses fast nearest-neighbor indexing (default).
+- ``method='xarray'`` uses xarray ``.sel(method='nearest')`` for more general cases. This is more of a check that the linear method is working and will generally be much slower than the linear method as xarray will have to construct a KD-tree for the full grid.
+- If ``daily=True``, the full daily variable (24-hour dimension) is returned.
+- Coordinates are automatically converted from [-180, 180] if needed.
+- This returns an xarray DataArray with dimensions matching the input coordinate arrays.
+
+
+Coordinate Access
+-----------------
+
+The longitude and latitude arrays can be retrieved using ``get_lonlat``:
+
+.. code-block:: python
+
+    lon, lat = gran.get_lonlat()  # returns 1D arrays
+    lon_grid, lat_grid = gran.get_lonlat(grid=True)  # returns 2D meshgrid
+
+Optional arguments:
+
+- ``grid``: return 2D arrays (default False)
+- ``lon_360``: return longitudes in [0, 360] instead of [-180, 180] (default False)
+
+
+Time Navigation
+---------------
+
+Navigate through hourly granules using ``next``:
+
+.. code-block:: python
+
+    next_gran = gran.next()  # next hour
+    prev_gran = gran  # current granule
+
+The method handles day-of-year and year rollover automatically.
+
+
+Example Workflow
+----------------
+
+.. code-block:: python
+
+    import matplotlib.pyplot as plt
+    import csat2.CERES
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+
+
+      # Load the CERES granule
+      gran = csat2.CERES.Granule(year=2023, doy=150, time=12)
+      cloud_amount = gran.get_variable('obs_cld_amount')
+      lon, lat = gran.get_lonlat(grid=True) # this returns 2D lon/lat grids, the default is 1D arrays. 
+
+      # Select low cloud layer (layer 4)
+      low_cloud = cloud_amount.sel(cloud_layer=4)
+
+      # Create figure with Cartopy projection
+      fig = plt.figure(figsize=(12, 6))
+      ax = plt.axes(projection=ccrs.PlateCarree())
+      ax.set_global()  
+
+      # Add coastlines and land features
+      ax.coastlines()
+      ax.add_feature(cfeature.BORDERS, linestyle=':')
+
+
+      # Make the plot
+      mesh = ax.pcolormesh(lon, lat, low_cloud, transform=ccrs.PlateCarree(), cmap='coolwarm')
+      ax.gridlines(draw_labels=True) # Add gridlines with labels
+      cbar = plt.colorbar(mesh, ax=ax, orientation='horizontal', pad=0.05)
+      cbar.set_label('Low Cloud Fraction')
+
+      plt.title(f'CERES Low Cloud Amount {gran.year}-{gran.month:02d}-{gran.dom:02d} Hour: {gran.time:02d} UTC')
+      plt.show()
+
+
+Notes
+-----
+
+- The ``Granule`` object assumes a regular 1°x1° grid and hourly data for CERES SYN.
+- The linear geolocation method is preferred for speed; the xarray method is included for validation or irregular grids.
+- The class will automatically download missing files when required.
+

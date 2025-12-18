@@ -1,0 +1,433 @@
+import os
+from csat2 import locator
+from csat2 import misc
+from csat2.CERES.download import download_files
+import netCDF4 as nc
+import xarray as xr
+import numpy as np
+import calendar
+
+#### SOME NOTES ON THE CERES SYN1deg-1Hour PRODUCT
+# The CERES SYN1deg-1Hour product is a gridded product on a 1 degree latitude by 1 degree longitude grid, with hourly temporal resolution.
+# The data files are in HDF format, but can be read using netCDF4 or xarray in Python.
+
+# Ncld is the cloud layer index and takes the values 1 - 5 (or 0 to 4 in python/ numpy indexing), with 1: high, 2: Upper mid, 3: lower mid, 4: low, 5: Total
+# 1 = High (50-300 mb), 2 = UpperMid (300-500 mb), 3 = LowerMid (500-700 mb), 4 = Low (700 mb-Surface), 5 = Total (50 mb - Surface)
+# Nhour is the hour of day index (0-23 UTC) the first (or zeroth) index is hour 0 and the final index is hour 23
+# Nlat has length 180 Index #1 is defined at 89.5°N and #180 is at 89.5°S (-89.5) 
+# Nlon has length 360 Index #1 is defined at 179.5°W (-179.5) and #360 is at 179.5°E
+# Common variables useful for liquid water cloud analysis are:
+# [sza] - Solar zenith angle in degrees (0-90) shape (Nhour,Nlat,Nlon)
+# [obs_cld_amount] - Observed cloud amount (or CF) expressed as a percentage (0-100) it has shape (Ncld,Nhour,Nlat,Nlon)
+# [obs_cld_od] - Observed cloud optical depth ( 3.7 um retrieval - unitless, range: 0 - 400) shape (Ncld,Nhour,Nlat,Nlon)
+# [obs_cld_lwp] - Observed cloud liquid water path (in g/m^2) shape (Ncld,Nhour,Nlat,Nlon)
+# [obs_cld_liq_radius] - Observed cloud liquid water radius (in micrometers, range 0-40) shape (Ncld,Nhour,Nlat,Nlon)
+
+
+
+
+
+
+class Granule:
+    '''An object for accessing and managing a specific CERES granule
+    Note that this is only currently set up to deal with the CERES SYN - hourly product, and may have to be substancially editted if
+    you want the data at different temporal frequencies.'''
+    def __init__(self,year:int, doy :int, time:int= None):
+
+        self.year = year
+        _,month,dom = misc.time.doy_to_date(year, doy)  # Get month and day of month (dom) from year and day of year
+        self.month = month
+        self.dom = dom
+        self.doy = doy
+        self.time = time ## this is the UTC time in hours (0-23), if no time is given we will just use the full daily file
+  
+
+        
+    def get_fileloc(self):
+        ''' Return the local directory, note that this does not require that the file actually exists there.'''
+        
+        fileloc = locator.format_filename('CERES','SYN-hourly',year = self.year, month = self.month, dom  = self.dom)
+
+        return fileloc
+  
+
+    def check(self):
+        ''' Check if the file exists locally.'''
+        fileloc = self.get_fileloc()
+        if os.path.exists(fileloc):
+            return True
+        else:
+            return False
+        
+    def download(self, force_redownload: bool = False):
+            '''Download the file locally'''
+            fileloc = self.get_fileloc()
+            if not self.check() or force_redownload:
+                download_files(
+                    year=self.year,
+                    month=self.month,  #  uses month and dom since this is how the files are organised on the server
+                    dom=self.dom,
+                    local_path=fileloc
+                )
+                return f'Downloaded file to {fileloc}'
+            else:
+                return f'File already exists at {fileloc}, not redownloading.'
+        
+
+
+    def get_variable(self, varname: str, daily = False):
+        """
+        Get a specific variable from the granule using xarray.
+        Will download the file if it does not already exist locally.
+        daily: if this is set to True the full daily variable will be returne, i.e. we will have an extra dimesnion of length 24 hours
+        otherwise it will just be the variable at the specified time slice,
+        This is nessecary since some variables (lon and lat) cannot be accessed at a single time slice.
+        (i.e. theyt are the same for all time slices)
+
+        This can either get a single variable (str) or multiple variables if a list of strings is provided
+
+        varname: str or list of str
+        Returns:
+            - xr.DataArray if input was a single string
+            - dict[str, xr.DataArray] if input was a list
+        """
+
+        # Ensure list form
+        is_list = isinstance(varname, (list, tuple))
+        varlist = [varname] if not is_list else list(varname)
+
+        # Ensure the file exists locally
+        if not self.check():
+            self.download()
+             
+        fileloc = self.get_fileloc()
+
+        # Check that the file exists
+        if not os.path.exists(fileloc):
+            raise FileNotFoundError(f"Granule file does not exist at {fileloc}, download failed")
+        
+        # Open the dataset  once!
+        ds = xr.open_dataset(fileloc, engine='netcdf4') 
+
+        out = {}
+        for v in varlist:
+            if v not in ds:
+                raise KeyError(f"Variable '{v}' not found in file {fileloc}")
+            
+            # if the variable does not have a gmt_hr_index coordinate, we return the full variable
+
+            if self.time is None or daily or 'gmt_hr_index' not in ds[v].coords:
+                out[v] = ds[v]
+            # otherwise we extract the variable at the specified time
+            else:
+                out[v] = ds[v].isel(gmt_hr_index=self.time)
+        # if only a single variable was requested, return just that variable     
+
+        return out if is_list else out[varlist[0]]
+        
+
+    
+    def list_variables(self):
+        """
+        List all available variables in the granule.
+        Will download the file if it does not already exist locally.
+        """
+        # Ensure the file is downloaded
+        self.download()
+        
+        fileloc = self.get_fileloc()
+        
+        # Check that the file exists
+        if not os.path.exists(fileloc):
+            raise FileNotFoundError(f"Granule file does not exist at {fileloc}")
+        
+        # Open the NetCDF/HDF file and list the variables
+        with nc.Dataset(fileloc, 'r') as dataset:
+            variable_names = list(dataset.variables.keys())
+        
+        return variable_names
+    
+    def get_lonlat(self,grid:bool = False,lon_360:bool = False):
+        ''' Return the longitude and latitude arrays from the granule, optional arguments to return as a grid or have longitudes in [0,360] range'''
+        lon = self.get_variable('longitude', daily=True).values ## since a single time slice is not really defined for lon and lat, hence daily has to be imposed, maybe abit hacky, but a reasonable workaround for tge time being
+        lat = self.get_variable('latitude', daily=True).values
+
+        if grid:
+            lon,lat = np.meshgrid(lon,lat)
+
+        if lon_360:
+            lon = np.where(lon <0, lon + 360, lon)
+        return lon, lat
+    
+    
+    def next(self):
+        ''' Return a Granule object for the next hour'''
+        new_time = self.time + 1
+        new_doy = self.doy
+        new_year = self.year
+
+        if new_time >= 24:
+            new_time = 0
+            new_doy += 1
+            # Check for year rollover
+            if new_doy > (366 if calendar.isleap(new_year) else 365):
+                new_doy = 1
+                new_year += 1
+
+        return Granule(year=new_year, doy=new_doy, time=new_time)
+    
+    def geolocate(self, varname, target_lons, target_lats, method: str = "linear", daily: bool = False):
+            """
+            Given target longitude and latitude, return the value of `varname`
+            at the nearest CERES grid cell.
+
+    
+            Inputs:
+            varname : str or list of strings, similar to the get_variable method
+                Name of CERES variable, check with list_variables() method if you are unsure what is available. Note certain variables may not work with this method (e.g., variables that do not have lat/lon dimensions)
+            target_lons, target_lats : float or array-like
+                Coordinates to sample at.
+            method : 'linear' (this is defaul and will be fastest)
+                    'xarray' (this is jsut incase there are issues with linear, but will be slower, and not really needed for CERES SYN data, but included incase the grid happens to be non regular in future data products)
+                    this is mostly for testing and validation purposes, as the linear method should work fine for CERES SYN data
+
+            Returns
+         
+            xarray object with the target lon/ lats as the coordinates.
+
+            note if it is a 1d array of lon lat the name will be 'dim_0', if 2d array the names will be 'dim_0' and 'dim_1' etc for higher dimensions
+
+
+            daily: if this is set to True the full daily variable will be returne, i.e. we will have an extra dimesnion of length 24 hours,
+            same as the get_variable method, I think it is unlikely that you would want to use this feature
+
+
+
+            """
+            if isinstance(varname, str):
+                var_list = [varname]
+                return_single = True
+            else:
+                var_list = list(varname)
+                return_single = False
+
+            # Make arrays
+            target_lons = np.asarray(target_lons)
+            target_lats = np.asarray(target_lats)
+
+            if method == "linear":
+                out_dict = self._geolocate_linear(var_list, target_lons, target_lats,
+                                                        daily=daily)
+
+            elif method == "xarray":
+                out_dict = self._geolocate_xarray(var_list, target_lons, target_lats,
+                                                        daily=daily)
+
+            else:
+                raise NotImplementedError("method must be 'linear' or 'xarray'")
+
+            # Return single or dict
+            if return_single:
+                return out_dict[varname]
+            else:
+                return out_dict
+                
+
+            
+    def _geolocate_linear(self, vars, target_lons, target_lats,daily):
+            """
+            Nearest-neighbor lookup using linear index mapping.
+            Works because CERES SYN is on a regular lat/lon grid.
+            The lon and lat have the following conventions:
+            -lon: [-179.5, -178.5, ..., 178.5, 179.5]
+            -lat: [89.5, 88.5, ..., -88.5, -89.5]
+            - IMPORTANT: the data is stored as [time,lat, lon] in the file.
+            ALSO IMPORTANT: This works best if the data is 2D (i.e., single time slice), but can handle higher dimensions
+            VERY IMPORTANT: THIS ASSUMES THAT THE TARGET LONS ARE IN THE SAME CONVENTION AS THE CERES DATA (I.E., -179.5 TO 179.5).
+            IF YOU ARE UNSURE USE THE XARRAY METHOD AS THIS IS PROBABLY MORE VERSATILE.
+            """
+
+            # Load grid
+            lon,lat = self.get_lonlat() ## this test slows things down slightly but is important to ensure the method is valid
+            assert lon[0] == -179.5 and lon[-1] == 179.5, "Longitude grid does not match expected CERES SYN grid. Use the 'xarray' method instead."
+            assert lat[0] == 89.5 and lat[-1] == -89.5, "Latitude grid does not match expected CERES SYN grid. Use the 'xarray' method instead."
+                
+            target_lons_180 = ((target_lons + 180) % 360) - 180  # Convert to [-180, 180] range    
+
+            lon_ind = np.floor(target_lons_180 + 180).astype(int) % lon.size
+            lat_ind = np.floor(89.5 - target_lats).astype(int)
+            lat_ind = np.clip(lat_ind, 0, lat.size - 1)
+
+
+            original_shape = target_lons.shape ## save the oroginal shape for reshaping later
+            assert target_lats.shape == original_shape, "Target lon and lat must have the same shape."
+
+
+            # Flatten the lon and lat
+            lon_flat = target_lons.ravel()
+            lat_flat = target_lats.ravel()
+
+            # Convert lon convention
+            lon_flat_180 = ((lon_flat + 180) % 360) - 180
+
+            # Compute exact grid indices
+            lon_ind = np.round(lon_flat_180 + 179.5).astype(int)
+            lat_ind = np.round(89.5 - lat_flat).astype(int)
+
+            # Wrap and clip
+            lon_ind = np.mod(lon_ind, lon.size)
+            lat_ind = np.clip(lat_ind, 0, lat.size - 1)
+
+            vars_dict = self.get_variable(vars, daily=daily)
+            # vars_dict is now {varname: DataArray}
+        
+
+            result = {}
+
+            for vname, var in vars_dict.items():
+                var_data = var.values
+                assert var_data.shape[-2:] == (lat.size, lon.size), "Variable grid mismatch."
+                assert var_data.ndim >=2, "Variable data must be at least 2D (lat, lon)."
+
+                # Handle dimensionality
+                if var_data.ndim == 2:         # (lat, lon)
+                    out = var_data[lat_ind, lon_ind]
+                    new_shape = original_shape
+
+                elif var_data.ndim == 3:       # (Nhour, lat, lon)
+                    out = var_data[:, lat_ind, lon_ind]
+                    new_shape = (var_data.shape[0],) + original_shape
+
+                elif var_data.ndim == 4:       # (Ncld, Nhour, lat, lon)
+                    out = var_data[:, :, lat_ind, lon_ind]
+                    new_shape = (var_data.shape[0], var_data.shape[1]) + original_shape
+
+                else:
+                    raise ValueError(f"Unsupported dims for {vname}")
+
+                # Reshape back
+                out = out.reshape(new_shape)
+
+                # Target dims
+                if len(original_shape) == 1:
+                    target_dims = ["points"]
+                elif len(original_shape) == 2:
+                    target_dims = ["y", "x"]
+                else:
+                    target_dims = [f"dim_{i}" for i in range(len(original_shape))]
+
+                # Final dims
+                if var_data.ndim == 2:
+                    dims = target_dims
+                else:
+                    dims = list(var.dims[:-2]) + target_dims
+
+                # Build coords
+                coords = {}
+                for d in var.dims:
+                    if d not in ("latitude", "longitude"):
+                        coords[d] = var.coords[d]
+
+                for i, nd in enumerate(target_dims):
+                    coords[nd] = np.arange(original_shape[i])
+
+                coords["target_lon"] = (target_dims, target_lons)
+                coords["target_lat"] = (target_dims, target_lats)
+
+                # Store result
+                result[vname] = xr.DataArray(out, dims=dims, coords=coords)
+
+            return result
+
+    def _geolocate_xarray(self, varname, target_lons, target_lats, daily):
+        """
+        Xarray version of nearest-neighbour geolocation.
+        Works for arbitrary-shaped input lon/lat arrays.
+        Input:
+         - varname: str or list of str
+
+         output:
+            - xr.DataArray or dict of xr.DataArrays {varname: DataArray}
+        """
+
+        # ensure list form
+        if isinstance(varname, str):
+            var_list = [varname]
+            return_single = True
+        else:
+            var_list = list(varname)
+            return_single = False
+
+        # Load all variables at one time
+        vars_dict = self.get_variable(var_list, daily=daily)
+
+        # Save input shape
+        original_shape = target_lons.shape
+        assert target_lats.shape == original_shape
+
+        # Flatten inputs
+        lon_flat = target_lons.ravel()
+        lat_flat = target_lats.ravel()
+
+        result = {}
+
+       
+        for vname, var in vars_dict.items():
+
+            # Ensure same lon convention, I think CERES uses -180 to 180 in all cases however just to be sure
+            if var.longitude.max() > 180:
+                lon_use = np.mod(lon_flat, 360)
+            else:
+                lon_use = ((lon_flat + 180) % 360) - 180
+
+            # geolocation for each variable, this will propbably be slow for large arrays
+            out = var.sel(
+                longitude=xr.DataArray(lon_use, dims="points"),
+                latitude=xr.DataArray(lat_flat, dims="points"),
+                method="nearest"
+            )
+
+            # naming conventions for the output arrays
+            if len(original_shape) == 1:
+                tgt_dims = ["points"]
+            elif len(original_shape) == 2:
+                tgt_dims = ["y", "x"]
+            else:
+                tgt_dims = [f"dim_{i}" for i in range(len(original_shape))]
+
+            # Determine final dims
+            new_dims = list(out.dims[:-1]) + tgt_dims
+            new_shape = out.shape[:-1] + original_shape
+
+            # Reshape data back into target shape
+            data = out.values.reshape(new_shape)
+
+            # Build coords
+            coords = {}
+
+            # Keep CERES non-lat/lon dimensions
+            for d in var.dims:
+                if d not in ("latitude", "longitude"):
+                    coords[d] = var.coords[d]
+
+            # Target coordinate axes
+            for i, nd in enumerate(tgt_dims):
+                coords[nd] = np.arange(original_shape[i])
+
+            coords["target_lon"] = (tgt_dims, target_lons)
+            coords["target_lat"] = (tgt_dims, target_lats)
+
+            # Construct final DataArray
+            result[vname] = xr.DataArray(data, dims=new_dims, coords=coords)
+
+        # Return one or many
+        if return_single:
+            return result[varname]
+        else:
+            return result
+
+    
+
+
+
+        

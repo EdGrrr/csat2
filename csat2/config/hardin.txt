@@ -23,6 +23,10 @@
 M csat_folder=/disk1/Data/
 M seldon_folder=/net/seldon/disk1/Data/
 
+[CERES]
+-[SYN-hourly]
+  {csat_folder}/CERES/SYN-hourly/{year}/{month:0>2}/CER_SYN1deg-1Hour_Terra-Aqua-NOAA20_Edition4B.{year}{month:0>2}{dom:0>2}.hdf
+
 [EarthCARE]
 -[ATL_NOM_1B|CPR_NOM_1B|MSI_RGR_1C|CPR_CLD_2A|MSI_COP_2A]
   {csat_folder}/EarthCARE/{product}/{baseline}/{year}/{mon:0>2}/{day:0>2}/*_{orbit:0>5}{frame}.h5
