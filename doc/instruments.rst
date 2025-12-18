@@ -507,6 +507,16 @@ The ``geolocate`` method allows extraction of variable values at specific geogra
 
     colocated = gran.geolocate('obs_cld_amount', target_lons, target_lats)
 
+Similar to the get_variable method, you can pass a list of variable names to ``geolocate``, which will return a dictionary of DataArrays.
+
+.. code-block:: python
+
+    var_names = ['obs_cld_amount', 'obs_cld_lwp']
+    colocated_dict = gran.geolocate(var_names, target_lons, target_lats)
+    colocated_amount = colocated_dict['obs_cld_amount']
+    colocated_lwp = colocated_dict['obs_cld_lwp']
+
+
 Notes:
 
 - Supports 1D or 2D coordinate arrays.
@@ -589,7 +599,6 @@ Notes
 -----
 
 - The ``Granule`` object assumes a regular 1°x1° grid and hourly data for CERES SYN.
-- Indexing conventions follow Python 0-based arrays, but cloud layers match standard CERES definitions.
 - The linear geolocation method is preferred for speed; the xarray method is included for validation or irregular grids.
 - The class will automatically download missing files when required.
 
