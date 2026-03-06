@@ -23,6 +23,11 @@
 M csat_folder=/disk1/Data/
 M seldon_folder=/net/seldon/disk1/Data/
 
+[CloudSat]
+-[1B-CPR|2B-GEOPROF|2B-GEOPROF-LIDAR|2B-CWC-RVOD|2C-PRECIP-COLUMN|ECMWF-AUX|MODIS-AUX|2B-FLXHR-LIDAR|2B-TAU|2C-ICE]
+  {csat_folder}/CloudSat/{product}/{col}/{year}/{doy:0>3}/*_{orbit:0>5}_*.hdf
+  {seldon_folder}/CloudSat/{product}/{col}/{year}/{doy:0>3}/*_{orbit:0>5}_*.hdf
+
 [EarthCARE]
 -[ATL_NOM_1B|CPR_NOM_1B|MSI_RGR_1C|CPR_CLD_2A|MSI_COP_2A]
   {csat_folder}/EarthCARE/{product}/{baseline}/{year}/{mon:0>2}/{day:0>2}/*_{orbit:0>5}{frame}.h5
