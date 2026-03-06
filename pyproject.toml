@@ -5,27 +5,39 @@ description = "Library for reading and processing observational data"
 authors = [
     {name = "Edward Gryspeerdt", email = "e.gryspeerdt@imperial.ac.uk"},
 ]
-dependencies = [
-    "google-cloud-storage",
-    "matplotlib",
-    "netCDF4",
-    "numpy",
-    "pyhdf",
-    "pyyaml",
-    "scikit-learn",
-    "scipy",
-    "xarray",
-    "cdsapi",
-    "eumdac",
-    "satpy",
-    "h5py"
-]
 requires-python = ">=3.9"
 readme = "readme.rst"
 license = {text = "Not currently open source"}
 maintainers = [
     {name = "Edward Gryspeerdt", email = "e.gryspeerdt@imperial.ac.uk"},
 ]
+dependencies = [
+    "matplotlib",
+    "netCDF4",
+    "numpy",
+    "pyhdf",
+    "pyyaml",
+    "scipy",
+    "xarray",
+    "cdsapi",
+    "h5py"
+]
+
+[project.optional-dependencies]
+fci = ["satpy", "eumdac"]
+test = ["pytest"]
+modis-old = ["scikit-learn"]
+goes = ["google-cloud-storage"]
+earthcare-stream = ["pystac_client", "fsspec"]
+all = [
+    "satpy",
+    "eumdac",
+    "pytest",
+    "scikit-learn",
+    "google-cloud-storage",
+    "pystac_client",
+    "fsspec"
+    ]
 
 [build-system]
 requires = ["pdm-backend"]
