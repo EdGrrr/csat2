@@ -178,7 +178,8 @@ def configloader(user_location=None, default_fallback=True):
     default_fallback - use the package supplied defaults"""
     _hostname = socket.getfqdn()
     log.debug("Hostname: {}".format(_hostname))
-
+    config = None
+    
     if user_location:
         try:
             config = yaml.safe_load(open(user_location))
