@@ -64,7 +64,7 @@ class Granule(object):
         Currently queries ESA server, so slow and requires network access.
         """
         valid_filenames = download_file_locations('ATL_NOM_1B', dtime=dtime)
-        return cls.fromfilename(valid_filenames[0])
+        return cls.fromfilename(valid_filenames[0]['id'])
 
     def datetime(self):
         """
@@ -76,7 +76,7 @@ class Granule(object):
         """
         if self.dtime is None:
             valid_filenames = download_file_locations('ATL_NOM_1B', orbit=self.orbit, frame=self.frame)
-            self.dtime = datetime.strptime(valid_filenames[0].split('_')[5],
+            self.dtime = datetime.strptime(valid_filenames[0]['id'].split('_')[5],
                                            '%Y%m%dT%H%M%SZ')
         return self.dtime
 
