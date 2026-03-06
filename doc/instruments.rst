@@ -305,9 +305,14 @@ Before using the EarthCARE module, ensure the following:
   .. code-block:: json
 
       {
-          "username": "your_esa_username",
-          "password": "your_esa_password"
+          "CLIENT_ID": "offline-token",
+          "CLIENT_SECRET": "p1eL7uonXs6MDxtGbgKdPVRAmnGxHpVE",
+          "OFFLINE_TOKEN": <your secret token>
       }
+
+  You get your secret token are the ESA MAAP portal (it needs to be updated every 90 days)
+
+  https://portal.maap.eo.esa.int/ini/services/auth/token/90dToken.php#
 
 - In your machine file (e.g. ``hardin.txt``), **ensure an ``[EARTHCARE]`` section is included**,
   for example:
