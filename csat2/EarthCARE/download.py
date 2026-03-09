@@ -18,6 +18,8 @@ from csat2 import locator
 import csat2.misc.time
 from tqdm import tqdm
 import logging
+import fsspec
+import xarray as xr
 from csat2.EarthCARE.utils import DEFAULT_BASELINE, get_product_level
 
 log = logging.getLogger(__name__)
@@ -39,7 +41,7 @@ def download_file_locations(product,
                             dtime=None,
                             orbit=None, frame=None,
                             baseline=DEFAULT_BASELINE,
-                            limit=2000):
+                            limit=200):
     """
     List available ZIP filenames for an EarthCARE Level-2 product on a given date.
     """
@@ -77,7 +79,9 @@ def download_file_locations(product,
         raise ValueError('You need to select fewer files, try a year/doy or orbit')
     
     # This request doesn't accept authorisation
-    response = requests.Session().get(url, stream=True)
+    token = esa_maap_token.refresh_token()
+
+    response = requests.Session().get(url, stream=True, headers={"Authorization": f"Bearer {token}"})
     file_dict = json.loads(response.text)
 
     if file_dict['numberMatched'] == 0:
@@ -244,6 +248,21 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
         else:
             log.info("Skipping {}".format(os.path.basename(url)))
 
+def open_maap_stream(product, orbit, frame, baseline=DEFAULT_BASELINE, fail_multiple=True):
+    streams = download_file_locations(product, orbit=orbit, frame=frame, baseline=baseline)
+    if len(streams) == 0:
+        raise ValueError('No valid files for this granule')
+    if (len(streams) > 1) and fail_multiple:
+        raise ValueError('Multiple valid files for this granule')
+    stream_location = streams[0]['maap_h5']
+
+    token = esa_maap_token.refresh_token()
+    
+    fs = fsspec.filesystem("https", headers={"Authorization": f"Bearer {token}"})
+    f = fs.open(stream_location, "rb")  
+    ds = xr.open_dataset(f, engine="h5netcdf", group="ScienceData")
+    return ds
+            
 def check(product,
           orbit=None, frame=None,
           baseline=DEFAULT_BASELINE):

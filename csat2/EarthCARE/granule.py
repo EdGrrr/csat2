@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from csat2.EarthCARE.readfiles import readin_earthcare_curtain_filename
-from csat2.EarthCARE.download import download, download_file_locations, check
+from csat2.EarthCARE.download import download, download_file_locations, check, open_maap_stream
 from csat2.EarthCARE.utils import DEFAULT_BASELINE, frame_names, lonlat_vars
 import os
 import numpy as np
@@ -9,7 +9,7 @@ from csat2 import misc, locator
 
 class Granule(object):
     """EarthCARE granules are defined by the orbit and frame numbers"""
-    def __init__(self, orbit, frame, baseline=DEFAULT_BASELINE):
+    def __init__(self, orbit, frame, baseline=DEFAULT_BASELINE, stream=False):
         self.orbit = orbit                  # int
         self.frame = frame            # str like 'A'
         # Keep the baseline here for now, but given the differences in the product
@@ -22,6 +22,9 @@ class Granule(object):
         self.dtime = None
         # LonLat data
         self.lonlat = None
+        # Should we use the MAAP streaming api? This skips any download
+        # or disk checking
+        self.stream = stream
 
     def astext(self):
         return f"EC.{self.orbit:05d}{self.frame}"   # "EC" stands for EarthCARE.
@@ -84,8 +87,11 @@ class Granule(object):
         '''We can download a file based on the orbit number, as we will make a query to the
         ESA server anyway. However, we are not current setup to check in advance if we
         need to without the GEOMETA files.'''
-        download(product, orbit=self.orbit, frame=self.frame,
-                 baseline=baseline, force_redownload=force_redownload)
+        if self.stream:
+            return
+        else:
+            download(product, orbit=self.orbit, frame=self.frame,
+                     baseline=baseline, force_redownload=force_redownload)
 
     def get_variable(self, product, sds, baseline=None):
         """
@@ -102,11 +108,26 @@ class Granule(object):
         if baseline is None:
             baseline = self.baseline
 
-        return readin_earthcare_curtain_filename(
-            self.get_filename(product=product, baseline=baseline),
-            sds=sds
-        )
+        if self.stream:
+            return open_maap_stream(
+                product,
+                orbit=self.orbit,
+                frame=self.frame,
+                baseline=baseline)
+        else:
+            return readin_earthcare_curtain_filename(
+                self.get_filename(product=product, baseline=baseline),
+                sds=sds
+            )
 
+    def get_stream_location(self, product, baseline=None):
+        if baseline is None:
+            baseline = self.baseline
+
+        dtime = self.datetime()
+        valid_filenames = download_file_locations('ATL_NOM_1B', dtime=dtime)
+        return valid_filenames[0]['maap_h5']
+        
     def get_filename(self, product, baseline=None):
         if baseline is None:
             baseline = self.baseline

@@ -29,7 +29,7 @@ M seldon_folder=/net/seldon/disk1/Data/
   {seldon_folder}/CloudSat/{product}/{col}/{year}/{doy:0>3}/*_{orbit:0>5}_*.hdf
 
 [EarthCARE]
--[ATL_NOM_1B|CPR_NOM_1B|MSI_RGR_1C|CPR_CLD_2A|MSI_COP_2A]
+-[ATL_NOM_1B|CPR_NOM_1B|MSI_RGR_1C|CPR_CLD_2A|MSI_COP_2A|ACM_CAP_2B]
   {csat_folder}/EarthCARE/{product}/{baseline}/{year}/{mon:0>2}/{day:0>2}/*_{orbit:0>5}{frame}.h5
 -[GEOMETA]
   {csat_folder}/EarthCARE/GEOMETA/earthcare_geometa_{year}.txt
