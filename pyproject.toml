@@ -37,6 +37,8 @@ all = [
     "google-cloud-storage",
     "pystac_client",
     "fsspec"
+    "requests",
+    "aiohttp"
     ]
 
 [build-system]
