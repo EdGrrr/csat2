@@ -37,6 +37,7 @@ all = [
     "google-cloud-storage",
     "pystac_client",
     "fsspec",
+    "h5netcdf",
     "requests",
     "aiohttp"
     ]
