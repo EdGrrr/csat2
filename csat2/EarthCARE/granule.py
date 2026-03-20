@@ -33,11 +33,13 @@ class Granule(object):
         return self.astext()
 
     @classmethod
-    def fromtext(cls, gran_text, baseline=DEFAULT_BASELINE):
+    def fromtext(cls, gran_text, baseline=None):
         """Create a Granule from a string like 'EC.04606A'."""
         text = gran_text.split(".")[1]
         orbit = int(text[:5])
         frame = text[5:]
+
+        baseline = baseline or self.baseline
 
         if not frame:
             raise ValueError("Granule text must include a frame, e.g., 'EC.04606A'")
@@ -59,17 +61,22 @@ class Granule(object):
         return cls(orbit, frame, baseline=baseline)
 
     @classmethod
-    def from_datetime(cls, dtime, baseline=DEFAULT_BASELINE):
+    def from_datetime(cls, dtime, baseline=None):
         """
         Create a Granule from a datetime, by finding the closest matching file.
         Queries ATLID 1B as this should exist for all orbits.
 
         Currently queries ESA server, so slow and requires network access.
         """
-        valid_filenames = download_file_locations('ATL_NOM_1B', dtime=dtime)
+        baseline = baseline or self.baseline
+
+        valid_filenames = download_file_locations(
+            'ATL_NOM_1B',
+            dtime=dtime,
+            baseline=baseline)
         return cls.fromfilename(valid_filenames[0]['id'])
 
-    def datetime(self):
+    def datetime(self, baseline=None):
         """
         Return the datetime for this granule (specific orbit +
         orbit ID). This should not depend on having the file
@@ -77,16 +84,24 @@ class Granule(object):
 
         Currently queries ESA server, so slow and requires network access.
         """
+        baseline = baseline or self.baseline
+
         if self.dtime is None:
-            valid_filenames = download_file_locations('ATL_NOM_1B', orbit=self.orbit, frame=self.frame)
+            valid_filenames = download_file_locations(
+                'ATL_NOM_1B',
+                orbit=self.orbit,
+                frame=self.frame,
+                baseline=baseline)
             self.dtime = datetime.strptime(valid_filenames[0]['id'].split('_')[5],
                                            '%Y%m%dT%H%M%SZ')
         return self.dtime
 
-    def download(self, product, baseline=DEFAULT_BASELINE, force_redownload=False):
+    def download(self, product, baseline=None, force_redownload=False):
         '''We can download a file based on the orbit number, as we will make a query to the
         ESA server anyway. However, we are not current setup to check in advance if we
         need to without the GEOMETA files.'''
+        baseline = baseline or self.baseline
+
         if self.stream:
             return
         else:
@@ -105,8 +120,7 @@ class Granule(object):
         Returns:
             dict: variable_name -> numpy array
         """
-        if baseline is None:
-            baseline = self.baseline
+        baseline = baseline or self.baseline
 
         if self.stream:
             return open_maap_stream(
@@ -121,17 +135,15 @@ class Granule(object):
             )
 
     def get_stream_location(self, product, baseline=None):
-        if baseline is None:
-            baseline = self.baseline
+        baseline = baseline or self.baseline
 
         dtime = self.datetime()
         valid_filenames = download_file_locations('ATL_NOM_1B', dtime=dtime)
         return valid_filenames[0]['maap_h5']
         
     def get_filename(self, product, baseline=None):
-        if baseline is None:
-            baseline = self.baseline
-
+        baseline = baseline or self.baseline
+        
         dtime = self.datetime()
         files = locator.search(
             "EarthCARE", product,
@@ -148,8 +160,7 @@ class Granule(object):
     
     def get_lonlat(self, product, baseline=None):
         """Return longitude and latitude arrays for this granule."""
-        if baseline is None:
-            baseline = self.baseline
+        baseline = baseline or self.baseline
 
         if (self.lonlat is None) or (product != self.lonlat_product):
             data = self.get_variable(
@@ -169,9 +180,8 @@ class Granule(object):
         EarthCARE stores 'ScienceData/time' as seconds since 2000-01-01 00:00:00.
         This function mimics CloudSat's UTC_start + Profile_time format.
         """
-        if baseline is None:
-            baseline = self.baseline
-
+        baseline = baseline or self.baseline
+        
         data = self.get_variable(["ScienceData/time"], product=product, baseline=baseline)
         time_seconds = data["ScienceData/time"]
 
@@ -192,8 +202,7 @@ class Granule(object):
 
         EarthCARE stores time as seconds since 2000-01-01 00:00:00.
         """
-        if baseline is None:
-            baseline = self.baseline
+        baseline = baseline or self.baseline
 
         data = self.get_variable(["ScienceData/time"], product=product, baseline=baseline)
         time_seconds = data["ScienceData/time"]
