@@ -28,7 +28,7 @@ fci = ["satpy", "eumdac"]
 test = ["pytest"]
 modis-old = ["scikit-learn"]
 goes = ["google-cloud-storage"]
-earthcare-stream = ["pystac_client", "fsspec", "requests", "aiohttp"]
+earthcare-stream = ["pystac_client", "fsspec", "h5netcdf", "requests", "aiohttp"]
 all = [
     "satpy",
     "eumdac",
