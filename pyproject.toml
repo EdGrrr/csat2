@@ -36,7 +36,7 @@ all = [
     "scikit-learn",
     "google-cloud-storage",
     "pystac_client",
-    "fsspec"
+    "fsspec",
     "requests",
     "aiohttp"
     ]
