@@ -74,10 +74,10 @@ def download_file_locations(product,
     if baseline:
         url += f'&productVersion={baseline}'
         dataflag = True
-        
+
     if dataflag == False:
         raise ValueError('You need to select fewer files, try a year/doy or orbit')
-    
+
     # This request doesn't accept authorisation
     token = esa_maap_token.refresh_token()
 
@@ -99,13 +99,46 @@ def download_file_locations(product,
 
     return sorted(output_names)
 
+def granule_files(granule):
+    limit = 300
 
+    fd = []
+    for product_level in ['1', '2']:
+        url = (f'https://catalog.maap.eo.esa.int/catalogue/collections/EarthCAREL{product_level}Validated_MAAP/items?'+
+               f'&limit={limit}')
+
+        url += f'&orbitNumber={granule.orbit}'
+        url += f'&frame={granule.frame}'
+
+        token = esa_maap_token.refresh_token()
+        response = requests.Session().get(url, stream=True, headers={"Authorization": f"Bearer {token}"})
+        file_dict = json.loads(response.text)
+
+    fd.extend(file_dict['features'])
+    return fd
+
+def most_recent_baseline(granule, top_level=None):
+    files = granule_files(granule):
+    proc_files = [[a['properties']['product:type'],
+                   a['properties']['version'],
+                   a['assets']['enclosure_h5']['href'],
+                   a['assets']['product']['href']] for a in files]
+
+    if top_level:
+        prec_files = [a for a in proc_files if a[1].startswith(top_level)]
+    
+    recent = {}
+    for pf in proc_files:
+        if pf[1] > recent.get(pf[0][0], ''):
+            recent[pf[0]] = [pf[1], pf[2], pf[3]]
+    return recent
+            
 def get_maap_token():
     """Use OFFLINE_TOKEN to fetch a short-lived access token.
 
     From the MAAP/ESA example code at https://docs.maap-project.org/en/latest/science/EarthCARE/EarthCARE_access_and_visualize.html"""
     earthcare_auth = load_earthcare_auth()
-    
+
     OFFLINE_TOKEN = earthcare_auth["OFFLINE_TOKEN"]
     CLIENT_ID = earthcare_auth["CLIENT_ID"]
     CLIENT_SECRET = earthcare_auth["CLIENT_SECRET"]
@@ -176,16 +209,16 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
         token = esa_maap_token.refresh_token()
     else:
         raise ValueError("Download method must be 'OADS' or 'MAAP'")
-    
+
     product_level = get_product_level(product)
-    
+
     for file_location in file_locations:
         if method == 'OADS':
             url = (f'https://ec-pdgs-dissemination1.eo.esa.int/oads/data/'+
                    f"EarthCAREL{product_level}Validated/{file_location['id']}.ZIP")
         elif method == 'MAAP':
             url = f'{file_location["maap_zip"]}'
-            
+
         # We could be downloading an orbit where the frames go into a different day
         # We need to check the folder for each new file
         timestr = file_location['id'].split('_')[5]
@@ -257,12 +290,12 @@ def open_maap_stream(product, orbit, frame, baseline=DEFAULT_BASELINE, fail_mult
     stream_location = streams[0]['maap_h5']
 
     token = esa_maap_token.refresh_token()
-    
+
     fs = fsspec.filesystem("https", headers={"Authorization": f"Bearer {token}"})
-    f = fs.open(stream_location, "rb")  
+    f = fs.open(stream_location, "rb")
     ds = xr.open_dataset(f, engine="h5netcdf", group="ScienceData")
     return ds
-            
+
 def check(product,
           orbit=None, frame=None,
           baseline=DEFAULT_BASELINE):
@@ -286,7 +319,7 @@ def check(product,
               orbit=4603, frame='A')
     """
     raise NotImplementedError('Requires work with geometa')
-    
+
     # filename = locator.search("EarthCARE", product,
     #                           baseline=baseline,
     #                           year=year, doy=doy,
@@ -329,4 +362,3 @@ def test_connection():
 
 if __name__ == "__main__":
     test_connection()
-
