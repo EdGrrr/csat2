@@ -383,3 +383,177 @@ save much space)
 
     
 
+
+ISCCP
+=====
+
+ISCCP files
+-----------
+
+The ISCCP (International Satellite Cloud Climatology Project) module provides access to cloud climatology data from 1983-2017. The main interface for reading ISCCP data is through the `Granule` class, which handles different products and collections with location-independent access to ISCCP files.
+The granule is an instance of observation in time, note that it is not completely independant of the product since different products have different temporal resolutions (i.e. some are monthly means). Much of this code is written with the hgg product in mind, however it can deal with the other products, but more care should be taken
+Operations involving specific instances of a product or collection of have general pattern gran.operation(collection,product,**other_args)
+
+.. code-block:: python
+
+    import csat2.ISCCP
+    from csat2.ISCCP import Granule
+
+    # Create a granule for a specific date and time
+    gran = Granule(year=2010, doy=100, time=12)
+
+    # Get cloud fraction data
+    cloud_fraction = gran.get_variable('isccp-basic', 'hgg', 'cldamt')
+
+
+ISCCP Granule interface
+-----------------------
+
+An ISCCP Granule represents a 3-hourly global dataset of cloud properties. The `Granule` class is designed to make accessing these files as simple as possible, handling both basic and full ISCCP collections across different temporal products.
+
+A `Granule` object contains information about the specific time period, provides methods to access data variables, and can step through time sequences. Granules are constructed using year, day-of-year, and 3-hourly time intervals.
+
+.. code-block:: python
+
+    from csat2.ISCCP import Granule
+    gran = Granule(year=2010, doy=100, time=12)  # April 10, 2010 at 12:00 UTC
+
+
+The granule supports various temporal products:
+
+- **hgg**: 3-hourly gridded global data
+- **hgh**: 3-hourly gridded monthly mean data 
+- **hgm**: monthly mean data
+- **hgs**: this is similar to the hgg product but broken down by satellite, and has not been implemented yet
+- **hxg**: additional extended variables (full ISCCP collection only), this is on an 0.1 degree equal angle grid and has not been implemented yet
+
+
+And two collections:
+
+- **isccp-basic**: Cloud variables subset
+- **isccp**: Full collection with all available variables
+
+Data Access
+-----------
+
+The granule object provides several methods for accessing data:
+
+.. code-block:: python
+
+    # Check if a file exists locally
+    gran.check('isccp-basic', 'hgg')  # returns True or False
+
+    # Download data if not available locally, there is optional argument force_redownload that is set to False
+    gran.download('isccp-basic', 'hgg')
+
+    # Get a specific variable as an xarray DataArray, you need to know the name of the variable that you are after
+    cloud_amount = gran.get_variable('isccp-basic', 'hgg', 'cldamt')
+
+    # Get coordinate information
+    lon, lat = gran.get_lonlat('isccp-basic', 'hgg')
+
+
+Geolocation
+-----------
+
+The granule object can extract data at specific geographic locations using the `geolocate` method:
+This returns an xarray object with the extracted values as the data and the 'target lon and lat' as coordinates.
+Note that is assumes that the ISCCP data is on a regular 1 x 1 lon lat grid and will fail if this isn't the case (currently not aware of any products that aren't on this grid but that doesnt mean they don't exist)
+
+.. code-block:: python
+
+    # Define target locations
+    target_lons = [-75.0, 0.0, 120.0] 
+    target_lats = [40.0, 0.0, -30.0]   
+
+    # Get nearest values
+    colocated_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt',
+                                    target_lons, target_lats)
+
+
+Note that ISCCP uses a longitude convention of [0, 360] degrees and latitude of [-90, 90] degrees, but this method can handle lons in the range [-180, 180] degrees by converting them internally.
+The returned xarray will have the same structure as the variable of choice, i.e. if you choose 'cldamt_irtypes', the returned xarray will have the same structure as the 'cldamt_irtypes' variable, with the target lon and lat as coordinates and you can select low level clouds (1st index), for example:
+
+.. code-block:: python
+
+    # Define target locations
+    target_lons = [-75.0, 0.0, 120.0] 
+    target_lats = [40.0, 0.0, -30.0]   
+
+    # Get nearest values
+    colocated_data = gran.geolocate('isccp-basic', 'hgg', 'cldamt_irtypes',
+                                    target_lons, target_lats).isel(cloud_irtype=0)
+
+
+Metadata Access
+---------------
+
+Access granule and dataset metadata:
+
+.. code-block:: python
+
+    metadata = gran.get_metadata('isccp-basic', 'hgg')
+
+Time Navigation
+---------------
+
+Navigate through time sequences using the granule interface:
+
+.. code-block:: python
+
+    # Move to next 3-hour interval
+    next_gran = gran.next()
+
+
+
+File Management
+---------------
+
+The granule object handles file locations and downloads automatically:
+
+.. code-block:: python
+
+    # Get file location (whether it exists or not)
+    file_path = gran.get_fileloc('isccp-basic', 'hgg')
+
+    # Force re-download of existing file
+    gran.download('isccp-basic', 'hgg', force_redownload=True)
+
+
+Valid Data Range
+----------------
+
+ISCCP data is available from 1983 to 2017, with the following constraints:
+
+- **Years**: 1983-2017
+- **Times**: 3-hourly intervals (0, 3, 6, 9, 12, 15, 18, 21 UTC)
+- **Spatial coverage**: Global
+
+
+Example Workflow
+----------------
+
+Here's a complete example of working with ISCCP data:
+
+.. code-block:: python
+
+    from csat2.ISCCP import Granule
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # Create granule for a specific time
+    gran = Granule(year=2010, doy=100, time=12)
+
+    # Retrieve cloud amount
+    cloud_amount = gran.get_variable('isccp-basic', 'hgg', 'cldamt')
+    lon, lat = gran.get_lonlat('isccp-basic', 'hgg')
+
+    # Plot cloud fraction
+    plt.figure(figsize=(10,5))
+    plt.contourf(lon, lat, cloud_amount, levels=20, cmap='viridis')
+    plt.title('ISCCP Cloud Amount')
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.colorbar(label='Cloud fraction')
+    plt.show()
+
