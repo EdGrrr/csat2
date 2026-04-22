@@ -2,7 +2,9 @@ from datetime import datetime, timedelta
 
 # Default EarthCare product baseline. This is much less consistent than MODIS,
 # so we might remove this and force users to specify it.
-DEFAULT_BASELINE = "AE"
+DEFAULT_BASELINE = "BC"
+DEFAULT_PRODUCT_TYPE = "ATL_NOM_1B"
+DEFAULT_YEAR = 2026
 
 # same constants as before
 REFERENCE_ORBIT   = 4451
@@ -17,6 +19,7 @@ frame_names = ['A', 'B', 'C', 'D',
 lonlat_vars = {'ATL_NOM_1B': ["ellipsoid_longitude",
                               "ellipsoid_latitude"],
                'CPR_NOM_1B': ["longitude", "latitude"],
+               'CPR_CLD_2A': ["longitude", "latitude"],
                'MSI_RGR_1C': ["longitude", "latitude"]}
 
 
