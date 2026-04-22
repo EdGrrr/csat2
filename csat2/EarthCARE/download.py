@@ -7,12 +7,8 @@ EarthCARE download module for the csat2 library.
 
 import os
 import json
-import re
-import subprocess
-from pathlib import Path
 import time
 import requests
-import pickle
 import zipfile
 from csat2 import locator
 import csat2.misc.time
@@ -43,7 +39,7 @@ def download_file_locations(product,
                             baseline=DEFAULT_BASELINE,
                             limit=200):
     """
-    List available ZIP filenames for an EarthCARE Level-2 product on a given date.
+    List available ZIP filenames for an EarthCARE product on a given date.
     """
     product_level = get_product_level(product)
     url = (f'https://catalog.maap.eo.esa.int/catalogue/collections/EarthCAREL{product_level}Validated_MAAP/items?'+
@@ -97,7 +93,7 @@ def download_file_locations(product,
                  'maap_thumbnail': feature['assets']['thumbnail']['href']}
             )
 
-    return sorted(output_names)
+    return sorted(output_names, key=lambda x: x["id"])
 
 
 def get_maap_token():
