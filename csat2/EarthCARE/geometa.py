@@ -1,104 +1,216 @@
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import timedelta, date
 from csat2 import locator
-import csat2.misc.time
-from csat2.EarthCARE.utils import get_orbit_date_approx
-from csat2.EarthCARE.download import download_file_locations
-from csat2.EarthCARE.utils import get_orbit_date_approx, DEFAULT_BASELINE
-import numpy as np
+from csat2.EarthCARE.utils import (
+    get_orbit_date_approx,
+    DEFAULT_BASELINE,
+    DEFAULT_PRODUCT_TYPE,
+    DEFAULT_YEAR,
+)
 
 
-def create_geometa(year):
-    # Geometa files currently have four columns
-    # Orbit Year DOY Hour(decimal time)
-    files = download_file_locations('ATL_NOM_1B', year=year, frame='A', limit=6000)
-    orbdata = [(
-        f.split('_')[-1][:5],
-        csat2.misc.time.datetime_to_ydh(
-            datetime.strptime(f.split('_')[5], '%Y%m%dT%H%M%SZ'))
-    ) for f in files]
-    
+# NOTE:
+# For now, GEOMETA is stored as a plain text file containing one full
+# EarthCARE filename per line.
+#
+# This format is kept for consistency with other EarthCARE modules,
+# which already search GEOMETA as text and parse timestamps directly
+# from full filename.
+#
+# A table-based GEOMETA format (for example orbit / year / DOY / hour)
+# can be added later. For now, consistency with the rest of the codebase
+# is the priority.
+
+
+def _geometa_path(year):
+    """Return the GEOMETA path for a given year and ensure its folder exists."""
+
     path = Path(locator.format_filename("EarthCARE", "GEOMETA", year=year))
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, 'w') as f:
-        f.write('# Orbit Year DOY Hour\n')
-        for data in orbdata:
-            f.write(f'{data[0]} {data[1][0]} {data[1][1]} {data[1][2]:.2f}\n')
-    return
+    return path
 
 
 def read_geometa(year):
-    filename = locator.format_filename("EarthCARE", "GEOMETA", year=year)
-    return np.genfromtxt(filename, names=True, dtype=['i', 'i', 'i', 'f'])
+    """
+    Return all non-empty GEOMETA entries for a given year.
+
+    GEOMETA currently stores one full EarthCARE file ID per line.
+    """
+    path = _geometa_path(year)
+
+    if not path.exists():
+        return []
+
+    with open(path, "r") as f:
+        return [line.strip() for line in f if line.strip()]
+
+
+def _append_unique_lines(path, entries):
+    """
+    Append unique non-empty lines to a GEOMETA file.
+
+    The file stores one full EarthCARE file ID per line.
+    """
+    entries = sorted({entry.strip() for entry in entries if entry and entry.strip()})
+
+    if not entries:
+        return path
+
+    if path.exists():
+        with open(path, "r") as f:
+            existing = {line.strip() for line in f if line.strip()}
+    else:
+        existing = set()
+
+    new_entries = [entry for entry in entries if entry not in existing]
+
+    if new_entries:
+        mode = "a" if path.exists() else "w"
+        with open(path, mode) as f:
+            for entry in new_entries:
+                f.write(entry + "\n")
+    
+    return path
+
+
+def _list_remote_ids_for_day(year, month, day,
+                             product, baseline, limit= 1000,):
+    """
+    Return remote EarthCARE file IDs for one day as strings ending in '.ZIP'.
+    """
+
+    from csat2.EarthCARE.download import download_file_locations
+
+    items = download_file_locations(
+        product=product,
+        year=year,
+        month=month,
+        day=day,
+        baseline=baseline,
+        limit=limit,
+    )
+
+    return sorted(
+        f"{item['id']}.ZIP"
+        for item in items
+        if item.get("id")
+    )
+
 
 
 def get_or_create_earthcare_geometa(
-        year,
-        orbit=None,
-        baseline=DEFAULT_BASELINE
+    orbit,
+    year = DEFAULT_YEAR,
+    product = DEFAULT_PRODUCT_TYPE,
+    baseline = DEFAULT_BASELINE,
 ):
-
     """
-    Ensures the EarthCARE GEOMETA file for a given year exists.
-    If orbit_number is provided, ensures that orbit is listed.
-
-    Defaults:
-    - year = 2025
-    - product = CPR_CLD_2A
-    - baseline = AB
+    Ensure the GEOMETA file for the requested year exists and contains entries
+    for the requested orbit.
     """
+    (_, _), date_est, _ = get_orbit_date_approx(orbit)
 
-    # Step 1: Estimate orbit date (if orbit provided)
-    if orbit_number is not None:
-        year_est, doy_est, date_est, _ = get_orbit_date_approx(orbit_number)
-        year = date_est.year  # override year to match actual orbit
+    # Keep the caller-provided year if given.
+    # Only fall back to the estimated orbit year when year is None.
+    if year is None:
+        year = date_est.year
 
-    # Step 2: Construct GEOMETA path based on final year
-    path = Path(locator.format_filename("EarthCARE", "GEOMETA", year=year))
+    path = _geometa_path(year)
 
-    # Early exit if file exists and no orbit check is needed
-    if path.exists() and orbit_number is None:
-        return path
-
-    # Ensure folder exists
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    # ==== DELAYED IMPORT here to avoid circular issue
-    from csat2.EarthCARE.download import download_file_locations
-    orbit_str = f"{orbit_number:05d}"
+    orbit_str = f"{orbit:05d}"
     entries = []
 
-    # Scan ±1 day around estimated date
-    for offset in [-1, 0, 1]:
-        year_offset, doy_offset = csat2.misc.time.doy_step(
-            year_est, doy_est, offset)
-        try:
-            files = download_file_locations(product=product,
-                                            year=year_offset, doy=doy_offset,
-                                            baseline=baseline)
-        except Exception as e:
-            print(f"[WARNING] Could not list files for {d.date()}: {e}")
+    for offset in (-1, 0, 1):
+        d = date_est + timedelta(days=offset)
+
+        # Only collect entries that belong to the GEOMETA file year being built.
+        if d.year != year:
             continue
 
-        for f in files:
-            if f"_{orbit_str}" in f:
-                entries.append(Path(f).name)
+        try:
+            ids = _list_remote_ids_for_day(
+                year=d.year,
+                month=d.month,
+                day=d.day,
+                product=product,
+                baseline=baseline,
+            )
+
+        except Exception as e:
+            print(f"[WARNING] Could not list files for {d}: {e}")
+            continue
+
+        for file_id in ids:
+            if f"_{orbit_str}" in file_id:
+                entries.append(file_id)
 
     if not entries:
-        raise FileNotFoundError(
-            f"No files found for orbit {orbit_number} near {year_est}, {doy_est}")
+        raise FileNotFoundError(f"No files found for orbit {orbit} in year {year} near {date_est}")
 
-    # Write or append to GEOMETA file
-    entries = sorted(set(entries))
-    if not path.exists():
-        with open(path, "w") as f:
-            f.write("\n".join(entries) + "\n")
-    else:
-        with open(path, "r+") as f:
-            existing = set(f.read().splitlines())
-            new_entries = [e for e in entries if e not in existing]
-            if new_entries:
-                f.write("\n" + "\n".join(new_entries) + "\n")
+    return _append_unique_lines(path, entries)
 
-    return path
+
+
+def fill_geometa_for_day(year, month, day,
+                         product = DEFAULT_PRODUCT_TYPE,
+                         baseline = DEFAULT_BASELINE):
+    """
+    Ensure the GEOMETA file for the given year contains all EarthCARE file IDs
+    found for the requested day.
+    """
+    path = _geometa_path(year)
+
+    try:
+        ids = _list_remote_ids_for_day(
+            year=year,
+            month=month,
+            day=day,
+            product=product,
+            baseline=baseline,
+        )
+    except Exception as e:
+        print(f"[ERROR] Could not list files for {year}-{month:02d}-{day:02d}: {e}")
+        return None
+
+    if not ids:
+        return path
+
+    return _append_unique_lines(path, ids)
+
+
+def create_geometa(
+    year,
+    product = DEFAULT_PRODUCT_TYPE,
+    baseline = DEFAULT_BASELINE,
+):
+    """
+    Populate the yearly GEOMETA file by scanning day by day.
+
+    For the current year, only scan up to today's date.
+    For future years, return the GEOMETA path without scanning.
+    """
+    today = date.today()
+
+    start = date(year, 1, 1)
+    end = date(year, 12, 31)
+
+    if year > today.year:
+        return _geometa_path(year)
+
+    if year == today.year:
+        end = today
+
+    current = start
+    while current <= end:
+        fill_geometa_for_day(
+            year=current.year,
+            month=current.month,
+            day=current.day,
+            product=product,
+            baseline=baseline,
+        )
+        current += timedelta(days=1)
+
+    return _geometa_path(year)
+
 
