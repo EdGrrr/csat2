@@ -292,37 +292,49 @@ def readin_earthcare_curtain(product,
     return read_hdf5(found_file, sds=sds)
 
 
-def readin_earthcare_curtain_filename(filename,
-                                      sds=None):
+def readin_earthcare_curtain_filename(filename, sds=None):
     """
-    Reads one EarthCARE curtain HDF5 file by filename
+    Read one EarthCARE curtain HDF5 file by filename,
+    without relying on netCDF/HDF5 dimension references.
     """
     if isinstance(sds, str):
         sds = [sds]
+    if sds is None:
+        raise ValueError("sds must be provided")
 
-    log.debug(filename)
-    with netCDF4.Dataset(filename) as ncdf:
-        ds = xr.Dataset()
-        tdims = []
+    ds = xr.Dataset()
+    dim_name_by_length = {}
+
+    with h5py.File(filename, "r") as f:
+        group = f["ScienceData"]
+
         for name in sds:
-            var = ncdf['ScienceData/'+name]
-            var.set_auto_mask(False)
-            dims = var.dimensions
-            indata = var[:]
-            try:
-                indata = np.where(indata == var._Fillvalue, np.nan, indata)
-            except AttributeError:  # No fill value
-                pass
-            ds[name] = xr.DataArray(indata, dims=dims)
-            try:
-                ds[name].attrs["units"] = var.units
-            except AttributeError:
-                pass
-            tdims.extend(dims)
-        tdims = set(tdims)
-        for tdim in tdims:
-            try:
-                ds[tdim] = xr.DataArray(ncdf['ScienceData/'+tdim][:], dims=(tdim,))
-            except (KeyError, IndexError):
-                pass
-        return ds
+            var = group[name]
+            arr = var[()]
+
+            fill_value = var.attrs.get("_FillValue", var.attrs.get("_Fillvalue"))
+            if fill_value is not None:
+                try:
+                    arr = np.where(arr == fill_value, np.nan, arr)
+                except Exception:
+                    pass
+
+            if arr.ndim == 0:
+                dims = ()
+            elif arr.ndim == 1:
+                n = arr.shape[0]
+                dims = (dim_name_by_length.setdefault(n, "profile"),)
+            else:
+                dims = tuple(f"{name}_dim{i}" for i in range(arr.ndim))
+
+            da = xr.DataArray(arr, dims=dims)
+
+            if "units" in var.attrs:
+                units = var.attrs["units"]
+                if isinstance(units, bytes):
+                    units = units.decode("utf-8", errors="ignore")
+                da.attrs["units"] = units
+
+            ds[name] = da
+
+    return ds
