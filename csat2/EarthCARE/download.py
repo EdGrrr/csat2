@@ -470,34 +470,31 @@ def check(product,
           baseline=DEFAULT_BASELINE):
     """
     Check if a specific EarthCARE file exists locally.
-
-    Args:
-        product (str): EarthCARE product name (e.g., "CPR_CLD_2A").
-        baseline (str): Baseline code (e.g., "AB").
-        orbit (int): Orbit number.
-        frame (str): Frame (e.g., "H").
-
-    Returns:
-        bool: True if file is found locally, False otherwise.
-
-    Example filename:
-        ECA_EXAB_CPR_CLD_2A_20250320T195315Z_20250320T223619Z_04603H.ZIP
-
-    Example usage:
-        check(product='ATL_NOM_1B', baseline='AE',
-              orbit=4603, frame='A')
     """
-    raise NotImplementedError('Requires work with geometa')
-    
-    # filename = locator.search("EarthCARE", product,
-    #                           baseline=baseline,
-    #                           year=year, doy=doy,
-    #                           orbit=orbit, frame=frame,
-    #                           )
-    # if len(filename) == 1:
-    #     return True
-    # else:
-    #     return False
+
+    if None in (orbit, frame):
+        raise ValueError("Missing required inputs: orbit and frame.")
+
+    from csat2.EarthCARE.readfiles import get_orbit_datetimes
+
+    dt = get_orbit_datetimes(product, orbit, frame, baseline=baseline)
+
+    year = dt.year
+    doy = dt.timetuple().tm_yday
+
+    matches = locator.search(
+        'EarthCARE', product,
+         baseline=baseline,
+         year=year, doy=doy,
+         orbit=orbit, frame=frame,
+    )
+
+    if len(matches) > 0:
+        print(f'Found file: {os.path.basename(matches[0])}')
+        return True
+    else:
+        print('No matching file found.')
+        return False
 
 
 def list_local_files_for_day(product,
