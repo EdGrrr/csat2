@@ -497,8 +497,10 @@ def check(product,
         return False
 
 
+# it is literally the same as files_available in readfiles.py
 def list_local_files_for_day(product,
                              year, doy,
+                             orbit=None, frame=None,
                              baseline=DEFAULT_BASELINE):
     """
     List all EarthCARE files available locally for the given date.
@@ -506,11 +508,16 @@ def list_local_files_for_day(product,
     Returns:
         list[Path]: Paths to matching local files.
     """
-    filenames = locator.search("EarthCARE", product,
-                               year=year, doy=doy,
+
+    if orbit is None:
+        orbit = "*****"
+    if frame is None:
+        frame = "*"
+
+    filenames = locator.search('EarthCARE', product,
                                baseline=baseline,
-                               orbit='*****', #Note that orbit wil not expand by default
-                               frame='*',
+                               year=year, doy=doy,
+                               orbit=orbit, frame=frame,
                                )
     return sorted(filenames)
 
