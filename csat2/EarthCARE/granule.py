@@ -124,7 +124,7 @@ class Granule(object):
     def get_stream_location(self, product, baseline=DEFAULT_BASELINE):
 
         dtime = self.dtime or self.datetime()
-        valid_filenames = download_file_locations(product, dtime=dtime)
+        valid_filenames = download_file_locations(product, dtime=dtime, baseline=baseline)
         return valid_filenames[0]['maap_h5']
 
     def get_filename(self, product, baseline=DEFAULT_BASELINE):
