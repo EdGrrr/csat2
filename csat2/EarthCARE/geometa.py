@@ -73,7 +73,7 @@ def _append_unique_lines(path, entries):
     return path
 
 
-def _list_remote_ids_for_day(year, month, day,
+def _list_remote_ids_for_day(year, doy,
                              product, baseline, limit= 1000,):
     """
     Return remote EarthCARE file IDs for one day as strings ending in '.ZIP'.
@@ -84,8 +84,7 @@ def _list_remote_ids_for_day(year, month, day,
     items = download_file_locations(
         product=product,
         year=year,
-        month=month,
-        day=day,
+        doy=doy,
         baseline=baseline,
         limit=limit,
     )
@@ -130,8 +129,7 @@ def get_or_create_earthcare_geometa(
         try:
             ids = _list_remote_ids_for_day(
                 year=d.year,
-                month=d.month,
-                day=d.day,
+                doy=d.timetuple().tm_yday,
                 product=product,
                 baseline=baseline,
             )
@@ -151,7 +149,7 @@ def get_or_create_earthcare_geometa(
 
 
 
-def fill_geometa_for_day(year, month, day,
+def fill_geometa_for_day(year, doy,
                          product = DEFAULT_PRODUCT_TYPE,
                          baseline = DEFAULT_BASELINE):
     """
@@ -163,13 +161,12 @@ def fill_geometa_for_day(year, month, day,
     try:
         ids = _list_remote_ids_for_day(
             year=year,
-            month=month,
-            day=day,
+            doy=doy,
             product=product,
             baseline=baseline,
         )
     except Exception as e:
-        print(f"[ERROR] Could not list files for {year}-{month:02d}-{day:02d}: {e}")
+        print(f"[ERROR] Could not list files for {year}-{doy:03d}: {e}")
         return None
 
     if not ids:
@@ -204,8 +201,7 @@ def create_geometa(
     while current <= end:
         fill_geometa_for_day(
             year=current.year,
-            month=current.month,
-            day=current.day,
+            doy=current.timetuple().tm_yday,
             product=product,
             baseline=baseline,
         )
