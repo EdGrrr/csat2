@@ -90,7 +90,7 @@ def download_file_locations(product,
                 {'id': feature['id'],
                  'maap_h5': feature['assets']['enclosure_h5']['href'],
                  'maap_zip': feature['assets']['product']['href'],
-                 'maap_thumbnail': feature['assets']['thumbnail']['href']}
+                 'maap_thumbnail': feature['assets'].get('thumbnail', {}).get('href')}
             )
 
     return sorted(output_names, key=lambda x: x["id"])
