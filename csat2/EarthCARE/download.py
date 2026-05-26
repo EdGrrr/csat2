@@ -35,18 +35,29 @@ def load_earthcare_auth():
     with open(path) as f:
         return json.load(f)
 
+PRODUCT_COLLECTIONS = {
+    'AUX_MET_1D': 'EarthCAREXMETL1DProducts10_MAAP',
+    # add others as needed...
+}
+
+def get_collection(product):
+    if product in PRODUCT_COLLECTIONS:
+        return PRODUCT_COLLECTIONS[product]
+    level = get_product_level(product)
+    return f'EarthCAREL{level}Validated_MAAP'
+
 
 def download_file_locations(product,
                             year=None, doy=None, hour=None, minute=None,
                             dtime=None,
                             orbit=None, frame=None,
-                            baseline=DEFAULT_BASELINE,
+                            baseline=None,
                             limit=200):
     """
     List available ZIP filenames for an EarthCARE Level-2 product on a given date.
     """
     product_level = get_product_level(product)
-    url = (f'https://catalog.maap.eo.esa.int/catalogue/collections/EarthCAREL{product_level}Validated_MAAP/items?'+
+    url = (f'https://catalog.maap.eo.esa.int/catalogue/collections/{get_collection(product)}/items?'+
            f'&limit={limit}&productType={product}')
 
     dataflag = False
@@ -88,14 +99,17 @@ def download_file_locations(product,
         raise ValueError('No EarthCare files for the given parameters')
 
     output_names = []
+    asset_keys = {'maap_h5': 'enclosure_h5',
+    'maap_zip': 'product',
+    'maap_thumbnail': 'thumbnail'}
+
     for feature in file_dict['features']:
-        if feature['collection'] == f'EarthCAREL{product_level}Validated_MAAP':
-            output_names.append(
-                {'id': feature['id'],
-                 'maap_h5': feature['assets']['enclosure_h5']['href'],
-                 'maap_zip': feature['assets']['product']['href'],
-                 'maap_thumbnail': feature['assets']['thumbnail']['href']}
-            )
+        if feature['collection'] == get_collection(product):
+            assets = feature['assets']
+            entry = {'id': feature['id']}
+            for our_key, esa_key in asset_keys.items():
+                entry[our_key] = assets.get(esa_key, {}).get('href') if esa_key in assets else None
+            output_names.append(entry)
 
     return sorted(output_names, key=lambda x: x['id'])
 
