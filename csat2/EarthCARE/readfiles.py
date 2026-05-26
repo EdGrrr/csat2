@@ -90,7 +90,7 @@ def available_orbits(product,
         "EarthCARE", product,
         year=year, doy=doy,
         baseline=baseline,
-        orbit="*****", orbit_id="*",
+        orbit="*****", frame="*",
         exit_first=False,
     )
 
@@ -309,14 +309,11 @@ def readin_earthcare_curtain_filename(filename,
             dims = var.dimensions
             indata = var[:]
             try:
-                indata = np.where(indata == var._Fillvalue, np.nan, indata)
+                indata = np.where(np.isclose(indata, var._FillValue), np.nan, indata)
             except AttributeError:  # No fill value
                 pass
             ds[name] = xr.DataArray(indata, dims=dims)
-            try:
-                ds[name].attrs["units"] = var.units
-            except AttributeError:
-                pass
+            ds[name].attrs = {k: var.getncattr(k) for k in var.ncattrs()}
             tdims.extend(dims)
         tdims = set(tdims)
         for tdim in tdims:

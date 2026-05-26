@@ -97,7 +97,7 @@ def download_file_locations(product,
                  'maap_thumbnail': feature['assets']['thumbnail']['href']}
             )
 
-    return sorted(output_names)
+    return sorted(output_names, key=lambda x: x['id'])
 
 
 def get_maap_token():
@@ -248,7 +248,7 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
         else:
             log.info("Skipping {}".format(os.path.basename(url)))
 
-def open_maap_stream(product, orbit, frame, baseline=DEFAULT_BASELINE, fail_multiple=True):
+def open_maap_stream(product, orbit, frame=None, baseline=DEFAULT_BASELINE, fail_multiple=True):
     streams = download_file_locations(product, orbit=orbit, frame=frame, baseline=baseline)
     if len(streams) == 0:
         raise ValueError('No valid files for this granule')
