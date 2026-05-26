@@ -93,13 +93,14 @@ class Granule(object):
             download(product, orbit=self.orbit, frame=self.frame,
                      baseline=baseline, force_redownload=force_redownload)
 
-    def get_variable(self, product, sds, baseline=None):
+    def get_variable(self, product, sds=None, baseline=None):
         """
         Retrieve variables from the EarthCARE curtain file.
 
         Args:
             varnames (list of str): Full HDF5 paths like 'ScienceData/longitude'.
             product (str, optional): Override default product type.
+            sds (list of str, optional): Subset of variables to read. If None, read all.
             baseline (str, optional): Override default baseline.
 
         Returns:
@@ -113,7 +114,9 @@ class Granule(object):
                 product,
                 orbit=self.orbit,
                 frame=self.frame,
-                baseline=baseline)
+                baseline=baseline,
+                sds=sds
+                )
         else:
             return readin_earthcare_curtain_filename(
                 self.get_filename(product=product, baseline=baseline),

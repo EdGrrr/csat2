@@ -303,6 +303,8 @@ def readin_earthcare_curtain_filename(filename,
     with netCDF4.Dataset(filename) as ncdf:
         ds = xr.Dataset()
         tdims = []
+        if sds is None:
+            sds = [var for var in ncdf.variables if var.startswith("ScienceData/")]
         for name in sds:
             var = ncdf['ScienceData/'+name]
             var.set_auto_mask(False)

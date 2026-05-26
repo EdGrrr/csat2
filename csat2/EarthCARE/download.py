@@ -262,7 +262,7 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
         else:
             log.info("Skipping {}".format(os.path.basename(url)))
 
-def open_maap_stream(product, orbit, frame=None, baseline=DEFAULT_BASELINE, fail_multiple=True):
+def open_maap_stream(product, orbit, frame=None, baseline=DEFAULT_BASELINE, fail_multiple=True, sds=None):
     streams = download_file_locations(product, orbit=orbit, frame=frame, baseline=baseline)
     if len(streams) == 0:
         raise ValueError('No valid files for this granule')
@@ -275,6 +275,8 @@ def open_maap_stream(product, orbit, frame=None, baseline=DEFAULT_BASELINE, fail
     fs = fsspec.filesystem("https", headers={"Authorization": f"Bearer {token}"})
     f = fs.open(stream_location, "rb")  
     ds = xr.open_dataset(f, engine="h5netcdf", group="ScienceData")
+    if sds is not None:
+        ds = ds[sds]
     return ds
             
 def check(product,
