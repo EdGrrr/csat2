@@ -267,8 +267,11 @@ def open_maap_stream(product, orbit, frame=None, baseline=DEFAULT_BASELINE, fail
     if len(streams) == 0:
         raise ValueError('No valid files for this granule')
     if (len(streams) > 1) and fail_multiple:
-        raise ValueError('Multiple valid files for this granule')
-    stream_location = streams[0]['maap_h5']
+        ids = [s['id'] for s in streams]
+        raise ValueError(f'Multiple valid files for this granule:\n - {"\n - ".join(ids)}')
+        
+    stream_location = sorted(streams, key=lambda s: s['id'])[-1]['maap_h5']
+    stream_id = sorted(streams, key=lambda s: s['id'])[-1]['id']
 
     token = esa_maap_token.refresh_token()
     
@@ -277,6 +280,34 @@ def open_maap_stream(product, orbit, frame=None, baseline=DEFAULT_BASELINE, fail
     ds = xr.open_dataset(f, engine="h5netcdf", group="ScienceData")
     if sds is not None:
         ds = ds[sds]
+        
+    hdr = xr.open_dataset(f, engine="h5netcdf",
+                      group="HeaderData/VariableProductHeader/SpecificProductHeader")
+    input_file_list = hdr["InputFileList"].item()          # str
+    ds = ds.assign_attrs({
+        "input_file_list": input_file_list,
+    })
+        
+    # Parse metadata from the EarthCARE stream ID
+    base_id = stream_id.split('.')[0]  # Strip file extension if present
+    parts = base_id.split('_')
+    
+    # Extract from the end to safely bypass variable underscores in the instrument block
+    orbit_frame = parts[-1]
+    orbit_str = orbit_frame[:5]
+    
+    metadata = {
+        'source_id': stream_id,
+        'collection_time': parts[-3],
+        'processing_time': parts[-2],
+        'orbit': int(orbit_str) if orbit_str.isdigit() else orbit_str,
+        'frame': orbit_frame[5:],
+        'baseline': parts[1][2:4]  # File class is always the second block (e.g., EXAE)
+    }
+    
+    # Attach metadata as attributes to the returned Dataset or DataArray
+    ds = ds.assign_attrs(metadata)
+    
     return ds
             
 def check(product,

@@ -45,7 +45,7 @@ class Granule(object):
         return cls(orbit, frame, baseline=baseline)
 
     @classmethod
-    def fromfilename(cls, filename):
+    def fromfilename(cls, filename, **kwargs):
         """Create a Granule from an EarthCARE filename."""
         basename = os.path.basename(filename)
         parts = basename.split("_")
@@ -56,10 +56,10 @@ class Granule(object):
 
         baseline = parts[1][-2:]
 
-        return cls(orbit, frame, baseline=baseline)
+        return cls(orbit, frame, baseline=baseline, **kwargs)
 
     @classmethod
-    def from_datetime(cls, dtime, baseline=DEFAULT_BASELINE):
+    def from_datetime(cls, dtime, **kwargs):
         """
         Create a Granule from a datetime, by finding the closest matching file.
         Queries ATLID 1B as this should exist for all orbits.
@@ -67,7 +67,7 @@ class Granule(object):
         Currently queries ESA server, so slow and requires network access.
         """
         valid_filenames = download_file_locations('ATL_NOM_1B', dtime=dtime)
-        return cls.fromfilename(valid_filenames[0]['id'])
+        return cls.fromfilename(valid_filenames[0]['id'], **kwargs)
 
     def datetime(self):
         """
@@ -93,7 +93,7 @@ class Granule(object):
             download(product, orbit=self.orbit, frame=self.frame,
                      baseline=baseline, force_redownload=force_redownload)
 
-    def get_variable(self, product, sds=None, baseline=None):
+    def get_variable(self, product, sds=None, baseline='inherit', fail_multiple=True):
         """
         Retrieve variables from the EarthCARE curtain file.
 
@@ -106,21 +106,25 @@ class Granule(object):
         Returns:
             dict: variable_name -> numpy array
         """
-        if baseline is None:
+        if baseline == 'inherit':
             baseline = self.baseline
 
         if self.stream:
-            return open_maap_stream(
+            ds = open_maap_stream(
                 product,
                 orbit=self.orbit,
                 frame=self.frame,
                 baseline=baseline,
-                sds=sds
+                sds=sds,
+                fail_multiple=fail_multiple
                 )
+            if sds is not None:
+                ds = ds[sds]
+            return ds
         else:
             return readin_earthcare_curtain_filename(
                 self.get_filename(product=product, baseline=baseline),
-                sds=sds
+                sds=sds,
             )
 
     def get_stream_location(self, product, baseline=None):
@@ -239,7 +243,14 @@ class Granule(object):
         new_frame = frame_names[total_index % 8]
         
         return Granule(new_orbit, new_frame,
-                       baseline=self.baseline)
+                       baseline=self.baseline, stream=self.stream)
 
     def next(self, number=1):
         return self.increment(number)
+
+    def next_orbit(self):
+        g = self
+        
+        while g.orbit == self.orbit:
+            g = g.next()
+        return g

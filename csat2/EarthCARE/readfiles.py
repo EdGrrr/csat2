@@ -251,6 +251,24 @@ def get_orbit_by_time(dtime: datetime,
     orbit_id = best["filename"].rsplit("_", 1)[-1].replace(".ZIP", "")
     return orbit_id
 
+def _extract_metadata_from_filename(filename):
+    """Helper to parse EarthCARE filename metadata."""
+    basename = os.path.basename(filename).split('.')[0]
+    parts = basename.split('_')
+    
+    orbit_frame = parts[-1]
+    orbit_str = orbit_frame[:5]
+    
+    return {
+        'source_id': basename,
+        'collection_time': parts[-3],
+        'processing_time': parts[-2],
+        'orbit': int(orbit_str) if orbit_str.isdigit() else orbit_str,
+        'frame': orbit_frame[5:],
+        'baseline': parts[1][2:4]
+    }
+
+
 
 def readin_earthcare_curtain(product,
                              orbit,
@@ -323,4 +341,6 @@ def readin_earthcare_curtain_filename(filename,
                 ds[tdim] = xr.DataArray(ncdf['ScienceData/'+tdim][:], dims=(tdim,))
             except (KeyError, IndexError):
                 pass
+        metadata = _extract_metadata_from_filename(filename)
+        ds = ds.assign_attrs(metadata)
         return ds
