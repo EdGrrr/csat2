@@ -7,6 +7,11 @@ import matplotlib
 import scipy.stats
 import copy
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+
 
 def plt_bestfit(data_x, data_y, linec="r", stats=True, statspos="tl", *args, **kwargs):
     """Plots a scatterplot and linear regression line, can cope with missing data"""
@@ -62,6 +67,14 @@ def plt_sublabel_index(i, *args, **kwargs):
     Starts with i=0 giving 'a)'"""
     alp = "abcdefghijklmnopqrstuvwxyz"
     plt_sublabel(alp[i] + ")", *args, **kwargs)
+
+
+def plt_sublabel_on_title(panel_index: int, is_lower: bool= True, target_axis: None|Axes = None, **kwargs) -> None:
+    start_char = "`" if is_lower else "@"
+    panel_char = chr(ord(start_char) + panel_index + 1)
+
+    this_ax = plt.gca() if target_axis is None else target_axis
+    this_ax.set_title(f"{panel_char})", loc="left", **kwargs)
 
 
 def plt_cbar(
