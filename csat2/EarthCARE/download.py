@@ -19,6 +19,7 @@ import csat2.misc.time
 from tqdm import tqdm
 import logging
 import fsspec
+import aiohttp
 import xarray as xr
 from csat2.EarthCARE.utils import DEFAULT_BASELINE, get_product_level
 
@@ -35,18 +36,29 @@ def load_earthcare_auth():
     with open(path) as f:
         return json.load(f)
 
+PRODUCT_COLLECTIONS = {
+    'AUX_MET_1D': 'EarthCAREXMETL1DProducts10_MAAP',
+    # add others as needed...
+}
+
+def get_collection(product):
+    if product in PRODUCT_COLLECTIONS:
+        return PRODUCT_COLLECTIONS[product]
+    level = get_product_level(product)
+    return f'EarthCAREL{level}Validated_MAAP'
+
 
 def download_file_locations(product,
                             year=None, doy=None, hour=None, minute=None,
                             dtime=None,
                             orbit=None, frame=None,
-                            baseline=DEFAULT_BASELINE,
+                            baseline=None,
                             limit=200):
     """
     List available ZIP filenames for an EarthCARE Level-2 product on a given date.
     """
     product_level = get_product_level(product)
-    url = (f'https://catalog.maap.eo.esa.int/catalogue/collections/EarthCAREL{product_level}Validated_MAAP/items?'+
+    url = (f'https://catalog.maap.eo.esa.int/catalogue/collections/{get_collection(product)}/items?'+
            f'&limit={limit}&productType={product}')
 
     dataflag = False
@@ -88,16 +100,19 @@ def download_file_locations(product,
         raise ValueError('No EarthCare files for the given parameters')
 
     output_names = []
-    for feature in file_dict['features']:
-        if feature['collection'] == f'EarthCAREL{product_level}Validated_MAAP':
-            output_names.append(
-                {'id': feature['id'],
-                 'maap_h5': feature['assets']['enclosure_h5']['href'],
-                 'maap_zip': feature['assets']['product']['href'],
-                 'maap_thumbnail': feature['assets']['thumbnail']['href']}
-            )
+    asset_keys = {'maap_h5': 'enclosure_h5',
+    'maap_zip': 'product',
+    'maap_thumbnail': 'thumbnail'}
 
-    return sorted(output_names)
+    for feature in file_dict['features']:
+        if feature['collection'] == get_collection(product):
+            assets = feature['assets']
+            entry = {'id': feature['id']}
+            for our_key, esa_key in asset_keys.items():
+                entry[our_key] = assets.get(esa_key, {}).get('href') if esa_key in assets else None
+            output_names.append(entry)
+
+    return sorted(output_names, key=lambda x: x['id'])
 
 
 def get_maap_token():
@@ -248,19 +263,53 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
         else:
             log.info("Skipping {}".format(os.path.basename(url)))
 
-def open_maap_stream(product, orbit, frame, baseline=DEFAULT_BASELINE, fail_multiple=True):
+def open_maap_stream(product, orbit, frame=None, baseline=DEFAULT_BASELINE, fail_multiple=True, sds=None):
     streams = download_file_locations(product, orbit=orbit, frame=frame, baseline=baseline)
     if len(streams) == 0:
         raise ValueError('No valid files for this granule')
     if (len(streams) > 1) and fail_multiple:
-        raise ValueError('Multiple valid files for this granule')
-    stream_location = streams[0]['maap_h5']
+        ids = [s['id'] for s in streams]
+        raise ValueError(f'Multiple valid files for this granule:\n - {"\n - ".join(ids)}')
+        
+    stream_location = sorted(streams, key=lambda s: s['id'])[-1]['maap_h5']
+    stream_id = sorted(streams, key=lambda s: s['id'])[-1]['id']
 
     token = esa_maap_token.refresh_token()
     
-    fs = fsspec.filesystem("https", headers={"Authorization": f"Bearer {token}"})
+    timeout = aiohttp.ClientTimeout(total=900, sock_read=900, sock_connect=30)
+    fs = fsspec.filesystem("https", headers={"Authorization": f"Bearer {token}"}, timeout=timeout)
     f = fs.open(stream_location, "rb")  
     ds = xr.open_dataset(f, engine="h5netcdf", group="ScienceData")
+    if sds is not None:
+        ds = ds[sds]
+        
+    hdr = xr.open_dataset(f, engine="h5netcdf",
+                      group="HeaderData/VariableProductHeader/SpecificProductHeader")
+    input_file_list = hdr["InputFileList"].item()          # str
+    ds = ds.assign_attrs({
+        "input_file_list": input_file_list,
+    })
+        
+    # Parse metadata from the EarthCARE stream ID
+    base_id = stream_id.split('.')[0]  # Strip file extension if present
+    parts = base_id.split('_')
+    
+    # Extract from the end to safely bypass variable underscores in the instrument block
+    orbit_frame = parts[-1]
+    orbit_str = orbit_frame[:5]
+    
+    metadata = {
+        'source_id': stream_id,
+        'collection_time': parts[-3],
+        'processing_time': parts[-2],
+        'orbit': int(orbit_str) if orbit_str.isdigit() else orbit_str,
+        'frame': orbit_frame[5:],
+        'baseline': parts[1][2:4]  # File class is always the second block (e.g., EXAE)
+    }
+    
+    # Attach metadata as attributes to the returned Dataset or DataArray
+    ds = ds.assign_attrs(metadata)
+    
     return ds
             
 def check(product,
