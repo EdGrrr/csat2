@@ -476,8 +476,10 @@ class ERA5Data:
 
         s_interp = False
         if self.linear_interp in ["space", "both"]:
-            lat_ind = np.digitize(lat, self.lat) - 1
-            lat_weight = (np.mod(lat - self.lat[lat_ind], 1) / self.lat_inc)[..., None]
+            lat_ind = (
+                np.digitize(lat, self.lat) - 1
+            )  # index just before lat -> lat just *bigger* than lat.
+            lat_weight = ((lat - self.lat[lat_ind]) / self.lat_inc)[..., None]
 
             lat_ind = np.repeat(lat_ind[..., None], 4, axis=-1)
             lat_ind[..., 2:] += 1
@@ -720,7 +722,7 @@ class ConstantData(ERA5Data):
         return xr.DataArray(
             np.full(self.shape, self.value),
             dims=["lat", "lon"],
-            coords={"lon": self.lon, "lat": self.lat}
+            coords={"lon": self.lon, "lat": self.lat},
         )
 
     def get_data(self, lon, lat, time, simple=False):
