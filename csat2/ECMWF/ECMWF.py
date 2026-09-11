@@ -479,7 +479,7 @@ class ERA5Data:
             lat_ind = (
                 np.digitize(lat, self.lat) - 1
             )  # index just before lat -> lat just *bigger* than lat.
-            lat_weight = ((self.lat[lat_ind] - lat) / self.lat_inc)[..., None]
+            lat_weight = ((lat - self.lat[lat_ind]) / self.lat_inc)[..., None]
 
             lat_ind = np.repeat(lat_ind[..., None], 4, axis=-1)
             lat_ind[..., 2:] += 1
