@@ -19,6 +19,7 @@ import csat2.misc.time
 from tqdm import tqdm
 import logging
 import fsspec
+import aiohttp
 import xarray as xr
 from csat2.EarthCARE.utils import DEFAULT_BASELINE, get_product_level
 
@@ -275,7 +276,8 @@ def open_maap_stream(product, orbit, frame=None, baseline=DEFAULT_BASELINE, fail
 
     token = esa_maap_token.refresh_token()
     
-    fs = fsspec.filesystem("https", headers={"Authorization": f"Bearer {token}"})
+    timeout = aiohttp.ClientTimeout(total=900, sock_read=900, sock_connect=30)
+    fs = fsspec.filesystem("https", headers={"Authorization": f"Bearer {token}"}, timeout=timeout)
     f = fs.open(stream_location, "rb")  
     ds = xr.open_dataset(f, engine="h5netcdf", group="ScienceData")
     if sds is not None:
