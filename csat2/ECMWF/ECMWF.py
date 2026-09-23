@@ -476,17 +476,25 @@ class ERA5Data:
 
         s_interp = False
         if self.linear_interp in ["space", "both"]:
+            lat_asc = self.lat[0] < self.lat[1]
             lat_ind = (
                 np.digitize(lat, self.lat) - 1
-            )  # index just before lat -> lat just *bigger* than lat.
-            lat_weight = ((lat - self.lat[lat_ind]) / self.lat_inc)[..., None]
+            )  # index just before lat
+            if lat_asc:
+                lat_weight = ((lat - self.lat[lat_ind]) / self.lat_inc)[..., None]
+            else:
+                lat_weight = ((self.lat[lat_ind] - lat) / self.lat_inc)[..., None]
 
             lat_ind = np.repeat(lat_ind[..., None], 4, axis=-1)
             lat_ind[..., 2:] += 1
             lat_ind = np.clip(lat_ind, 0, len(self.lat) - 1)
-
+            
+            lon_asc = self.lon[0] < self.lon[1] # lon is always ascending, but worth a safety net.
             lon_ind = np.digitize(np.mod(lon, 360), self.lon) - 1
-            lon_weight = (np.mod(lon - self.lon[lon_ind], 1) / self.lon_inc)[..., None]
+            if lon_asc:
+                lon_weight = ((lon - self.lon[lon_ind]) / self.lon_inc)[..., None]
+            else:
+                lon_weight = ((self.lon[lon_ind] - lon) / self.lon_inc)[..., None]
 
             lon_ind = np.repeat(lon_ind[..., None], 4, axis=-1)
             lon_ind[..., [1, 3]] += 1
