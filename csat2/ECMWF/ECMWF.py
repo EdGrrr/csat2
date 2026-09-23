@@ -476,30 +476,28 @@ class ERA5Data:
 
         s_interp = False
         if self.linear_interp in ["space", "both"]:
-            lat_asc = self.lat[0] < self.lat[1]
-            lat_ind = (
-                np.digitize(lat, self.lat) - 1
-            )  # index just before lat
-            if lat_asc:
-                lat_weight = ((lat - self.lat[lat_ind]) / self.lat_inc)[..., None]
-            else:
-                lat_weight = ((self.lat[lat_ind] - lat) / self.lat_inc)[..., None]
+            # build a set of four weights at each point
+            # describes the mixing of the points at the four surrounding lat/lon values.
+
+            lat_ind = np.digitize(lat, self.lat) - 1 # index before lat.
+            lat_weight = ((lat - self.lat[lat_ind]) / self.lat_inc)[..., None] 
+            # fractional distance from index before, i.e. weight of point after.
+            # n.b. self.lat_inc carries the sign, so lat_weight is always positive.
 
             lat_ind = np.repeat(lat_ind[..., None], 4, axis=-1)
-            lat_ind[..., 2:] += 1
+            lat_ind[..., 2:] += 1 # inds 0, 1 have lat before, inds 2, 3 have lat after.
             lat_ind = np.clip(lat_ind, 0, len(self.lat) - 1)
-            
-            lon_asc = self.lon[0] < self.lon[1] # lon is always ascending, but worth a safety net.
-            lon_ind = np.digitize(np.mod(lon, 360), self.lon) - 1
-            if lon_asc:
-                lon_weight = ((lon - self.lon[lon_ind]) / self.lon_inc)[..., None]
-            else:
-                lon_weight = ((self.lon[lon_ind] - lon) / self.lon_inc)[..., None]
+
+            lon_offset_from_first = np.mod(self.lon - self.lon[0], 360)
+            lon_mod = np.mod(lon-self.lon[0], 360)
+            lon_ind = np.digitize(lon_mod, lon_offset_from_first) - 1
+            lon_weight = ((lon_mod - lon_offset_from_first[lon_ind]) / self.lon_inc)[..., None]
 
             lon_ind = np.repeat(lon_ind[..., None], 4, axis=-1)
-            lon_ind[..., [1, 3]] += 1
+            lon_ind[..., [1, 3]] += 1 # inds 0, 2 have lon before, 1, 3 have lon after.
             lon_ind = np.mod(lon_ind, len(self.lon))
 
+            # now collect weights on each of the four surrounding points, based on fractional distances.
             weights = np.ones(lon_ind.shape)
             weights[..., [0, 2]] *= 1 - lon_weight
             weights[..., [1, 3]] *= lon_weight
@@ -509,7 +507,7 @@ class ERA5Data:
             s_interp = True
         else:
             lat_ind = np.digitize(lat, self.lat - 0.5 * self.lat_inc) - 1
-            lon_ind = np.digitize(np.mod(lon, 360), self.lon - 0.5 * self.lon_inc) - 1
+            lon_ind = np.digitize(np.mod(lon-self.lon[0], 360), np.mod(self.lon-self.lon[0], 360) - 0.5 * self.lon_inc) - 1
 
         lat_ind = np.clip(lat_ind, 0, None)
 
