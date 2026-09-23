@@ -90,7 +90,7 @@ def available_orbits(product,
         "EarthCARE", product,
         year=year, doy=doy,
         baseline=baseline,
-        orbit="*****", orbit_id="*",
+        orbit="*****", frame="*",
         exit_first=False,
     )
 
@@ -251,6 +251,24 @@ def get_orbit_by_time(dtime: datetime,
     orbit_id = best["filename"].rsplit("_", 1)[-1].replace(".ZIP", "")
     return orbit_id
 
+def _extract_metadata_from_filename(filename):
+    """Helper to parse EarthCARE filename metadata."""
+    basename = os.path.basename(filename).split('.')[0]
+    parts = basename.split('_')
+    
+    orbit_frame = parts[-1]
+    orbit_str = orbit_frame[:5]
+    
+    return {
+        'source_id': basename,
+        'collection_time': parts[-3],
+        'processing_time': parts[-2],
+        'orbit': int(orbit_str) if orbit_str.isdigit() else orbit_str,
+        'frame': orbit_frame[5:],
+        'baseline': parts[1][2:4]
+    }
+
+
 
 def readin_earthcare_curtain(product,
                              orbit,
@@ -303,20 +321,19 @@ def readin_earthcare_curtain_filename(filename,
     with netCDF4.Dataset(filename) as ncdf:
         ds = xr.Dataset()
         tdims = []
+        if sds is None:
+            sds = [var for var in ncdf.variables if var.startswith("ScienceData/")]
         for name in sds:
             var = ncdf['ScienceData/'+name]
             var.set_auto_mask(False)
             dims = var.dimensions
             indata = var[:]
             try:
-                indata = np.where(indata == var._Fillvalue, np.nan, indata)
+                indata = np.where(np.isclose(indata, var._FillValue), np.nan, indata)
             except AttributeError:  # No fill value
                 pass
             ds[name] = xr.DataArray(indata, dims=dims)
-            try:
-                ds[name].attrs["units"] = var.units
-            except AttributeError:
-                pass
+            ds[name].attrs = {k: var.getncattr(k) for k in var.ncattrs()}
             tdims.extend(dims)
         tdims = set(tdims)
         for tdim in tdims:
@@ -324,4 +341,6 @@ def readin_earthcare_curtain_filename(filename,
                 ds[tdim] = xr.DataArray(ncdf['ScienceData/'+tdim][:], dims=(tdim,))
             except (KeyError, IndexError):
                 pass
+        metadata = _extract_metadata_from_filename(filename)
+        ds = ds.assign_attrs(metadata)
         return ds

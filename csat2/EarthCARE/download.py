@@ -18,6 +18,9 @@ from csat2 import locator
 import csat2.misc.time
 from tqdm import tqdm
 import logging
+import fsspec
+import aiohttp
+import xarray as xr
 from csat2.EarthCARE.utils import DEFAULT_BASELINE, get_product_level
 
 log = logging.getLogger(__name__)
@@ -33,18 +36,29 @@ def load_earthcare_auth():
     with open(path) as f:
         return json.load(f)
 
+PRODUCT_COLLECTIONS = {
+    'AUX_MET_1D': 'EarthCAREXMETL1DProducts10_MAAP',
+    # add others as needed...
+}
+
+def get_collection(product):
+    if product in PRODUCT_COLLECTIONS:
+        return PRODUCT_COLLECTIONS[product]
+    level = get_product_level(product)
+    return f'EarthCAREL{level}Validated_MAAP'
+
 
 def download_file_locations(product,
                             year=None, doy=None, hour=None, minute=None,
                             dtime=None,
                             orbit=None, frame=None,
-                            baseline=DEFAULT_BASELINE,
-                            limit=2000):
+                            baseline=None,
+                            limit=200):
     """
     List available ZIP filenames for an EarthCARE Level-2 product on a given date.
     """
     product_level = get_product_level(product)
-    url = (f'https://eocat.esa.int/eo-catalogue/collections/EarthCAREL{product_level}Validated/items?'+
+    url = (f'https://catalog.maap.eo.esa.int/catalogue/collections/{get_collection(product)}/items?'+
            f'&limit={limit}&productType={product}')
 
     dataflag = False
@@ -77,108 +91,81 @@ def download_file_locations(product,
         raise ValueError('You need to select fewer files, try a year/doy or orbit')
     
     # This request doesn't accept authorisation
-    response = requests.Session().get(url, stream=True)
+    token = esa_maap_token.refresh_token()
+
+    response = requests.Session().get(url, stream=True, headers={"Authorization": f"Bearer {token}"})
     file_dict = json.loads(response.text)
 
     if file_dict['numberMatched'] == 0:
         raise ValueError('No EarthCare files for the given parameters')
 
     output_names = []
+    asset_keys = {'maap_h5': 'enclosure_h5',
+    'maap_zip': 'product',
+    'maap_thumbnail': 'thumbnail'}
+
     for feature in file_dict['features']:
-        if feature['collection'] == f'EarthCAREL{product_level}Validated':
-            output_names.append(feature['id'])
+        if feature['collection'] == get_collection(product):
+            assets = feature['assets']
+            entry = {'id': feature['id']}
+            for our_key, esa_key in asset_keys.items():
+                entry[our_key] = assets.get(esa_key, {}).get('href') if esa_key in assets else None
+            output_names.append(entry)
 
-    return sorted(output_names)
+    return sorted(output_names, key=lambda x: x['id'])
 
 
-def refresh_auth_cookies(oads_hostname):
-    # SAML logins require three requests
-    # https://stackoverflow.com/questions/52618451/python-requests-saml-login-redirect
-    # See also https://github.com/koenigleon/oads-download/ for EarthCARE specific details/servers
-    
-    # Request 1: The 'target' - in this case the login page, but it could be anything
-    response1 = requests.get(f"https://{oads_hostname}/oads/access/login")
+def get_maap_token():
+    """Use OFFLINE_TOKEN to fetch a short-lived access token.
 
-    response1_cookies = response1.cookies
-    for r in response1.history:
-        response1_cookies = requests.cookies.merge_cookies(response1_cookies, r.cookies)
-    sessionDataKey = re.search(
-        r"sessionDataKey=([\:\/\w-]*)",
-        response1.content.decode('ascii')).groups(0)[0]
-    log.info('SessionKey Identified')
-
-    # Request 2: We were redirected to the login platform, so make a new request here
-    # using the user data and the session key that we got from the first request
+    From the MAAP/ESA example code at https://docs.maap-project.org/en/latest/science/EarthCARE/EarthCARE_access_and_visualize.html"""
     earthcare_auth = load_earthcare_auth()
-    request2_data = {
-        "username": earthcare_auth['username'],
-        "password": earthcare_auth['password'],
-        "sessionDataKey": sessionDataKey,
-        "tocommonauth": "true" # Apparently required for EarthCARE
-    }
     
-    response2 = requests.post("https://eoiam-idp.eo.esa.int/samlsso",
-                              data=request2_data,
-                              cookies=response1_cookies,
-                              )
+    OFFLINE_TOKEN = earthcare_auth["OFFLINE_TOKEN"]
+    CLIENT_ID = earthcare_auth["CLIENT_ID"]
+    CLIENT_SECRET = earthcare_auth["CLIENT_SECRET"]
 
-    # Extract the necessary form info (hidden parameters here)
-    # Note that this regex form is fragile, consider upgrading in the future
-    relayState = re.search(
-        r"RelayState.*?value=\'([\w\:\/\.-]*?)\'",
-        response2.content.decode('ascii')).groups(0)[0]
-    SAMLResponse = re.search(
-        r"SAMLResponse.*?value=\'([\w\+=]*)",
-        response2.content.decode('ascii')).groups(0)[0]
-    saml_redirect_url = re.search(
-        r"samlsso-response-form.*action=\"([\w\.\"\:\/-]*)\"",
-        response2.content.decode('ascii')).groups(0)[0]
-    log.info('SAML authentication successful')
-        
+    if not all([OFFLINE_TOKEN, CLIENT_ID, CLIENT_SECRET]):
+        raise ValueError("Missing OFFLINE_TOKEN, CLIENT_ID, or CLIENT_SECRET in credentials file ~/.csat2/earthcare_auth.json")
 
-    # Request 3: Send the SAML response from the authentication platform
-    # to the service - in this case the data server. Once this is validated,
-    # we get a cookie we can use for downloading files.
-    request3_data = {
-        "RelayState": relayState,
-        "SAMLResponse": SAMLResponse,
+    url = "https://iam.maap.eo.esa.int/realms/esa-maap/protocol/openid-connect/token"
+    data = {
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "grant_type": "refresh_token",
+        "refresh_token": OFFLINE_TOKEN,
+        "scope": "offline_access openid"
     }
 
-    response3 = requests.post(saml_redirect_url,
-                              data=request3_data
-                              )
+    response = requests.post(url, data=data)
+    response.raise_for_status()
 
-    # Lovely tasty authentication cookies for downloading data
-    response3_cookies = response3.cookies
-    for r in response3.history:
-        response3_cookies = requests.cookies.merge_cookies(response3_cookies, r.cookies)
-    log.info('SAML authentication validated by data server')
+    response_json = response.json()
+    access_token = response_json.get('access_token')
 
-    return response3_cookies
+    if not access_token:
+        raise RuntimeError("Failed to retrieve access token from IAM response")
 
+    return access_token
 
-class ESACookie():
+class ESAMaapToken():
     def __init__(self, expiry_time=3600):
-        self.auth_cookies = {}
+        self.token = None
         self.expiry_time = expiry_time
 
-    def get_auth_cookies(self, oads_hostname):
-        if (self.auth_cookies.get(oads_hostname, None) is None):
+    def refresh_token(self):
+        if (self.token is None):
             log.info('No cookie from this session')
-            self.auth_cookies[oads_hostname] = (
-                refresh_auth_cookies(oads_hostname), time.time())
-        elif ((time.time()-self.auth_cookies[oads_hostname][1]) >= self.expiry_time):
+            self.token = (get_maap_token(), time.time())
+        elif ((time.time()-self.token[1]) >= self.expiry_time):
             log.info('Cookie is too old')
-            self.auth_cookies[oads_hostname] = (
-                refresh_auth_cookies(oads_hostname), time.time())
-        return self.auth_cookies[oads_hostname][0]
+            self.token = (get_maap_token(), time.time())
+        return self.token[0]
 
-
-esa_cookie = ESACookie()
-
+esa_maap_token = ESAMaapToken()
 
 def download(product, year=None, doy=None, orbit=None, frame=None,
-             baseline=DEFAULT_BASELINE, force_redownload=False, quiet=False):
+             baseline=DEFAULT_BASELINE, force_redownload=False, quiet=False, method='MAAP'):
     """
     Downloads EarthCARE files for a specified product and date/orbit/frame.
 
@@ -198,17 +185,25 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
 
     session = requests.Session()
     session.headers["user-agent"] = 'csat2'
-    auth_cookies = esa_cookie.get_auth_cookies('ec-pdgs-dissemination1.eo.esa.int')
+    if method == 'OADS':
+        auth_cookies = esa_cookie.get_auth_cookies('ec-pdgs-dissemination1.eo.esa.int')
+    elif method == 'MAAP':
+        token = esa_maap_token.refresh_token()
+    else:
+        raise ValueError("Download method must be 'OADS' or 'MAAP'")
     
     product_level = get_product_level(product)
     
     for file_location in file_locations:
-        url = (f'https://ec-pdgs-dissemination1.eo.esa.int/oads/data/'+
-               f'EarthCAREL{product_level}Validated/{file_location}.ZIP')
-
+        if method == 'OADS':
+            url = (f'https://ec-pdgs-dissemination1.eo.esa.int/oads/data/'+
+                   f"EarthCAREL{product_level}Validated/{file_location['id']}.ZIP")
+        elif method == 'MAAP':
+            url = f'{file_location["maap_zip"]}'
+            
         # We could be downloading an orbit where the frames go into a different day
         # We need to check the folder for each new file
-        timestr = file_location.split('_')[5]
+        timestr = file_location['id'].split('_')[5]
         year = int(timestr[:4])
         _, doy = csat2.misc.time.date_to_doy(
             year, int(timestr[4:6]), int(timestr[6:8]))
@@ -220,17 +215,23 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
         )
         os.makedirs(local_folder, exist_ok=True)
 
-        newfile = f"{local_folder}/{file_location}.ZIP"
+        newfile = f"{local_folder}/{file_location['id']}.ZIP"
         if (not os.path.exists(newfile.replace('.ZIP', '.h5'))) or force_redownload:
             try:
                 os.remove(newfile)
             except FileNotFoundError:
                 pass
-       
-            response = session.get(
-                url,
-                stream=True,
-                cookies=auth_cookies)
+
+            if method == 'OADS':
+                response = session.get(
+                    url,
+                    stream=True,
+                    cookies=auth_cookies)
+            elif method == 'MAAP':
+                response = session.get(
+                    url,
+                    stream=True,
+                    headers={"Authorization": f"Bearer {token}"})
 
             if response.status_code != 200:
                 raise ValueError(f"Download failed status:{response.status_code}")
@@ -251,11 +252,66 @@ def download(product, year=None, doy=None, orbit=None, frame=None,
                             size = out.write(data)
                             bar.update(size)
             with zipfile.ZipFile(newfile, 'r') as zip_ref:
-                zip_ref.extractall(local_folder)
-            os.remove(newfile)
+                # Remove any subfolders in zip extraction (OADS to MAAP update)
+                for zip_info in zip_ref.infolist():
+                    if zip_info.is_dir():
+                        continue
+                    zip_info.filename = os.path.basename(zip_info.filename)
+                    log.debug(f'Extracting {zip_info.filename}')
+                    zip_ref.extract(zip_info, local_folder)
+            #os.remove(newfile)
         else:
             log.info("Skipping {}".format(os.path.basename(url)))
 
+def open_maap_stream(product, orbit, frame=None, baseline=DEFAULT_BASELINE, fail_multiple=True, sds=None):
+    streams = download_file_locations(product, orbit=orbit, frame=frame, baseline=baseline)
+    if len(streams) == 0:
+        raise ValueError('No valid files for this granule')
+    if (len(streams) > 1) and fail_multiple:
+        ids = [s['id'] for s in streams]
+        raise ValueError(f'Multiple valid files for this granule:\n - {"\n - ".join(ids)}')
+        
+    stream_location = sorted(streams, key=lambda s: s['id'])[-1]['maap_h5']
+    stream_id = sorted(streams, key=lambda s: s['id'])[-1]['id']
+
+    token = esa_maap_token.refresh_token()
+    
+    timeout = aiohttp.ClientTimeout(total=900, sock_read=900, sock_connect=30)
+    fs = fsspec.filesystem("https", headers={"Authorization": f"Bearer {token}"}, timeout=timeout)
+    f = fs.open(stream_location, "rb")  
+    ds = xr.open_dataset(f, engine="h5netcdf", group="ScienceData")
+    if sds is not None:
+        ds = ds[sds]
+        
+    hdr = xr.open_dataset(f, engine="h5netcdf",
+                      group="HeaderData/VariableProductHeader/SpecificProductHeader")
+    input_file_list = hdr["InputFileList"].item()          # str
+    ds = ds.assign_attrs({
+        "input_file_list": input_file_list,
+    })
+        
+    # Parse metadata from the EarthCARE stream ID
+    base_id = stream_id.split('.')[0]  # Strip file extension if present
+    parts = base_id.split('_')
+    
+    # Extract from the end to safely bypass variable underscores in the instrument block
+    orbit_frame = parts[-1]
+    orbit_str = orbit_frame[:5]
+    
+    metadata = {
+        'source_id': stream_id,
+        'collection_time': parts[-3],
+        'processing_time': parts[-2],
+        'orbit': int(orbit_str) if orbit_str.isdigit() else orbit_str,
+        'frame': orbit_frame[5:],
+        'baseline': parts[1][2:4]  # File class is always the second block (e.g., EXAE)
+    }
+    
+    # Attach metadata as attributes to the returned Dataset or DataArray
+    ds = ds.assign_attrs(metadata)
+    
+    return ds
+            
 def check(product,
           orbit=None, frame=None,
           baseline=DEFAULT_BASELINE):
@@ -315,8 +371,8 @@ def test_connection():
     authentication response.
     """
     try:
-        _ = refresh_auth_cookies('ec-pdgs-dissemination1.eo.esa.int')
-        print("EarthCARE connection test succeeded.")
+        _ = get_maap_token()
+        print("EarthCARE token collected.")
     except Exception as e:
         print(f"EarthCARE connection test failed: {e}")
 

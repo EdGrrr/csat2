@@ -46,10 +46,7 @@ class FileLocator:
         self.search_paths = {}
         self.macros = {}
         if searchfile:
-            with open(searchfile) as f:
-                log.debug("Loading {}".format(searchfile))
-                searchfiledata = f.readlines()
-            self.load_search_paths(searchfiledata)
+            self.load_search_file(searchfile)
         elif data:
             self.load_search_paths(data)
 
@@ -92,6 +89,12 @@ class FileLocator:
 
     def paths(self):
         return self.search_paths
+
+    def load_search_file(self, searchfile):
+        with open(searchfile) as f:
+            log.debug("Loading {}".format(searchfile))
+            searchfiledata = f.readlines()
+        self.load_search_paths(searchfiledata)
 
     def load_search_paths(self, searchfiledata):
         search_paths = {}
@@ -178,7 +181,8 @@ def configloader(user_location=None, default_fallback=True):
     default_fallback - use the package supplied defaults"""
     _hostname = socket.getfqdn()
     log.debug("Hostname: {}".format(_hostname))
-
+    config = None
+    
     if user_location:
         try:
             config = yaml.safe_load(open(user_location))
