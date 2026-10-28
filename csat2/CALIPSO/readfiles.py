@@ -6,7 +6,7 @@ from pyhdf.error import HDF4Error
 import numpy as np
 import logging
 from datetime import datetime, timedelta
-import pkg_resources
+import importlib
 import gzip
 
 log = logging.getLogger(__name__)
@@ -47,8 +47,8 @@ def filename_to_datetime(fname):
 
 
 def get_filename_by_time(dtime):
-    geometa_file = pkg_resources.resource_filename(
-        "csat2", f"data/calipso_geometa/calipso_{dtime.year}.txt.gz")
+    geometa_file = importlib.resources.files(
+        "csat2") / f"data/calipso_geometa/calipso_{dtime.year}.txt.gz"
     timestr = dtime.strftime("%Y-%m-%dT%H-%M-%S")
     with gzip.open(geometa_file, "rt") as f:
         # Gets the id of the first orbit after the time string

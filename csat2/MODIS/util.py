@@ -2,7 +2,7 @@ import csat2
 import csat2.misc.geo
 import csat2.misc.fileops
 from csat2.MODIS.readfiles import readin, field_interpolate
-import pkg_resources
+import importlib
 import numpy as np
 from netCDF4 import Dataset
 
@@ -86,8 +86,8 @@ def bowtie_correct(field_1km):
     by re-ordering pixels. Note this is really a costmetic change as the swath
     edge pixels are still large"""
     try:
-        file_correct = pkg_resources.resource_filename(
-            "csat2", f"data/modis_remapping/bowtie_correction_1km_{field_1km.shape[0]}.nc")
+        file_correct = importlib.resources.files(
+            "csat2") / f"data/modis_remapping/bowtie_correction_1km_{field_1km.shape[0]}.nc"
     except IndexError:  # No files returned
         raise FileNotFoundError(
             """Bowtie correct file not found. You need 
@@ -109,8 +109,8 @@ def crosstrack_rectify(field_1km, nearest=False, missing=False):
     between pixels. Note this is cosmetic, it doesn't account for the changes
     in pixel size"""
     try:
-        file_correct = pkg_resources.resource_filename(
-            "csat2", f"data/modis_remapping/crosstrack_rectify_1km.nc")
+        file_correct = importlib.resources.files(
+            "csat2") / f"data/modis_remapping/crosstrack_rectify_1km.nc"
     except IndexError:  # No files returned
         raise FileNotFoundError(
             """Crosstrack rectify file not found. You need
@@ -146,8 +146,8 @@ def crosstrack_rectify(field_1km, nearest=False, missing=False):
 def crosstrack_rectcoords():
     """Returns the coordinates in the rectified frame"""
     try:
-        file_correct = pkg_resources.resource_filename(
-            "csat2", f"data/modis_remapping/crosstrack_rectify_1km.nc")
+        file_correct = importlib.resources.files(
+            "csat2") / f"data/modis_remapping/crosstrack_rectify_1km.nc"
     except IndexError:  # No files returned
         raise FileNotFoundError(
             """Crosstrack rectify file not found. You need
@@ -160,8 +160,8 @@ def crosstrack_rectcoords():
 
 def altitude_correction_coords():
     try:
-        file_correct = pkg_resources.resource_filename(
-            "csat2", f"data/modis_remapping/altitude_correction.nc")
+        file_correct = importlib.resources.files(
+            "csat2") / f"data/modis_remapping/altitude_correction.nc"
     except IndexError:  # No files returned
         raise FileNotFoundError(
             """Crosstrack rectify file not found. You need

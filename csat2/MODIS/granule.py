@@ -15,7 +15,7 @@ import numpy as np
 from scipy.spatial import KDTree
 import scipy.constants
 from netCDF4 import Dataset
-import pkg_resources
+import importlib
 
 
 class Granule(object):
@@ -619,8 +619,8 @@ class _MODISlocator:
         lon = field_interpolate(data["Longitude"])[:, :-5]
 
         if rectified:
-            file_correct = pkg_resources.resource_filename(
-                "csat2", f"data/modis_remapping/crosstrack_rectify_1km.nc")
+            file_correct = importlib.resources.files(
+                "csat2") / f"data/modis_remapping/crosstrack_rectify_1km.nc"
             with Dataset(file_correct) as ncdf:
                 self.rect_conv = ncdf.variables["remap_locate"][:]
             self.rectified = True
