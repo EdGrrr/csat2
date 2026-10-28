@@ -4,7 +4,7 @@ import numpy as np
 import csat2.misc.geo
 import csat2.misc.fileops
 from netCDF4 import Dataset
-import pkg_resources
+import importlib
 
 _bands_cent = {
     # Imager bands (375m)
@@ -72,8 +72,8 @@ def band_res(band):
 
 
 def _remap_by_file(datafield, filetype, res):
-    file_correct = pkg_resources.resource_filename(
-            "csat2", f"data/viirs_remapping/{filetype}_correction_{res[:4]}.nc")
+    file_correct = importlib.resources.files(
+            "csat2") / f"data/viirs_remapping/{filetype}_correction_{res[:4]}.nc"
     with Dataset(file_correct) as ncdf:
         along_track_index = ncdf.variables["at_ind"][:]
         cross_track_index = ncdf.variables["ct_ind"][:]

@@ -4,7 +4,7 @@ from csat2.ECMWF.variables import _convert_vname_to_cds, _convert_cds_to_vname, 
 from csat2.ECMWF.ECMWF import variable_names, readin_ERA
 from csat2.ECMWF.unpack_nc import _unpack_nc
 import os
-import pkg_resources
+import importlib
 import glob
 import logging
 from netCDF4 import Dataset, num2date
@@ -187,7 +187,7 @@ def download(
 
     # Regrid the downloaded file (if required)
     if resolution == "1grid":
-        gridfile = pkg_resources.resource_filename("csat2", "data/d1_grid")
+        gridfile = importlib.resources.files("csat2") / "data/d1_grid"
         os.system("cdo remapbil,{0} {1} {1}.regrid".format(gridfile, download_file))
         os.system("mv {0}.regrid {0}".format(download_file))
     elif resolution == "0.25grid":
